@@ -590,7 +590,7 @@ export function inlineHeredocSubstitutions(cmd) {
  * - `compactedData`: command with DATA heredoc/here-string bodies replaced by `‹heredoc: N líneas›`
  *   and INTERPRETER heredoc bodies preserved
  */
-export function parseHeredocs(cmd) {
+export function parseHeredocs(cmd, opts = {}) {
   const lines = String(cmd || "").split(/\r?\n/);
   const records = [];
   const strippedAllLines = [];
@@ -660,7 +660,7 @@ export function parseHeredocs(cmd) {
     // Scan header line outside quotes for `<<[-]?['"]?WORD['"]?` (not `<<<`) or trailing `@'` / `@"`
     // El estado de comillas sobrevive entre lineas: un `<<` dentro de un string
     // multilinea abierto antes no es un heredoc (GOZS-804).
-    let quote = carryQuote;
+    let quote = opts.noCarry ? null : carryQuote;
     let lineIndex = null;
     let psOpen = null;
     for (let i = 0; i < line.length; i++) {
@@ -733,6 +733,9 @@ export function parseHeredocs(cmd) {
     strippedAllLines.push(line);
     compactedLines.push(line);
   }
+
+  // Comilla arrastrada sin cerrar al final: bash lo rechaza; volver al reinicio por línea (defensa en profundidad).
+  if (carryQuote !== null && !opts.noCarry) return parseHeredocs(cmd, { noCarry: true });
 
   // Handle unclosed (e.g. truncated) heredocs or here-strings
   if (psHere !== null) {
@@ -887,7 +890,7 @@ function joinQuotedLines(text) {
     open = quote !== null;
     if (!open) out.push(cur);
   }
-  if (open) out.push(cur);
+  if (open) return text.split(/\r?\n/); // comilla sin cerrar (inválido en bash): reinicio por línea
   return out;
 }
 

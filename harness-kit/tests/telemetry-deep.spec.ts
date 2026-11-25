@@ -533,3 +533,10 @@ describe("GOZS-804 C: hasRealPrCreate no corta colas dentro de comillas", () => 
     expect(res).toEqual({ comparable: false, reason: "prSealLiterals" });
   });
 });
+
+describe("GOZS-804 C: merge seguido de echo con literal", () => {
+  it("GIVEN gh pr merge 5 --squash echo 'gh pr create --fill' THEN prSealLiterals", () => {
+    const res = classifyComparableBlock({ decision: "block", rule: "pr.requires-seal", cmd: "gh pr merge 5 --squash echo 'gh pr create --fill'" });
+    expect(res).toEqual({ comparable: false, reason: "prSealLiterals" });
+  });
+});

@@ -722,3 +722,11 @@ describe("GOZS-795 A4: Corpus de regresión del guard", () => {
     });
   });
 });
+
+describe("GOZS-804 A: comilla arrastrada sin cerrar cae al reinicio por línea", () => {
+  it("GIVEN una comilla abierta que nunca cierra THEN el guard sigue viendo gh pr create en las líneas siguientes", () => {
+    const cmd = "echo 'sin cerrar\npython3 <<EOF\nimport os; os.system(\"gh pr create\")\nEOF";
+    const res = checkGuard(makePayload(cmd, "cc-bash"), { repoRoot: nonAuthRepo });
+    expect(res.ruleId).toBe("pr.requires-seal");
+  });
+});
