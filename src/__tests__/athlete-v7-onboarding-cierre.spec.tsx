@@ -129,10 +129,10 @@ describe("Athlete v7 · FE-11 Onboarding de 4 pasos y cierre", () => {
       expect(html).toBe("");
     });
 
-    it("sin nombreAlumno prop y con planAlumno null devuelve vacío aunque currentSession sea Fernando Rosales (GH #548)", () => {
+    it("sin nombreAlumno prop y con planAlumno null devuelve vacío aunque currentSession sea Facundo Roldán (GH #548)", () => {
       const { container } = render(<OnboardingAlumno />);
       expect(container.innerHTML).toBe("");
-      expect(container.textContent).not.toContain("Fernando");
+      expect(container.textContent).not.toContain("Facundo");
     });
 
     it("con planAlumno cargado (Gabriel Sanchez) muestra 'Hola, Gabriel.' y al completar o saltar llama a completar_onboarding_alumno", async () => {
@@ -165,7 +165,7 @@ describe("Athlete v7 · FE-11 Onboarding de 4 pasos y cierre", () => {
 
       const { container, getByRole } = render(<OnboardingAlumno />);
       expect(container.textContent).toContain("Hola, Gabriel.");
-      expect(container.textContent).not.toContain("Fernando");
+      expect(container.textContent).not.toContain("Facundo");
 
       fireEvent.click(getByRole("button", { name: "Empezar" }));
       fireEvent.click(getByRole("button", { name: "Continuar" }));

@@ -210,7 +210,7 @@ Cada ítem es binario: QA lo marca mirando `comparar/<vista>.jpg` y el HTML obje
 - [ ] Se quitan las pestañas "Biblioteca & Plantillas / Constructor Visual".
 - [ ] Una barra: Segmented de colección con contador + búsqueda + select de objetivo. Sin los chips azules "Todos / Fuerza / …".
 - [ ] **Grilla de cards** (`repeat(auto-fill,minmax(260px,1fr)) gap-3`), no lista de filas: nombre 15/600, alumno 13, `⋯`, badges objetivo + vigencia, pie "n días · n ejercicios · hace t". Sin los botones "Abrir" / "Archivar" (van al `⋯`; la card entera abre).
-- [ ] Nombres de rutina tal como los escribió el coach. (En los datos del stub vienen en mayúsculas, como "F Y H FER ROSALES"; eso es dato, no estilo, y no se toca).
+- [ ] Nombres de rutina tal como los escribió el coach. (En los datos del stub vienen en mayúsculas, como "RUTINA BASE"; eso es dato, no estilo, y no se toca).
 
 ### 4.6 Ranking (`objetivo/html/Ranking.html`, `comparar/ranking.jpg`)
 - [ ] Título "Ranking funcional" sin 🏆 ni el badge "PR / PESO CORPORAL".
@@ -234,7 +234,7 @@ Probé las tres entradas con el stub en vivo:
 
 | Entrada | Qué pasa | Corrección |
 |---|---|---|
-| Menú lateral "Vista Atleta (PWA)" | Navega a `/athlete` con la sesión del coach. Aparece el onboarding de un alumno ("Hola, Fernando. Tu plan ya está listo.", paso 1 de 3) mientras detrás dice "Todavía no tenés un plan asignado". No hay forma de volver a Studio. | El link abre la **vista previa** que ya existe en la ficha ("Modo Entrenador: vista previa de…" con selector de alumno y "Volver a Studio"), con el primer alumno o el último visto. `/athlete` queda solo para cuentas de alumno. |
+| Menú lateral "Vista Atleta (PWA)" | Navega a `/athlete` con la sesión del coach. Aparece el onboarding de un alumno ("Hola, Facundo. Tu plan ya está listo.", paso 1 de 3) mientras detrás dice "Todavía no tenés un plan asignado". No hay forma de volver a Studio. | El link abre la **vista previa** que ya existe en la ficha ("Modo Entrenador: vista previa de…" con selector de alumno y "Volver a Studio"), con el primer alumno o el último visto. `/athlete` queda solo para cuentas de alumno. |
 | Click en una alerta de "Para revisar hoy" | No pasa nada: las filas usan ids de alumnos demo que no existen en la base. | FIX-05 (datos en vivo + filas como `<button>`). |
 | "Ver como Alumno" dentro de la ficha | ✅ Funciona: abre la vista previa del alumno. | Mover a `⋯` según el checklist de la ficha, sin romperlo. |
 

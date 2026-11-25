@@ -247,7 +247,7 @@ describe("Athlete App: Pantalla de Celebración y Estímulo de Cierre de Día (G
     });
 
     it("GIVEN un atleta completando el día en LiveWorkout, WHEN hace click en volver, THEN se limpia diaActivoId volviendo al inicio", () => {
-      const diaId = "6a669097-5bd8-4547-87f7-a43700000001";
+      const diaId = "00000000-0000-4000-8000-000000000011";
       useAthleteStore.setState({ diaActivoId: diaId });
 
       expect(useAthleteStore.getState().diaActivoId).toBe(diaId);
