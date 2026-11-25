@@ -219,5 +219,29 @@ describe("Harness² CI Workflows & Audit Debt Mode", () => {
       expect(deployBlock).toMatch(/permissions:\s*\r?\n\s*contents:\s*read/);
       expect(content).not.toMatch(/set\s+-x|echo\s+.*SUPABASE_(DB_URL|ACCESS_TOKEN|DB_PASSWORD)|echo\s+.*VERCEL_TOKEN/);
     });
+
+    it("GIVEN ci.yml (GOZS-835) WHEN se abre un PR o se hace push a develop o main THEN dispara sobre [main, develop] manteniendo post-merge, harness-debt y deploy-production exclusivos de main", () => {
+      const ciContent = readFileSync(ciWorkflowPath, "utf8");
+      const onSection = ciContent.slice(ciContent.indexOf("on:"), ciContent.indexOf("concurrency:"));
+
+      expect(onSection).toMatch(/push:\s*\r?\n\s*branches:\s*\[main,\s*develop\]/);
+      expect(onSection).toMatch(/pull_request:\s*\r?\n\s*branches:\s*\[main,\s*develop\]/);
+
+      const postMergeBlock = ciContent.slice(ciContent.indexOf("post-merge:"), ciContent.indexOf("harness-debt:"));
+      expect(postMergeBlock).toContain("github.event_name == 'push' && github.ref == 'refs/heads/main'");
+
+      const debtBlock = ciContent.slice(ciContent.indexOf("harness-debt:"));
+      expect(debtBlock).toContain("github.event_name == 'push' && github.ref == 'refs/heads/main'");
+
+      const deployContent = readFileSync(deployWorkflowPath, "utf8");
+      expect(deployContent).toMatch(/push:\s*\r?\n\s*branches:\s*\[main\]/);
+      expect(deployContent).not.toMatch(/branches:\s*\[[^\]]*develop/);
+    });
+
+    it("GIVEN harness-merge-check.yml (GOZS-835) WHEN se abre o actualiza un PR contra develop o main THEN pull_request_target apunta a [main, develop]", () => {
+      const content = readFileSync(mergeCheckWorkflowPath, "utf8");
+      const onSection = content.slice(content.indexOf("on:"), content.indexOf("concurrency:"));
+      expect(onSection).toMatch(/pull_request_target:\s*\r?\n\s*branches:\s*\[main,\s*develop\]/);
+    });
   });
 });

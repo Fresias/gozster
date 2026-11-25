@@ -1,11 +1,11 @@
 name: Harness² Merge Check
 
-# Usa pull_request_target sobre la base (main) para que ningún PR pueda alterar
+# Usa pull_request_target sobre la base (main / develop) para que ningún PR pueda alterar
 # el script, el workflow o harness/project.json y aprobarse solo.
 # PROHIBIDO hacer checkout del head del PR o ejecutar código del PR.
 on:
   pull_request_target:
-    branches: [main]
+    branches: [main, develop]
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
 
 concurrency:
