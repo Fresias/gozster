@@ -257,8 +257,8 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
     const systemPrompt = readFileSync(path.join(repoRoot, "harness", "systemprompt.md"), "utf8").replace(/\r\n/g, "\n");
     const agents = readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8").replace(/\r\n/g, "\n");
 
-    expect(systemPrompt).toMatch(/develop\s*→\s*main/);
-    expect(agents).toMatch(/develop\s*→\s*main/);
+    expect(systemPrompt).toMatch(/develop`?\s*→\s*`?main/);
+    expect(agents).toMatch(/develop`?\s*→\s*`?main/);
     expect(agents).toContain("--base main");
     expect(agents.split("\n").length).toBeLessThan(150);
     expect(agents.length).toBeLessThanOrEqual(8000);
