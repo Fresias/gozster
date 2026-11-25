@@ -190,9 +190,9 @@ describe("GOZS-781: harness-ship.mjs", () => {
     expect(resolveBash("win32", () => false)).toBe("bash");
   });
 
-  it("GIVEN Windows con gh como shim .cmd THEN arma el comando de shell con cada argumento entre comillas", () => {
+  it("GIVEN Windows con gh como shim .cmd THEN escapa comillas y metacaracteres de cmd.exe con caret", () => {
     expect(ghShellCommand(["pr", "create", "--title", 'chore: "x" y', "--body-file", "C:\\w\\pr body.md"])).toBe(
-      'gh "pr" "create" "--title" "chore: \\"x\\" y" "--body-file" "C:\\w\\pr body.md"',
+      'gh ^^^"pr^^^" ^^^"create^^^" ^^^"--title^^^" ^^^"chore:^^^ \\^^^"x\\^^^"^^^ y^^^" ^^^"--body-file^^^" ^^^"C:\\w\\pr^^^ body.md^^^"',
     );
   });
 
