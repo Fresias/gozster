@@ -13,7 +13,7 @@ describe("FIX-08: Helper y Guard contra literales de demo en modo en vivo (no-de
     it("GIVEN un contenedor DOM con datos reales sin literales prohibidos WHEN se invoca assertNoDemoLiteralsInLiveMode THEN pasa sin errores", () => {
       const { container } = render(
         <div data-testid="ficha-real">
-          <h2>Fernando Rosales</h2>
+          <h2>Facundo Roldán</h2>
           <p>Dolor lumbar · EVA 6 · Controlar bisagra de cadera</p>
         </div>
       );
@@ -59,10 +59,10 @@ describe("FIX-08: Helper y Guard contra literales de demo en modo en vivo (no-de
         <IslaSaludAnamnesis
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
-          alumnoId="alumno-real-fernando"
+          alumnoId="alumno-real-facundo"
           dolorActivo={{
             id: "dolor-real-901",
-            alumno_id: "alumno-real-fernando",
+            alumno_id: "alumno-real-facundo",
             zona_articular: "Columna lumbar baja",
             ejercicio_nombre: "Peso muerto rumano con barra",
             eva: 6,
