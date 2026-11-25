@@ -198,7 +198,7 @@ describe("GOZS-359: Corrección de MiProgreso, Poda de Tonelaje Kg y Fix Scroll 
       vi.spyOn(supabase.auth, "getUser").mockResolvedValueOnce({
         data: {
           user: {
-            id: "66b92b9a-1ce7-4e2e-a47c-7c5600000000",
+            id: "00000000-0000-4000-8000-000000000001",
             email: "atleta@gozster.com",
           } as any,
         },

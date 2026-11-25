@@ -26,7 +26,7 @@ describe("Athlete App: Auto-finalización en última serie (26/26) y ocultamient
 
   describe("Criterio Gherkin 1: Guardado y sincronización automática al completar la última serie pendiente", () => {
     it("GIVEN un atleta completando la serie final de la sesión, THEN finaliza y sincroniza automáticamente sin pasos manuales", async () => {
-      const diaId = "6a669097-5bd8-4547-87f7-a43700000001";
+      const diaId = "00000000-0000-4000-8000-000000000011";
       let syncDisparado = false;
 
       const sesionPrueba: LiveWorkoutSession = {
