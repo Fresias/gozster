@@ -1,0 +1,1 @@
+{"id":"exp-gozs-803-1","timestamp":"2026-11-25T00:07:59.523Z","task":"GOZS-803","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"Evitar literales de PII en defaults/fallbacks de src; el guard G4 escanea src y .next/static","verified":true,"tags":["studio","ui","athlete","qa"]}
