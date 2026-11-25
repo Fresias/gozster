@@ -477,24 +477,33 @@ export function useLiveWorkout() {
         })
       : null;
 
-  // §2.5: se precarga una sola vez por serie pendiente y nunca encima de lo que el alumno ya tocó.
+  // Precarga la última carga real del alumno (sin incrementar automáticamente) una sola vez por serie
+  // pendiente y nunca encima de lo que ya tocó. Así repetir sin cambios no dispara PRs fantasma;
+  // la sugerencia de subida queda como acción explícita al tocar el botón.
   const seriesTocadas = React.useRef(new Set<string>());
   const claveSerie = currentExercise && serie ? `${currentExercise.id}-${serie.numero_serie}` : null;
   React.useEffect(() => {
     setUniSide("D");
     setUniPend({ D: null, I: null });
   }, [claveSerie]);
-  const pesoSugerido = sugerencia?.pesoSugerido;
-  const repsSugeridas = sugerencia?.repsSugeridas;
+  const ultimaVezActual = currentExercise
+    ? ultimaVez[currentExercise.ejercicio_id ?? currentExercise.id]
+    : null;
+  const refUltimaActual =
+    ultimaVezActual && serie ? serieDeReferencia(ultimaVezActual, serie.numero_serie) : null;
+  const pesoUltimaVez = refUltimaActual?.peso_kg;
+  const repsUltimaVez = refUltimaActual?.reps_hechas;
   React.useEffect(() => {
     if (!claveSerie || !currentExercise || !serie || serie.completada) return;
-    if (pesoSugerido === undefined || repsSugeridas === undefined) return;
+    if (pesoUltimaVez === undefined || repsUltimaVez === undefined) return;
     if (seriesTocadas.current.has(claveSerie)) return;
     seriesTocadas.current.add(claveSerie);
-    updateSetField(currentExercise.id, serie.numero_serie, "peso_kg", pesoSugerido);
-    updateSetField(currentExercise.id, serie.numero_serie, "reps_hechas", repsSugeridas);
+    updateSetField(currentExercise.id, serie.numero_serie, "peso_kg", pesoUltimaVez);
+    if (currentExercise.tipo_medicion !== "TIEMPO") {
+      updateSetField(currentExercise.id, serie.numero_serie, "reps_hechas", repsUltimaVez);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claveSerie, pesoSugerido, repsSugeridas]);
+  }, [claveSerie, pesoUltimaVez, repsUltimaVez]);
 
   const tiempoObjetivo =
     currentExercise?.tipo_medicion === "TIEMPO"

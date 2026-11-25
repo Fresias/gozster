@@ -78,6 +78,28 @@ function mmss(total: number): string {
   return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 }
 
+/** Formatea la etiqueta objetivo de la serie aclarando "REPS" en objetivos numéricos para no confundirlo con RPE. */
+export function formatearObjetivoSerie(params: {
+  repeticionesObjetivo?: string | null;
+  esTiempo: boolean;
+  tiempoSegundos: number;
+  esUnilateral: boolean;
+}): string {
+  const texto = (params.repeticionesObjetivo ?? "").trim();
+  if (!texto) return "";
+  if (params.esTiempo) {
+    return `OBJ. ${params.tiempoSegundos} S`;
+  }
+  const yaTieneUnidad = /(rep|fallo|drop|seg|min|''|"\s*$|\bs\b)/i.test(texto);
+  if (/\d/.test(texto) && !yaTieneUnidad) {
+    if (/lado/i.test(texto)) {
+      return `OBJ. ${texto.replace(/\s*(?:x|por)\s*lado/i, " REPS POR LADO")}`;
+    }
+    return `OBJ. ${texto} REPS${params.esUnilateral ? " POR LADO" : ""}`;
+  }
+  return `OBJ. ${texto}${params.esUnilateral && !/lado/i.test(texto) ? " POR LADO" : ""}`;
+}
+
 function textoRpe(x: number | null): string {
   if (x === null || x === undefined || !Number.isFinite(x)) {
     return "El RPE mide qué tan cerca estuviste del fallo (6 = podías hacer 4 más, 10 = ninguna más).";
@@ -292,11 +314,12 @@ export function EjercicioActivo() {
     !timerTiempoActivo && !timerTiempoPausado && !timerTiempoCompletado && tiempoCountdown === 0
       ? tiempoObjetivo
       : tiempoCountdown;
-  const meta = ej.repeticiones_objetivo
-    ? esTiempo
-      ? `OBJ. ${ej.tiempo_objetivo_segundos ?? tiempoObjetivo} S`
-      : `OBJ. ${ej.repeticiones_objetivo}${esUni && !/lado/i.test(ej.repeticiones_objetivo) ? " POR LADO" : ""}`
-    : "";
+  const meta = formatearObjetivoSerie({
+    repeticionesObjetivo: ej.repeticiones_objetivo,
+    esTiempo,
+    tiempoSegundos: ej.tiempo_objetivo_segundos ?? tiempoObjetivo,
+    esUnilateral: esUni,
+  });
 
   const pesoWarn = Boolean(atypicalPrompt);
 
@@ -1222,6 +1245,26 @@ export function EjercicioActivo() {
             attachVideoForSet(videoUploadModalData.exerciseId, videoUploadModalData.setNumber, url)
           }
         />
+      )}
+      {isFinishing && (
+        <div
+          className="a-sheet-wrap"
+          style={{ alignItems: "center", justifyContent: "center", padding: 20 }}
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          data-testid="guardando-sesion-overlay"
+        >
+          <div className="a-card a-state" style={{ width: "min(92vw, 22rem)" }}>
+            <div className="a-loading" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </div>
+            <b className="a-t-bs">Guardando tu sesión…</b>
+            <p className="a-t-sec">Esperá un momento, no cierres la app.</p>
+          </div>
+        </div>
       )}
       <CierreDiaModal
         isOpen={showCelebrationModal}
