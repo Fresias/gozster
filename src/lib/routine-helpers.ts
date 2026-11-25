@@ -155,6 +155,10 @@ export function parseDefaultReps(repeticionesObjetivo?: string, numeroSerie: num
   if (!repeticionesObjetivo) return 10;
   const str = repeticionesObjetivo.trim();
 
+  // Caso: notación series x reps ("4x12", "4 x 8", "4×12", "4x8/12") -> reparsear lo que sigue a "Nx"
+  const nxm = str.match(/^(\d+)\s*[x×]\s*(\d.*)$/i);
+  if (nxm?.[2]) return parseDefaultReps(nxm[2], numeroSerie);
+
   // Caso: rango con barra "/" (ej. "8/12", "8 / 12", "10/12") -> target por defecto es el máximo
   const repRange = parseRepRange(str);
   if (repRange?.isRange) {
@@ -180,13 +184,6 @@ export function parseDefaultReps(repeticionesObjetivo?: string, numeroSerie: num
   if (rangeMatch && rangeMatch[1]) {
     const num = parseInt(rangeMatch[1], 10);
     if (!isNaN(num) && num > 0) return num;
-  }
-
-  // Caso: notación series x reps ("4x12", "4 x 8", "4×12", "4X6") -> reps = segundo número
-  const nxm = str.match(/^(\d+)\s*[x×]\s*(\d+)\b/i);
-  if (nxm && nxm[2]) {
-    const reps = parseInt(nxm[2], 10);
-    if (!isNaN(reps) && reps > 0) return reps;
   }
 
   // Caso: segundos o repeticiones directas ("15''", "8 x lado", "12 reps", "10")
