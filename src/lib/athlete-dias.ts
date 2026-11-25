@@ -356,9 +356,16 @@ export function calcularRachaSemanas(
   return racha;
 }
 
-/** Etiqueta del día: antepone `Día {orden} ·` salvo que el coach ya nombró el día "Día N: ...". */
+/** Etiqueta del día: antepone `Día {orden} ·` salvo que el coach ya nombró el día "Día N" o "Día N: ...". */
 export function etiquetaDia(dia: { orden: number; nombre: string }): string {
-  return /^\s*d[ií]a\s*\d+\s*[:·.\-–]/i.test(dia.nombre) ? dia.nombre.trim() : `Día ${dia.orden} · ${dia.nombre}`;
+  const nombreLimpio = (dia.nombre ?? "").trim();
+  if (!nombreLimpio || /^d[ií]a\s*\d+$/i.test(nombreLimpio)) {
+    return `Día ${dia.orden}`;
+  }
+  if (/^d[ií]a\s*\d+\s*[:·.\-–]/i.test(nombreLimpio)) {
+    return nombreLimpio;
+  }
+  return `Día ${dia.orden} · ${nombreLimpio}`;
 }
 
 /**

@@ -2211,15 +2211,14 @@ export const useAthleteStore = create<AthleteStoreState>()(
         });
       },
 
-      // Descarga "la última vez" de los ejercicios del día al abrir la sesión (spec historial-progreso §0.3, §1.3).
-      // Sin red no consulta: queda lo persistido. Nunca bloquea el registro de una serie.
+      // Descarga "la última vez" y marcas históricas de los ejercicios del día al abrir la sesión.
+      // Incluye sesiones previas del mismo día excluyendo solo la sesión actual (evita PRs fantasma
+      // al entrenar más de una vez en el mismo día). Sin red no consulta: queda lo persistido.
       cargarUltimaVez: async () => {
         const session = get().currentSession;
         const ids = [...new Set(session.ejercicios.map((e) => e.ejercicio_id ?? e.id))].filter((id) => esUuid(id));
         if (ids.length === 0 || !useOfflineQueueStore.getState().isOnline) return;
 
-        // Solo sesiones anteriores al día de la sesión en curso (hora de Buenos Aires).
-        const antesDe = `${session.fecha}T00:00:00-03:00`;
         const alumnoId = session.studentId && esUuid(session.studentId) ? session.studentId : null;
         set({ cargandoUltimaVez: true });
         try {
@@ -2233,16 +2232,17 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 .eq("ejercicio_id", id)
                 .eq("completada", true)
                 .gte("reps_hechas", 1)
-                .or("set_type.is.null,set_type.neq.WARMUP")
-                .lt("registro_sesiones.fecha", antesDe);
+                .or("set_type.is.null,set_type.neq.WARMUP");
               if (alumnoId) q = q.eq("registro_sesiones.alumno_id", alumnoId);
               const { data, error } = await q.order("registro_sesiones(fecha)", { ascending: false }).limit(50);
               if (error || !data) return null;
-              const series: SerieHistorica[] = data.map(({ registro_sesiones, ...s }) => ({
-                ...s,
-                fecha: (registro_sesiones as unknown as { fecha: string }).fecha,
-              }));
-              return [id, ultimaVezDeEjercicio(series, id, antesDe), marcasDeEjercicio(series, id)] as const;
+              const series: SerieHistorica[] = data
+                .map(({ registro_sesiones, ...s }) => ({
+                  ...s,
+                  fecha: (registro_sesiones as unknown as { fecha: string }).fecha,
+                }))
+                .filter((s) => s.sesion_id !== session.id);
+              return [id, ultimaVezDeEjercicio(series, id), marcasDeEjercicio(series, id)] as const;
             }),
           );
           const validas = filas.filter((f) => f !== null);
@@ -2549,30 +2549,52 @@ export const useAthleteStore = create<AthleteStoreState>()(
               console.warn("Aviso guardando sesion en Supabase:", sesErr.message);
             }
 
-            // Guardar cada serie en registro_series
+            // Guardar todas las series completadas en un solo upsert en lote (deduplicadas por clave)
+            const seriesPorClave = new Map<
+              string,
+              {
+                sesion_id: string;
+                ejercicio_id: string;
+                numero_serie: number;
+                peso_kg: number;
+                reps_hechas: number;
+                rpe_real: number | null;
+                completada: boolean;
+                set_type: "NORMAL" | "WARMUP" | "DROPSET" | "FAILURE";
+                pain_reported: boolean;
+                pain_notes: string | null;
+                video_url: string | null;
+              }
+            >();
             for (const s of allSets) {
               if (!s.completada) continue;
               const mappedType = normalizeSerieTipo(s.set_type);
-
               // Resolver ejercicio_id válido para FK de Supabase
               const resolvedEjId = s.exerciseId.length === 36 ? s.exerciseId : "55ddab2b-3449-41af-a04d-1f5ce33ad7d6";
+              const clave = `${session.id}:${resolvedEjId}:${s.numero_serie}`;
+              seriesPorClave.set(clave, {
+                sesion_id: session.id,
+                ejercicio_id: resolvedEjId,
+                numero_serie: s.numero_serie,
+                peso_kg: s.peso_kg,
+                reps_hechas: s.reps_hechas,
+                rpe_real: normalizarRpeReal(s.rpe_real),
+                completada: true,
+                set_type: mappedType,
+                pain_reported: s.pain_reported || false,
+                pain_notes: s.pain_notes || null,
+                video_url: s.video_url || null,
+              });
+            }
 
-              await supabase.from("registro_series").upsert(
-                {
-                  sesion_id: session.id,
-                  ejercicio_id: resolvedEjId,
-                  numero_serie: s.numero_serie,
-                  peso_kg: s.peso_kg,
-                  reps_hechas: s.reps_hechas,
-                  rpe_real: normalizarRpeReal(s.rpe_real),
-                  completada: true,
-                  set_type: mappedType,
-                  pain_reported: s.pain_reported || false,
-                  pain_notes: s.pain_notes || null,
-                  video_url: s.video_url || null,
-                },
-                { onConflict: "sesion_id, ejercicio_id, numero_serie" }
-              );
+            const seriesRows = Array.from(seriesPorClave.values());
+            if (seriesRows.length > 0) {
+              const { error: serErr } = await supabase
+                .from("registro_series")
+                .upsert(seriesRows, { onConflict: "sesion_id, ejercicio_id, numero_serie" });
+              if (serErr) {
+                console.warn("Aviso guardando series en Supabase:", serErr.message);
+              }
             }
 
             // Vaciar la cola offline confirmada por el servidor si hay conexión
