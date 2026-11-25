@@ -58,12 +58,12 @@ function normalizar(texto: string): string {
     .toLowerCase();
 }
 
-// §2.3.1: número solo → ese número; rango ("6-8", "6 a 8", "6–8") → {piso, tope};
+// §2.3.1: número solo → ese número; rango ("6-8", "8/12", "6 a 8", "6–8") → {piso, tope};
 // cualquier otro texto ("AMRAP", "al fallo", "30 s", vacío) → null (sin objetivo numérico).
 export function parseObjetivo(texto: string | null | undefined): { piso: number; tope: number } | null {
   const limpio = (texto ?? "").trim();
   if (!limpio) return null;
-  const rango = limpio.match(/^(\d+)\s*(?:-|–|—|a)\s*(\d+)$/i);
+  const rango = limpio.match(/^(\d+)\s*(?:-|–|—|\/|a)\s*(\d+)$/i);
   if (rango) {
     const a = Number(rango[1]);
     const b = Number(rango[2]);
@@ -203,13 +203,15 @@ export function sugerirCarga(
   }
 
   // Dentro de un rango (ej. 8-12): mismo peso y mismas reps durante 3 semanas → probar una rep más.
-  if (objetivo.piso < objetivo.tope && ref.reps_hechas >= objetivo.piso && ref.reps_hechas < objetivo.tope) {
+  if (!rpeAlLimite && objetivo.piso < objetivo.tope && ref.reps_hechas >= objetivo.piso && ref.reps_hechas < objetivo.tope) {
+    const sinRpeAlLimite = (s: SesionHistorialEjercicio) =>
+      !s.series.some((x) => x.rpe_real != null && x.rpe_real >= RPE_LIMITE);
     const mismaCarga = (a: SesionHistorialEjercicio, b: SesionHistorialEjercicio) => {
       const x = serieDeSesion(a, prescripcion.numeroSerie);
       const y = serieDeSesion(b, prescripcion.numeroSerie);
       return x?.peso_kg === y?.peso_kg && x?.reps_hechas === y?.reps_hechas;
     };
-    if (sostuvoTresSemanas(ultimaVez, () => true, mismaCarga)) {
+    if (sostuvoTresSemanas(ultimaVez, sinRpeAlLimite, mismaCarga)) {
       return { tipo: "subir", motivo: "mas-reps", pesoSugerido: ref.peso_kg, repsSugeridas: ref.reps_hechas + 1, esPesoCorporal };
     }
   }

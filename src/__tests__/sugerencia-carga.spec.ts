@@ -216,4 +216,34 @@ describe("sugerirCarga: regla de 3 semanas", () => {
     );
     expect(s).toMatchObject({ tipo: "repetir", motivo: "incompleto" });
   });
+
+  it("rango 8-12 con la última sesión al límite de RPE (10) → no sugiere más reps", () => {
+    const ok = [
+      { numero_serie: 1, peso_kg: 80, reps_hechas: 8, rpe_real: 8 },
+      { numero_serie: 2, peso_kg: 80, reps_hechas: 8, rpe_real: 8 },
+    ];
+    const limite = ok.map((x) => ({ ...x, rpe_real: 10 }));
+    const u: UltimaVezEjercicio = {
+      ejercicio_id: uuid,
+      fecha: "2026-10-12T13:00:00Z",
+      series: limite,
+      sesiones: [
+        { fecha: "2026-10-12T13:00:00Z", series: limite },
+        { fecha: "2026-09-28T13:00:00Z", series: ok },
+        { fecha: "2026-09-21T13:00:00Z", series: ok },
+      ],
+    };
+    const s = sugerirCarga(u, presc({ repeticionesObjetivo: "8-12", seriesPrescriptas: 2, musculosPrincipales: ["Pectorales"] }));
+    expect(s?.tipo).toBe("repetir");
+    expect(s?.motivo).not.toBe("mas-reps");
+  });
+
+  it("rango con '/' (8/12) se parsea y habilita mas-reps tras 3 semanas", () => {
+    expect(parseObjetivo("8/12")).toEqual({ piso: 8, tope: 12 });
+    const s = sugerirCarga(
+      ultimaSostenida(seriesOk),
+      presc({ repeticionesObjetivo: "8/12", seriesPrescriptas: 2, musculosPrincipales: ["Pectorales"] }),
+    );
+    expect(s).toMatchObject({ tipo: "subir", motivo: "mas-reps", repsSugeridas: 9 });
+  });
 });
