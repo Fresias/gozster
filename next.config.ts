@@ -43,6 +43,13 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Fail-closed: sin entorno explícito en build de producción => "production".
+  env: {
+    NEXT_PUBLIC_APP_ENV:
+      process.env.NEXT_PUBLIC_APP_ENV ??
+      process.env.VERCEL_ENV ??
+      (process.env.NODE_ENV === "production" ? "production" : "development"),
+  },
   outputFileTracingRoot: path.join(__dirname),
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

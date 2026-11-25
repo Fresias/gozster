@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
+import { DevEnvBadge } from "@/components/dev-env-badge";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -50,6 +51,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-dvh bg-background text-foreground transition-colors duration-150">
         <ServiceWorkerRegister />
+        <DevEnvBadge />
         {children}
       </body>
     </html>
