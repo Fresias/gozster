@@ -575,11 +575,25 @@ export function looksLiteral(e, rule) {
  * estructural ve solo el merge (sus args absorben el resto) y no corre la red de seguridad.
  * Si detecta alguna invocación `gh`, reevalúa cada cola que empieza en un `gh` posterior (GOZS-804).
  */
+function ghStartsOutsideQuotes(cmd) {
+  const out = [];
+  let quote = null;
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i];
+    if (quote) {
+      if (ch === "\\" && quote === '"') i++;
+      else if (ch === quote) quote = null;
+    } else if (ch === "'" || ch === '"') quote = ch;
+    else if (ch === "g" && cmd.startsWith("gh", i) && /\s/.test(cmd[i + 2] ?? "") && (i === 0 || /[^\w.-]/.test(cmd[i - 1]))) out.push(i);
+  }
+  return out;
+}
+
 function hasRealPrCreate(cmd) {
   const found = detectGhPrCommands(cmd);
   if (found.some((m) => m.action === "pr.create")) return true;
   if (found.length === 0) return false;
-  const starts = [...cmd.matchAll(/\bgh\s/g)].map((m) => m.index).slice(1, 9);
+  const starts = ghStartsOutsideQuotes(cmd).slice(1, 9);
   return starts.some((at) => detectGhPrCommands(cmd.slice(at)).some((m) => m.action === "pr.create"));
 }
 
