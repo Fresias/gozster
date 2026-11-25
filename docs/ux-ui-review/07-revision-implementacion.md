@@ -51,7 +51,7 @@
 ## 3. P0 · Bloquean el cierre (riesgo clínico o de datos)
 
 ### P0-1 · Los datos de ejemplo del mockup quedaron como valores por defecto en producción
-Los textos de ejemplo del canvas se usaron como *fallback*. Cualquier alumno sin esos datos los "hereda". Lo verifiqué con Fernando Rosales (alumno real del stub, **0 sesiones, "Nunca entrenó"**): su ficha muestra "4 de 4 en progresión · Sobrecarga verificada", press de banca 80 → 95 kg, peso corporal 82 → 78 kg, y una anamnesis con "Cirugías: Ninguna".
+Los textos de ejemplo del canvas se usaron como *fallback*. Cualquier alumno sin esos datos los "hereda". Lo verifiqué con Facundo Roldán (alumno real del stub, **0 sesiones, "Nunca entrenó"**): su ficha muestra "4 de 4 en progresión · Sobrecarga verificada", press de banca 80 → 95 kg, peso corporal 82 → 78 kg, y una anamnesis con "Cirugías: Ninguna".
 
 | Archivo · línea | Valor inventado que se muestra |
 |---|---|
@@ -254,4 +254,4 @@ El canvas y `02-vistas.md` usaban valores de ejemplo realistas (Lucas, EVA 5, "P
 
 ## Evidencia
 
-`assets/revision-07/`: `inicio-32-de-15.jpg` (KPIs mezclados y bandeja duplicada), `ficha-alumno-real-datos-inventados.jpg` (Fernando Rosales: 0 sesiones y "4 de 4 en progresión"), `cobros.jpg`, `movil-390.jpg`, y `verificacion.json` con las mediciones de cada vista (texto prohibido, emojis, nombres accesibles, contraste, radios y alto de página).
+`assets/revision-07/`: `inicio-32-de-15.jpg` (KPIs mezclados y bandeja duplicada), `ficha-alumno-real-datos-inventados.jpg` (Facundo Roldán: 0 sesiones y "4 de 4 en progresión"), `cobros.jpg`, `movil-390.jpg`, y `verificacion.json` con las mediciones de cada vista (texto prohibido, emojis, nombres accesibles, contraste, radios y alto de página).
