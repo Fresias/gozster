@@ -69,14 +69,15 @@ type Pt = readonly [number, number];
 /** Curva cuadrática suave (Q por puntos medios) o polilínea si `curves` es false. */
 function trazo(pts: Pt[], curves: boolean): string {
   const f = (n: number) => n.toFixed(1);
+  const at = (i: number): Pt => pts[i] as Pt;
   if (!curves) return pts.map((p, i) => `${i ? "L" : "M"}${f(p[0])} ${f(p[1])}`).join("");
-  let d = `M${f(pts[0][0])} ${f(pts[0][1])}`;
+  let d = `M${f(at(0)[0])} ${f(at(0)[1])}`;
   for (let i = 1; i < pts.length - 1; i++) {
-    const mx = (pts[i][0] + pts[i + 1][0]) / 2;
-    const my = (pts[i][1] + pts[i + 1][1]) / 2;
-    d += `Q${f(pts[i][0])} ${f(pts[i][1])} ${f(mx)} ${f(my)}`;
+    const mx = (at(i)[0] + at(i + 1)[0]) / 2;
+    const my = (at(i)[1] + at(i + 1)[1]) / 2;
+    d += `Q${f(at(i)[0])} ${f(at(i)[1])} ${f(mx)} ${f(my)}`;
   }
-  const u = pts[pts.length - 1];
+  const u = at(pts.length - 1);
   return `${d}L${f(u[0])} ${f(u[1])}`;
 }
 
@@ -102,7 +103,7 @@ export function deformedGridSvg(
   }
   const horizontales = grid.map((fila) => trazo(fila, curves));
   const verticales: string[] = [];
-  for (let i = 0; i <= cols; i++) verticales.push(trazo(grid.map((fila) => fila[i]), curves));
+  for (let i = 0; i <= cols; i++) verticales.push(trazo(grid.map((fila) => fila[i] as Pt), curves));
   const paths = [...horizontales, ...verticales]
     .map((d) => `<path d="${d}"/>`)
     .join("");
