@@ -786,6 +786,27 @@ export function RutinaDelDia() {
         diaNombre={cleanDiaTitle || "DÍA 1"}
       />
 
+      {isFinishing && (
+        <div
+          className="a-sheet-wrap"
+          style={{ alignItems: "center", justifyContent: "center", padding: 20 }}
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          data-testid="guardando-sesion-overlay"
+        >
+          <div className="a-card a-state" style={{ width: "min(92vw, 22rem)" }}>
+            <div className="a-loading" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </div>
+            <b className="a-t-bs">Guardando tu sesión…</b>
+            <p className="a-t-sec">Esperá un momento, no cierres la app.</p>
+          </div>
+        </div>
+      )}
+
       {isSettingsOpen && (
         <div
           className="a-sheet-wrap justify-center"

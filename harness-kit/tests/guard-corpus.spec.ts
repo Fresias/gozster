@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 // @ts-expect-error - mjs module
 import { checkGuard, classifyNativeRead, detectGhPrCommands, evaluateRules } from "../core/guard/guard-core.mjs";
 // @ts-expect-error - mjs module
-import { extractStdinInterpreterInvocations, parseHeredocs } from "../core/guard/heredoc.mjs";
+import { compactDataHeredocs, extractStdinInterpreterInvocations, parseHeredocs } from "../core/guard/heredoc.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
@@ -513,6 +513,65 @@ describe("GOZS-795 A4: Corpus de regresión del guard", () => {
   describe("A2 — Intérpretes que leen el programa por stdin", () => {
     it.each(A2_CASES)("$label ($runtime)", (c) => {
       runCase(c);
+    });
+  });
+
+  describe("GOZS-804 A — heredoc fantasma en strings multilínea", () => {
+    const prefix = 'git commit -m "docs\nel patrón cat <<EOF\n" ; ';
+    const blocked: Array<[string, string]> = [
+      ["echo x > .claude/settings.json", "fs.protected"],
+      ["echo x > harness-kit/core/guard/rules.json", "harness.authorized-only"],
+      ["gh pr create --fill", "pr.requires-seal"],
+    ];
+    it.each(blocked)("con commit multilínea delante sigue bloqueando: %s", (tail, rule) => {
+      for (const cmd of [tail, prefix + tail]) {
+        const res = checkGuard(makePayload(cmd, "cc-bash"), { repoRoot: nonAuthRepo });
+        expect(res.allowed, cmd).toBe(false);
+        expect(res.ruleId, cmd).toBe(rule);
+      }
+    });
+
+    it("variante con $(cat <<'EOF') dentro del string + gh pr create bloquea", () => {
+      const cmd = 'git commit -m "x\nel patrón $(cat <<\'EOF\') y\n" && gh pr create --fill';
+      const res = checkGuard(makePayload(cmd, "cc-bash"), { repoRoot: nonAuthRepo });
+      expect(res.ruleId).toBe("pr.requires-seal");
+    });
+
+    it.each([
+      'git commit -m "docs: flujo\ngh pr create --fill sin sello se bloquea\n"',
+      "git commit -m \"$(cat <<'EOF'\nx gh pr create --fill\nEOF\n)\"",
+      "git commit -F - <<'EOF'\ngh pr create --fill\nEOF",
+      "echo $((1<<3)) > /tmp/x",
+    ])("no regresión (permitido): %s", (cmd) => {
+      expect(checkGuard(makePayload(cmd, "cc-bash"), { repoRoot: nonAuthRepo }).allowed, cmd).toBe(true);
+    });
+
+    it.each([
+      "cat <<EOF > /tmp/b.md\nbody\nEOF\ngh pr create --body-file /tmp/b.md",
+      "git commit -m \"$(cat <<'EOF'\nx\nEOF\n)\" && gh pr create --fill",
+    ])("heredoc real cerrado seguido de gh pr create bloquea: %s", (cmd) => {
+      expect(checkGuard(makePayload(cmd, "cc-bash"), { repoRoot: nonAuthRepo }).ruleId, cmd).toBe("pr.requires-seal");
+    });
+
+    it("heredoc sin cerrar: strippedAll conserva el texto y compactDataHeredocs lo sigue compactando", () => {
+      const cmd = "cat <<EOF\nlinea1\ngh pr create --fill";
+      expect(parseHeredocs(cmd).strippedAll).toContain("gh pr create --fill");
+      expect(compactDataHeredocs(cmd)).not.toContain("gh pr create");
+      expect(compactDataHeredocs(cmd)).toContain("heredoc");
+    });
+  });
+
+  describe("GOZS-804 B — intérpretes por stdin con opciones que llevan valor", () => {
+    it.each([
+      "python3 -W ignore - <<'EOF'\nimport os; os.system(\"gh pr create --fill\")\nEOF",
+      "python3 -X utf8 - <<'EOF'\nimport os; os.system(\"gh pr create --fill\")\nEOF",
+      "node -r ts-node/register <<'EOF'\nrequire(\"child_process\").execSync(\"gh pr create --fill\")\nEOF",
+    ])("bloquea pr.requires-seal: %s", (cmd) => {
+      expect(checkGuard(makePayload(cmd, "cc-bash"), { repoRoot: nonAuthRepo }).ruleId).toBe("pr.requires-seal");
+    });
+
+    it("echo x | python3 script.py no cuenta como intérprete por stdin", () => {
+      expect(extractStdinInterpreterInvocations("echo x | python3 script.py")).toEqual([]);
     });
   });
 

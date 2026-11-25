@@ -571,6 +571,19 @@ export function looksLiteral(e, rule) {
 // ───────────────────────────── rutas ─────────────────────────────
 
 /**
+ * `prepareCmd` colapsa saltos de línea en espacios: con `gh pr merge … gh pr create …` el detector
+ * estructural ve solo el merge (sus args absorben el resto) y no corre la red de seguridad.
+ * Si detecta alguna invocación `gh`, reevalúa cada cola que empieza en un `gh` posterior (GOZS-804).
+ */
+function hasRealPrCreate(cmd) {
+  const found = detectGhPrCommands(cmd);
+  if (found.some((m) => m.action === "pr.create")) return true;
+  if (found.length === 0) return false;
+  const starts = [...cmd.matchAll(/\bgh\s/g)].map((m) => m.index).slice(1, 9);
+  return starts.some((at) => detectGhPrCommands(cmd.slice(at)).some((m) => m.action === "pr.create"));
+}
+
+/**
  * Clasifica un evento de bloqueo para el total comparable (C4), aplicado de forma idéntica a ambas ventanas.
  * Excluye:
  * - reglas que no existían en la línea base (`shell.polling`);
@@ -587,7 +600,7 @@ export function classifyComparableBlock(e) {
   if ((e.kind || e._kind) === "search") return { comparable: false, reason: "searchKind" };
   const cmd = String(e.cmd ?? e._cmd ?? "");
   if (rule === "pr.requires-seal") {
-    const isReal = detectGhPrCommands(cmd).some((m) => m.action === "pr.create");
+    const isReal = hasRealPrCreate(cmd);
     if (!isReal) return { comparable: false, reason: "prSealLiterals" };
   }
   if (rule === "fs.protected") {
