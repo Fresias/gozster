@@ -313,7 +313,7 @@ const A2_CASES: CorpusCase[] = [
     { q: '"', open: '@"', close: '"@' },
   ].flatMap(({ open, close }) => {
     const pre = `$body = ${open}\nhola\n${close}\n`;
-    const mk = (n: string, tail: string, rule: string, cmd = pre + tail) => ({
+    const mk = (n: string, tail: string, rule: string, cmd = pre + tail): CorpusCase => ({
       label: `GOZS-809 ${open} ${n}`,
       cmd,
       runtime: "cc-pwsh",
