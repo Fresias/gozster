@@ -20,7 +20,7 @@ describe("FIX-08 / GOZS-392: Bloque 'Para revisar hoy' montado con render(...) y
     const molestiaVivaEva7: Partial<DolorActivo> = {
       id: "reporte-vivo-eva-7",
       alumno_id: "alumno-real-101",
-      alumno_nombre: "Fernando Rosales",
+      alumno_nombre: "Facundo Roldán",
       zona_articular: "Rodilla izquierda",
       ejercicio_nombre: "Sentadilla Búlgara con Mancuernas",
       eva: 7,
@@ -71,7 +71,7 @@ describe("FIX-08 / GOZS-392: Bloque 'Para revisar hoy' montado con render(...) y
     // Verifica que la molestia viva encabeza la lista
     const itemsMolestia = getAllByTestId("revisar-item-molestia");
     expect(itemsMolestia).toHaveLength(1);
-    expect(itemsMolestia[0]!.textContent).toContain("Fernando Rosales");
+    expect(itemsMolestia[0]!.textContent).toContain("Facundo Roldán");
     expect(itemsMolestia[0]!.textContent).toContain("Rodilla izquierda");
     expect(itemsMolestia[0]!.textContent).toContain("Dolor alto");
     expect(itemsMolestia[0]!.textContent).toContain("EVA 7");
@@ -84,7 +84,7 @@ describe("FIX-08 / GOZS-392: Bloque 'Para revisar hoy' montado con render(...) y
     expect(itemsCuota[0]!.textContent).toContain("Cuota vencida");
 
     const fullText = container.textContent ?? "";
-    expect(fullText.indexOf("Fernando Rosales")).toBeLessThan(
+    expect(fullText.indexOf("Facundo Roldán")).toBeLessThan(
       fullText.indexOf("Julieta Pereyra")
     );
 

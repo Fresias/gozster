@@ -21,7 +21,7 @@ vi.mock("@/lib/supabase/client", async () => {
         perfiles: [
           {
             id: "00000000-0000-0000-0000-000000000004",
-            nombre_completo: "Fernando Rosales",
+            nombre_completo: "Facundo Roldán",
           },
         ],
       },
