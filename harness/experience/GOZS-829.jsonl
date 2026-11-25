@@ -1,0 +1,1 @@
+{"id":"exp-gozs-829-1","timestamp":"2026-11-25T14:20:10.535Z","task":"GOZS-829","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"marcas_funcional: un trigger crea el perfil al insertar en auth.users; en tests PGlite actualizar nombre_completo/telefono en el ON CONFLICT de la semilla.","verified":true,"tags":["db","qa"]}
