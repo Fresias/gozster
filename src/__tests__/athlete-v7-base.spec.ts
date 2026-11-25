@@ -202,3 +202,29 @@ describe("Athlete v7 · FE-01 Base visual (fuentes, tokens, tipografía y elevac
     ]);
   });
 });
+
+describe("Athlete v7 · M3 Expressive (shape 20/32, spacing compact, motion spatial vs effects)", () => {
+  const css = read("src/app/(athlete)/athlete/athlete-v7.css");
+
+  it("declara la escala de shape, spacing y motion diferenciada", () => {
+    for (const t of [
+      "--md-sys-shape-corner-large: 20px",
+      "--md-sys-shape-corner-extra-large: 32px",
+      "--md-sys-measurement-space150: 12px",
+      "--md-sys-measurement-space200: 16px",
+      "--md-sys-motion-spatial-fast: 200ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+      "--md-sys-motion-effects-fast: 100ms cubic-bezier(0.2, 0, 0, 1)",
+      "--md-sys-motion-effects-default: 220ms",
+      "--md-sys-motion-effects-slow: 380ms",
+    ]) {
+      expect(css).toContain(t);
+    }
+  });
+
+  it("aplica el contraste Medium y mantiene prefers-reduced-motion", () => {
+    expect(css).toContain("--a-fg-2: #3F3F46");
+    expect(css).toContain("--a-line-strong: #52525B");
+    expect(css).toContain("--a-fg-2: #D4D4D8");
+    expect(css).toContain("@media (prefers-reduced-motion: reduce)");
+  });
+});
