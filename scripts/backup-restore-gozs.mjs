@@ -102,6 +102,10 @@ export const TABLAS = [
     nombre: "planes_compartidos",
     fks: { plan_id: "planes_entrenamiento", profesor_id: "perfiles", compartido_por: "perfiles" },
   },
+  {
+    nombre: "marcas_funcional",
+    fks: { alumno_id: "perfiles", ejercicio_id: "ejercicios", clase_id: "clases", registrado_por: "perfiles" },
+  },
 ];
 
 /** JSON estable: claves ordenadas, para que el hash no dependa del orden de columnas. */

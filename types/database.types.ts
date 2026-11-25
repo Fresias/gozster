@@ -469,6 +469,44 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"marcas_funcional": {
+                  Row: {
+                    "alumno_id": string,"clase_id": string | null,"created_at": string,"ejercicio_id": string,"fecha": string,"id": string,"peso_kg": number,"registrado_por": string,"reps": number,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "alumno_id": string,"clase_id"?: string | null,"created_at"?: string,"ejercicio_id": string,"fecha"?: string,"id"?: string,"peso_kg": number,"registrado_por"?: string,"reps": number,"updated_at"?: string
+                  }
+                  Update: {
+                    "alumno_id"?: string,"clase_id"?: string | null,"created_at"?: string,"ejercicio_id"?: string,"fecha"?: string,"id"?: string,"peso_kg"?: number,"registrado_por"?: string,"reps"?: number,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "marcas_funcional_alumno_id_fkey"
+      columns: ["alumno_id"]
+isOneToOne: false
+      referencedRelation: "perfiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "marcas_funcional_clase_id_fkey"
+      columns: ["clase_id"]
+isOneToOne: false
+      referencedRelation: "clases"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "marcas_funcional_ejercicio_id_fkey"
+      columns: ["ejercicio_id"]
+isOneToOne: false
+      referencedRelation: "ejercicios"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "marcas_funcional_registrado_por_fkey"
+      columns: ["registrado_por"]
+isOneToOne: false
+      referencedRelation: "perfiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"mensajes": {
                   Row: {
                     "contenido": string,"conversacion_id": string,"created_at": string,"id": string,"leido": boolean,"remitente_id": string,"requiere_lectura_inicio": boolean,"updated_at": string
@@ -1174,6 +1212,9 @@ isOneToOne: false
 "fn_estado_contratacion_por_fecha":
 { Args: { "p_dias_aviso_previo": number,"p_fecha_fin": string }; Returns: string
                            },
+"formatear_nombre_corto":
+{ Args: { "p_nombre": string }; Returns: string
+                           },
 "guardar_rutina":
 { Args: { "p_payload": Json }; Returns: string
                            },
@@ -1215,6 +1256,16 @@ isOneToOne: false
                            },
 "obtener_o_crear_conversacion":
 { Args: { "p_alumno_id": string }; Returns: string
+                           },
+"obtener_progreso_funcional_alumno":
+{ Args: { "p_ejercicio_id"?: string }; Returns: {
+              "clase_id": string,"ejercicio_id": string,"ejercicio_nombre": string,"fecha": string,"id": string,"mejor_marca_historica": number,"peso_kg": number,"reps": number
+            }[]
+                           },
+"obtener_ranking_funcional":
+{ Args: { "p_clase_id"?: string,"p_ejercicio_id": string }; Returns: {
+              "categoria": string,"es_usuario_actual": boolean,"fecha": string,"nombre_corto": string,"peso_kg": number,"posicion": number,"ratio": number,"reps": number
+            }[]
                            },
 "obtener_records_historicos":
 { Args: { "p_alumno_id": string,"p_ejercicio_id"?: string }; Returns: {
