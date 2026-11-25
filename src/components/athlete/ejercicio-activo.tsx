@@ -1,5 +1,6 @@
 "use client";
 
+import { descripcionRpe } from "@/lib/rpe-texto";
 import * as React from "react";
 import { ExerciseVideoModal } from "@/components/athlete/exercise-video-modal";
 import { ExerciseNotesModal } from "@/components/athlete/exercise-notes-modal";
@@ -78,36 +79,29 @@ function mmss(total: number): string {
   return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 }
 
-/** Formatea la etiqueta objetivo de la serie aclarando "REPS" en objetivos numéricos para no confundirlo con RPE. */
+/**
+ * Etiqueta de modo de la serie. Ya no muestra "OBJ. 8 / 8-12 REPS" (las reps están visibles en pantalla):
+ * conserva sólo etiquetas de modo/especiales (Tiempo, AL FALLO, Drop set, Por lado).
+ */
 export function formatearObjetivoSerie(params: {
   repeticionesObjetivo?: string | null;
   esTiempo: boolean;
   tiempoSegundos: number;
   esUnilateral: boolean;
 }): string {
-  const texto = (params.repeticionesObjetivo ?? "").trim();
-  if (!texto) return "";
   if (params.esTiempo) {
-    return `OBJ. ${params.tiempoSegundos} S`;
+    return params.tiempoSegundos > 0 ? `${params.tiempoSegundos} s` : "Tiempo";
   }
-  const yaTieneUnidad = /(rep|fallo|drop|seg|min|''|"\s*$|\bs\b)/i.test(texto);
-  if (/\d/.test(texto) && !yaTieneUnidad) {
-    if (/lado/i.test(texto)) {
-      return `OBJ. ${texto.replace(/\s*(?:x|por)\s*lado/i, " REPS POR LADO")}`;
-    }
-    return `OBJ. ${texto} REPS${params.esUnilateral ? " POR LADO" : ""}`;
-  }
-  return `OBJ. ${texto}${params.esUnilateral && !/lado/i.test(texto) ? " POR LADO" : ""}`;
+  const texto = (params.repeticionesObjetivo ?? "").trim();
+  const etiquetas: string[] = [];
+  if (/fallo/i.test(texto)) etiquetas.push("AL FALLO");
+  if (/drop/i.test(texto)) etiquetas.push("Drop set");
+  if (params.esUnilateral || /lado/i.test(texto)) etiquetas.push("Por lado");
+  return etiquetas.join(" · ");
 }
 
 function textoRpe(x: number | null): string {
-  if (x === null || x === undefined || !Number.isFinite(x)) {
-    return "El RPE mide qué tan cerca estuviste del fallo (6 = podías hacer 4 más, 10 = ninguna más).";
-  }
-  const r = 10 - x;
-  if (r <= 0) return `RPE ${fmtAr.format(x)}: no te quedaba ninguna repetición.`;
-  if (Number.isInteger(r)) return `RPE ${fmtAr.format(x)}: podías hacer ${r} ${r === 1 ? "repetición" : "repeticiones"} más.`;
-  return `RPE ${fmtAr.format(x)}: te quedaban entre ${Math.floor(r)} y ${Math.ceil(r)} repeticiones.`;
+  return descripcionRpe(x);
 }
 
 export function EjercicioActivo() {

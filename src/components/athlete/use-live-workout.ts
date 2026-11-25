@@ -17,6 +17,7 @@ import { sugerirCarga } from "@/lib/sugerencia-carga";
 import { esNuevoRecord, type ResultadoRecord } from "@/lib/record-ejercicio";
 import { serieDeReferencia } from "@/lib/historial-ejercicio";
 import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
+import { useWakeLock } from "@/hooks/use-wake-lock";
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
 import { parseRepRange, parseTargetRpe } from "@/lib/routine-helpers";
 
@@ -228,6 +229,9 @@ export function useLiveWorkout() {
     setToastSesion,
     stopTimer,
   } = useAthleteStore();
+
+  // Pantalla encendida mientras la sesión está en curso (silencioso si no hay soporte).
+  useWakeLock(sessionStartedAt != null);
 
   const isSimpleView = (nivelVistaAlumno ?? "SIMPLE") === "SIMPLE";
   const recomendadaTexto = (vistaRecomendadaCoach || "SIMPLE") === "TECNICA" ? "Técnica" : "Simple";
@@ -498,6 +502,9 @@ export function useLiveWorkout() {
     if (pesoUltimaVez === undefined || repsUltimaVez === undefined) return;
     if (seriesTocadas.current.has(claveSerie)) return;
     seriesTocadas.current.add(claveSerie);
+    // Si una serie anterior de esta sesión ya se completó, completeSet auto-copió su carga a esta
+    // serie: `ultimaVez` nunca debe pisarla.
+    if (currentExercise.series.some((s) => s.numero_serie < serie.numero_serie && s.completada)) return;
     updateSetField(currentExercise.id, serie.numero_serie, "peso_kg", pesoUltimaVez);
     if (currentExercise.tipo_medicion !== "TIEMPO") {
       updateSetField(currentExercise.id, serie.numero_serie, "reps_hechas", repsUltimaVez);

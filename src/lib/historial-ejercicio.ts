@@ -28,6 +28,8 @@ export interface SerieUltimaVez {
 export interface UltimaVezEjercicio {
   ejercicio_id: string;
   fecha: string;
+  /** Fecha de la primera sesión con serie válida conocida del ejercicio (para la madurez de la sugerencia). */
+  primera_fecha?: string;
   series: SerieUltimaVez[];
 }
 
@@ -52,6 +54,7 @@ export function ultimaVezDeEjercicio(
   return {
     ejercicio_id: ejercicioId,
     fecha: ultima.fecha,
+    primera_fecha: validas.reduce((a, b) => (Date.parse(b.fecha) < Date.parse(a.fecha) ? b : a)).fecha,
     series: validas
       .filter((s) => s.sesion_id === ultima.sesion_id)
       .sort((a, b) => a.numero_serie - b.numero_serie)

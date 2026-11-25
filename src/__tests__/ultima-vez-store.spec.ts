@@ -62,6 +62,7 @@ describe("cargarUltimaVez (store offline-first)", () => {
     expect(ultimaVez[SENTADILLA]).toEqual({
       ejercicio_id: SENTADILLA,
       fecha: "2026-10-12T13:00:00Z",
+      primera_fecha: "2026-10-12T13:00:00Z",
       series: [
         { numero_serie: 1, peso_kg: 77.5, reps_hechas: 6, rpe_real: null },
         { numero_serie: 2, peso_kg: 80, reps_hechas: 6, rpe_real: null },

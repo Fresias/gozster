@@ -203,3 +203,27 @@ export function etiquetaEpley(p: PuntoProgreso): string {
 export function etiquetaVolumen(volumenKg: number): string {
   return `Volumen del mes: ${miles.format(Math.round(volumenKg))} kg`;
 }
+
+export interface CumplimientoSemanal {
+  porcentaje: number | null; // entero 0..100; null si no hay objetivo evaluable
+  completadas: number;
+  esperadas: number;
+}
+
+/**
+ * % de cumplimiento = sesiones realizadas / objetivo semanal del plan (`diasPorSemana`) × semanas evaluadas.
+ * Acotado a 0..100, sin NaN; null si el objetivo no es un número positivo.
+ */
+export function calcularPorcentajeCumplimiento(
+  sesionesRealizadas: number,
+  diasPorSemana: number | null | undefined,
+  semanas = 1,
+): CumplimientoSemanal {
+  const completadas = Number.isFinite(sesionesRealizadas) ? Math.max(0, Math.floor(sesionesRealizadas)) : 0;
+  const sem = Number.isFinite(semanas) && semanas > 0 ? Math.floor(semanas) || 1 : 1;
+  const dias = Number(diasPorSemana);
+  if (!Number.isFinite(dias) || dias <= 0) return { porcentaje: null, completadas, esperadas: 0 };
+  const esperadas = Math.floor(dias) * sem;
+  if (esperadas <= 0) return { porcentaje: null, completadas, esperadas: 0 };
+  return { porcentaje: Math.min(100, Math.round((completadas / esperadas) * 100)), completadas, esperadas };
+}

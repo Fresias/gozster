@@ -60,7 +60,7 @@ describe("GOZS-361: Athlete App - Temporizador por Tiempo, Circuito SS Round-Rob
       // Badge visible con tiempo objetivo en segundos (02-pantallas.md §3)
       expect(html).toContain('data-testid="badge-tipo-tiempo"');
       expect(html).toContain("Tiempo");
-      expect(html).toContain("OBJ. 45 S");
+      expect(html).toContain("45 s");
       expect(html).toContain("00:45");
 
       // Temporizador interactivo con botón Iniciar y display regresivo

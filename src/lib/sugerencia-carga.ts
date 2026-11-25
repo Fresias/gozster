@@ -30,6 +30,17 @@ export const INCREMENTOS_SUGERIDOS = {
 // Músculos que marcan "tren inferior pesado" (normalizados, sin tildes, por substring).
 const MUSCULOS_TREN_INFERIOR = ["cuadriceps", "gluteo", "isquio", "aductor"];
 
+// Madurez mínima: no se sugiere progresión hasta tener al menos 3 semanas de historial del ejercicio.
+export const SEMANAS_MINIMAS_SUGERENCIA = 3;
+const MS_DIA = 86_400_000;
+
+/** true si pasaron ≥ 3 semanas (21 días) entre la primera sesión registrada y `hoy`. */
+export function cumpleMadurezSugerencia(fechaPrimeraSesion: string | null | undefined, hoy: Date = new Date()): boolean {
+  const t = Date.parse(fechaPrimeraSesion ?? "");
+  if (!Number.isFinite(t)) return false;
+  return hoy.getTime() - t >= SEMANAS_MINIMAS_SUGERENCIA * 7 * MS_DIA;
+}
+
 export interface Prescripcion {
   numeroSerie: number; // serie que el alumno está por abrir hoy
   repeticionesObjetivo: string; // texto de ejercicios_en_rutina.repeticiones ("8", "6-8", "AMRAP"…)
@@ -93,8 +104,11 @@ function redondearMedioKg(x: number): number {
 export function sugerirCarga(
   ultimaVez: UltimaVezEjercicio | null | undefined,
   prescripcion: Prescripcion,
+  hoy: Date = new Date(),
 ): SugerenciaCarga | null {
   if (!ultimaVez) return null;
+  // Sin `primera_fecha` (datos viejos) se usa la última sesión: nunca sugiere antes de tiempo.
+  if (!cumpleMadurezSugerencia(ultimaVez.primera_fecha ?? ultimaVez.fecha, hoy)) return null;
   const ref = serieDeReferencia(ultimaVez, prescripcion.numeroSerie);
   if (!ref) return null;
 

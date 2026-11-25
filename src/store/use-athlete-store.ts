@@ -2052,10 +2052,11 @@ export const useAthleteStore = create<AthleteStoreState>()(
                     if (isWarmup(s.set_type) && s.peso_kg > 0) {
                       return s;
                     }
+                    // Ejercicios por tiempo: reps_hechas no aplica, sólo se copia el peso.
                     return {
                       ...s,
                       peso_kg: targetSet.peso_kg,
-                      reps_hechas: targetSet.reps_hechas,
+                      ...(targetExercise.tipo_medicion === "TIEMPO" ? {} : { reps_hechas: targetSet.reps_hechas }),
                       estimated1RM,
                     };
                   }

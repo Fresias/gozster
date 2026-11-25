@@ -210,34 +210,19 @@ describe("Fixes Athlete App: PRs fantasma, batch upsert + loader, y etiquetas cl
       expect(etiquetaDia({ orden: 2, nombre: "Piernas" })).toBe("Día 2 · Piernas");
     });
 
-    it("formatearObjetivoSerie aclara REPS en objetivos numéricos y respeta tiempo y textos especiales", () => {
-      expect(
-        formatearObjetivoSerie({ repeticionesObjetivo: "8", esTiempo: false, tiempoSegundos: 0, esUnilateral: false }),
-      ).toBe("OBJ. 8 REPS");
-      expect(
-        formatearObjetivoSerie({ repeticionesObjetivo: "6-8", esTiempo: false, tiempoSegundos: 0, esUnilateral: false }),
-      ).toBe("OBJ. 6-8 REPS");
-      expect(
-        formatearObjetivoSerie({ repeticionesObjetivo: "8", esTiempo: false, tiempoSegundos: 0, esUnilateral: true }),
-      ).toBe("OBJ. 8 REPS POR LADO");
-      expect(
-        formatearObjetivoSerie({ repeticionesObjetivo: "8 x lado", esTiempo: false, tiempoSegundos: 0, esUnilateral: true }),
-      ).toBe("OBJ. 8 REPS POR LADO");
-      expect(
-        formatearObjetivoSerie({ repeticionesObjetivo: "12 reps", esTiempo: false, tiempoSegundos: 0, esUnilateral: false }),
-      ).toBe("OBJ. 12 reps");
-      expect(
-        formatearObjetivoSerie({ repeticionesObjetivo: "AL FALLO", esTiempo: false, tiempoSegundos: 0, esUnilateral: false }),
-      ).toBe("OBJ. AL FALLO");
-      expect(
-        formatearObjetivoSerie({ repeticionesObjetivo: "DROP-SET", esTiempo: false, tiempoSegundos: 0, esUnilateral: false }),
-      ).toBe("OBJ. DROP-SET");
-      expect(
-        formatearObjetivoSerie({ repeticionesObjetivo: "15'' x lado", esTiempo: false, tiempoSegundos: 0, esUnilateral: true }),
-      ).toBe("OBJ. 15'' x lado");
-      expect(
-        formatearObjetivoSerie({ repeticionesObjetivo: "45", esTiempo: true, tiempoSegundos: 45, esUnilateral: false }),
-      ).toBe("OBJ. 45 S");
+    it("formatearObjetivoSerie omite OBJ./rangos numéricos y conserva sólo etiquetas de modo", () => {
+      const f = (repeticionesObjetivo: string, extra: { esTiempo?: boolean; tiempoSegundos?: number; esUnilateral?: boolean } = {}) =>
+        formatearObjetivoSerie({ repeticionesObjetivo, esTiempo: false, tiempoSegundos: 0, esUnilateral: false, ...extra });
+      expect(f("8")).toBe("");
+      expect(f("8-12")).toBe("");
+      expect(f("10-8-6")).toBe("");
+      expect(f("12 reps")).toBe("");
+      expect(f("8", { esUnilateral: true })).toBe("Por lado");
+      expect(f("8 x lado", { esUnilateral: true })).toBe("Por lado");
+      expect(f("AL FALLO")).toBe("AL FALLO");
+      expect(f("DROP-SET")).toBe("Drop set");
+      expect(f("45", { esTiempo: true, tiempoSegundos: 45 })).toBe("45 s");
+      expect(f("", { esTiempo: true, tiempoSegundos: 0 })).toBe("Tiempo");
     });
   });
 });

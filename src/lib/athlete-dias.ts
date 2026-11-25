@@ -7,6 +7,60 @@ export interface DiaRutinaItem {
   plan_id?: string;
   ejerciciosCount?: number;
   duracionMinutos?: number;
+  ejercicios?: EjercicioDuracion[];
+}
+
+export interface EjercicioDuracion {
+  series?: number | null;
+  descanso_segundos?: number | null;
+  es_superserie?: boolean | null;
+  grupo_superserie?: number | null;
+  tipo_medicion?: string | null;
+  tiempo_objetivo_segundos?: number | null;
+}
+
+const SEGUNDOS_EJECUCION_SERIE = 40;
+const SEGUNDOS_DESCANSO_DEFECTO = 90;
+const SEGUNDOS_TRANSICION = 60;
+
+const seriesDe = (e: EjercicioDuracion) => Math.max(1, Math.floor(Number(e.series) || 1));
+const descansoDe = (e: EjercicioDuracion) => (Number(e.descanso_segundos) > 0 ? Number(e.descanso_segundos) : SEGUNDOS_DESCANSO_DEFECTO);
+const ejecucionDe = (e: EjercicioDuracion) =>
+  e.tipo_medicion === "TIEMPO" && Number(e.tiempo_objetivo_segundos) > 0
+    ? Number(e.tiempo_objetivo_segundos)
+    : SEGUNDOS_EJECUCION_SERIE;
+
+/**
+ * Duración estimada de un día (minutos, múltiplo de 5; 0 sin ejercicios): ejecución por serie +
+ * descansos entre series + transición entre ejercicios. En una superserie (mismo `grupo_superserie`)
+ * el descanso se aplica por ronda, no por ejercicio.
+ */
+export function estimarDuracionDiaMinutos(ejercicios: EjercicioDuracion[]): number {
+  if (!ejercicios || ejercicios.length === 0) return 0;
+  const grupos = new Map<number, EjercicioDuracion[]>();
+  const bloques: EjercicioDuracion[][] = [];
+  for (const e of ejercicios) {
+    if (e.es_superserie && e.grupo_superserie != null) {
+      const g = grupos.get(e.grupo_superserie);
+      if (g) g.push(e);
+      else {
+        const nuevo = [e];
+        grupos.set(e.grupo_superserie, nuevo);
+        bloques.push(nuevo);
+      }
+    } else {
+      bloques.push([e]);
+    }
+  }
+  let segundos = 0;
+  for (const bloque of bloques) {
+    const rondas = Math.max(...bloque.map(seriesDe));
+    const ejecucionRonda = bloque.reduce((acc, e) => acc + ejecucionDe(e), 0);
+    const descanso = Math.max(...bloque.map(descansoDe));
+    segundos += rondas * ejecucionRonda + (rondas - 1) * descanso;
+  }
+  segundos += (bloques.length - 1) * SEGUNDOS_TRANSICION;
+  return Math.max(5, Math.round(segundos / 60 / 5) * 5);
 }
 
 export type EstadoDiaRutina = "DONE" | "TODAY" | "PENDING_SKIPPED" | "PENDING";
@@ -123,7 +177,8 @@ export function calcularEstadosDias({
   const diasConEstado: DiaConEstado[] = ordenados.map((dia) => {
     const isDone = hechosSet.has(dia.id);
     const ejerciciosCount = dia.ejerciciosCount ?? 6;
-    const duracionMinutos = dia.duracionMinutos ?? (ejerciciosCount * 9 + 5);
+    const duracionMinutos = dia.duracionMinutos ??
+      (dia.ejercicios ? estimarDuracionDiaMinutos(dia.ejercicios) : ejerciciosCount * 9 + 5);
 
     if (isDone) {
       return {
