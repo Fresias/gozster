@@ -150,6 +150,7 @@ type RefinedTables = Omit<
       effective_volume_kg?: number;
       motivo_cambio_dia?: MotivoCambioDia | null;
       dia_sugerido_id?: string | null;
+      clase_id?: string | null;
     }
   >;
   registro_series: RefineTable<

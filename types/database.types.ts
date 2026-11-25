@@ -744,14 +744,14 @@ isOneToOne: false
                   ]
                 },"registro_sesiones": {
                   Row: {
-                    "alumno_id": string,"created_at": string,"dia_id": string | null,"dia_sugerido_id": string | null,"duracion_minutos": number | null,"effective_volume_kg": number,"fecha": string,"id": string,"motivo_cambio_dia": string | null,"updated_at": string,"volumen_total_kg": number
+                    "alumno_id": string,"clase_id": string | null,"created_at": string,"dia_id": string | null,"dia_sugerido_id": string | null,"duracion_minutos": number | null,"effective_volume_kg": number,"fecha": string,"id": string,"motivo_cambio_dia": string | null,"updated_at": string,"volumen_total_kg": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "alumno_id": string,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"fecha"?: string,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
+                    "alumno_id": string,"clase_id"?: string | null,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"fecha"?: string,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
                   }
                   Update: {
-                    "alumno_id"?: string,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"fecha"?: string,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
+                    "alumno_id"?: string,"clase_id"?: string | null,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"fecha"?: string,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
                   }
                   Relationships: [
                     {
@@ -1213,6 +1213,11 @@ isOneToOne: false
               "cantActivas": number,"cantClientesPerdidosMes": number,"cantSinPlanEntrenamiento": number
             }[]
                            },
+"obtener_ranking_funcional_alumno":
+{ Args: { "p_ejercicio_id"?: string }; Returns: {
+              "ejercicio_id": string,"es_usuario_actual": boolean,"fecha": string,"nombre_corto": string,"peso_kg": number,"posicion": number | null,"ratio": number | null,"reps": number,"sexo": string | null
+            }[]
+                           },
 "obtener_o_crear_conversacion":
 { Args: { "p_alumno_id": string }; Returns: string
                            },
@@ -1313,6 +1318,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"registrar_marca_funcional":
+{ Args: { "p_alumno_id": string,"p_clase_id"?: string,"p_ejercicio_id": string,"p_fecha"?: string,"p_peso_corporal_kg"?: number,"p_peso_kg": number,"p_reps": number,"p_sexo"?: string }; Returns: string
+                           },
 "registrar_molestia":
 { Args: { "p_dia_id"?: string,"p_ejercicio_en_rutina_id"?: string,"p_ejercicio_id": string,"p_eva": number,"p_id": string,"p_momento"?: string,"p_notas"?: string,"p_numero_serie"?: number,"p_sesion_id": string,"p_sintomas"?: (string)[],"p_zona": string }; Returns: string
                            },
