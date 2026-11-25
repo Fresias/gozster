@@ -11,6 +11,7 @@ import {
   calcularEstadosDias,
   calcularRachaSemanas,
   calcularSemanaPlan,
+  estimarDuracionDiaMinutos,
   etiquetaDia,
   primerNombre,
   saludoAlumno,
@@ -359,14 +360,15 @@ export function InicioMisDias() {
       .filter((d) => d.plan_id === plan.id)
       .sort((a, b) => a.orden - b.orden)
       .map((d) => {
-        const ejerciciosCount = planAlumno.ejerciciosEnRutina.filter((er) => er.dia_id === d.id).length;
+        const ejerciciosDia = planAlumno.ejerciciosEnRutina.filter((er) => er.dia_id === d.id);
+        const ejerciciosCount = ejerciciosDia.length;
         return {
           id: d.id,
           orden: d.orden,
           nombre: d.nombre,
           plan_id: d.plan_id,
           ejerciciosCount,
-          duracionMinutos: ejerciciosCount * 8 + 5,
+          duracionMinutos: estimarDuracionDiaMinutos(ejerciciosDia, ejerciciosCount),
         };
       });
   }, [planAlumno, plan]);

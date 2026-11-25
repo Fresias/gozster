@@ -59,6 +59,23 @@ describe("ultimaVezDeEjercicio", () => {
         { numero_serie: 2, peso_kg: 80, reps_hechas: 6, rpe_real: null },
         { numero_serie: 3, peso_kg: 82.5, reps_hechas: 4, rpe_real: 9 },
       ],
+      sesiones: [
+        {
+          fecha: "2026-10-12T13:00:00Z",
+          series: [
+            { numero_serie: 1, peso_kg: 77.5, reps_hechas: 6, rpe_real: null },
+            { numero_serie: 2, peso_kg: 80, reps_hechas: 6, rpe_real: null },
+            { numero_serie: 3, peso_kg: 82.5, reps_hechas: 4, rpe_real: 9 },
+          ],
+        },
+        {
+          fecha: "2026-10-05T13:00:00Z",
+          series: [
+            { numero_serie: 1, peso_kg: 70, reps_hechas: 6, rpe_real: null },
+            { numero_serie: 2, peso_kg: 72.5, reps_hechas: 6, rpe_real: null },
+          ],
+        },
+      ],
     });
   });
 

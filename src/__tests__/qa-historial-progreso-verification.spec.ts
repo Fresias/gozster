@@ -358,6 +358,27 @@ describe("QA Verification Suite — Historial y Progreso (GOZS-158 / F1–F6)", 
           rpe_real: 8.5,
           completada: true,
         },
+              // Misma carga hace 3 semanas: habilita la sugerencia de subir (regla de 21 días).
+        {
+          ejercicio_id: exerciseId,
+          sesion_id: "sesion-previa-0",
+          fecha: "2026-09-21T10:00:00-03:00",
+          numero_serie: 1,
+          peso_kg: 80,
+          reps_hechas: 8,
+          rpe_real: 8,
+          completada: true,
+        },
+        {
+          ejercicio_id: exerciseId,
+          sesion_id: "sesion-previa-0",
+          fecha: "2026-09-21T10:00:00-03:00",
+          numero_serie: 2,
+          peso_kg: 80,
+          reps_hechas: 8,
+          rpe_real: 8,
+          completada: true,
+        },
       ];
 
       const uv = ultimaVezDeEjercicio(historialSentadilla, exerciseId, "2026-10-24T00:00:00-03:00");

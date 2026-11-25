@@ -9,6 +9,36 @@ export interface DiaRutinaItem {
   duracionMinutos?: number;
 }
 
+export interface EjercicioDuracion {
+  series: number | null;
+  descanso_segundos: number | null;
+}
+
+const SEGUNDOS_POR_SERIE = 35;
+const SEGUNDOS_TRANSICION = 60;
+const DESCANSO_DEFAULT_SEGUNDOS = 90;
+
+/**
+ * Duración estimada (min, múltiplo de 5) de un día: por ejercicio `series × 35 s` +
+ * `(series − 1) × descanso` + 60 s de transición. Sin detalle de ejercicios devuelve `fallbackPorEjercicio`
+ * minutos por ejercicio (o 0 si tampoco hay cantidad).
+ */
+export function estimarDuracionDiaMinutos(
+  ejercicios: EjercicioDuracion[] | null | undefined,
+  fallbackCantidad = 0,
+): number {
+  const redondear = (min: number) => Math.max(5, Math.round(min / 5) * 5);
+  if (!ejercicios || ejercicios.length === 0) {
+    return fallbackCantidad > 0 ? redondear(fallbackCantidad * 8) : 0;
+  }
+  const segundos = ejercicios.reduce((acc, e) => {
+    const series = Math.max(1, e.series ?? 3);
+    const descanso = e.descanso_segundos ?? DESCANSO_DEFAULT_SEGUNDOS;
+    return acc + series * SEGUNDOS_POR_SERIE + (series - 1) * descanso + SEGUNDOS_TRANSICION;
+  }, 0);
+  return redondear(segundos / 60);
+}
+
 export type EstadoDiaRutina = "DONE" | "TODAY" | "PENDING_SKIPPED" | "PENDING";
 
 export interface DiaConEstado extends DiaRutinaItem {
@@ -123,7 +153,7 @@ export function calcularEstadosDias({
   const diasConEstado: DiaConEstado[] = ordenados.map((dia) => {
     const isDone = hechosSet.has(dia.id);
     const ejerciciosCount = dia.ejerciciosCount ?? 6;
-    const duracionMinutos = dia.duracionMinutos ?? (ejerciciosCount * 9 + 5);
+    const duracionMinutos = dia.duracionMinutos ?? estimarDuracionDiaMinutos(null, ejerciciosCount);
 
     if (isDone) {
       return {

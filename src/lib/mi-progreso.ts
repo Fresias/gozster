@@ -67,6 +67,20 @@ export function sesionesDelMes(
   return { esteMes, mesAnterior };
 }
 
+// % de cumplimiento del plan en el mes en curso (0-100): sesiones hechas este mes sobre las esperadas
+// hasta hoy (diasPorSemana × días transcurridos / 7). Sin plan (diasPorSemana <= 0) → 0.
+export function calcularCumplimientoMes(
+  sesionesMes: SesionHistorica[],
+  diasPorSemana: number,
+  hoy: Date = new Date(),
+): number {
+  if (!(diasPorSemana > 0)) return 0;
+  const diaDelMes = Number(new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, day: "numeric" }).format(hoy));
+  const esperadas = (Math.min(diasPorSemana, 7) * diaDelMes) / 7;
+  const hechas = sesionesDelMes(sesionesMes, hoy).esteMes;
+  return Math.min(100, Math.max(0, Math.round((hechas / esperadas) * 100)));
+}
+
 // §4.3 (TECNICA): suma de effective_volume_kg del mes en curso.
 export function volumenDelMes(sesiones: SesionHistorica[], hoy: Date = new Date()): number {
   const actual = anioMes(hoy);

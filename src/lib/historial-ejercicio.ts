@@ -25,10 +25,18 @@ export interface SerieUltimaVez {
   rpe_real: number | null;
 }
 
+export interface SesionHistorialEjercicio {
+  fecha: string;
+  series: SerieUltimaVez[];
+}
+
 export interface UltimaVezEjercicio {
   ejercicio_id: string;
   fecha: string;
   series: SerieUltimaVez[];
+  // Sesiones válidas (más reciente primero, incluye la última) de las filas ya descargadas.
+  // Alimenta la regla de "3 semanas sosteniendo la carga" sin queries extra.
+  sesiones?: SesionHistorialEjercicio[];
 }
 
 // §0.1: completada, no atípica, no calentamiento y al menos una rep.
@@ -49,13 +57,20 @@ export function ultimaVezDeEjercicio(
   if (validas.length === 0) return null;
 
   const ultima = validas.reduce((a, b) => (Date.parse(b.fecha) > Date.parse(a.fecha) ? b : a));
+  const resumir = (filas: SerieHistorica[]): SerieUltimaVez[] =>
+    [...filas]
+      .sort((a, b) => a.numero_serie - b.numero_serie)
+      .map(({ numero_serie, peso_kg, reps_hechas, rpe_real }) => ({ numero_serie, peso_kg, reps_hechas, rpe_real }));
+  const porSesion = new Map<string, SerieHistorica[]>();
+  for (const v of validas) porSesion.set(v.sesion_id, [...(porSesion.get(v.sesion_id) ?? []), v]);
+  const sesiones = [...porSesion.values()]
+    .map((filas) => ({ fecha: filas[0]!.fecha, series: resumir(filas) }))
+    .sort((a, b) => Date.parse(b.fecha) - Date.parse(a.fecha));
   return {
     ejercicio_id: ejercicioId,
     fecha: ultima.fecha,
-    series: validas
-      .filter((s) => s.sesion_id === ultima.sesion_id)
-      .sort((a, b) => a.numero_serie - b.numero_serie)
-      .map(({ numero_serie, peso_kg, reps_hechas, rpe_real }) => ({ numero_serie, peso_kg, reps_hechas, rpe_real })),
+    series: resumir(validas.filter((s) => s.sesion_id === ultima.sesion_id)),
+    sesiones,
   };
 }
 

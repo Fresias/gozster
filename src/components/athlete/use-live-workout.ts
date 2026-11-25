@@ -491,19 +491,25 @@ export function useLiveWorkout() {
     : null;
   const refUltimaActual =
     ultimaVezActual && serie ? serieDeReferencia(ultimaVezActual, serie.numero_serie) : null;
-  const pesoUltimaVez = refUltimaActual?.peso_kg;
-  const repsUltimaVez = refUltimaActual?.reps_hechas;
+  // Al completar la serie N, la N+1 hereda su peso y reps (copia automática); sin serie previa hoy,
+  // usa la última vez del ejercicio.
+  const serieAnteriorHoy =
+    currentExercise && serie
+      ? [...currentExercise.series].reverse().find((s) => s.completada && s.numero_serie < serie.numero_serie)
+      : undefined;
+  const pesoPrecarga = serieAnteriorHoy?.peso_kg ?? refUltimaActual?.peso_kg;
+  const repsPrecarga = serieAnteriorHoy?.reps_hechas ?? refUltimaActual?.reps_hechas;
   React.useEffect(() => {
     if (!claveSerie || !currentExercise || !serie || serie.completada) return;
-    if (pesoUltimaVez === undefined || repsUltimaVez === undefined) return;
+    if (pesoPrecarga === undefined || repsPrecarga === undefined) return;
     if (seriesTocadas.current.has(claveSerie)) return;
     seriesTocadas.current.add(claveSerie);
-    updateSetField(currentExercise.id, serie.numero_serie, "peso_kg", pesoUltimaVez);
+    updateSetField(currentExercise.id, serie.numero_serie, "peso_kg", pesoPrecarga);
     if (currentExercise.tipo_medicion !== "TIEMPO") {
-      updateSetField(currentExercise.id, serie.numero_serie, "reps_hechas", repsUltimaVez);
+      updateSetField(currentExercise.id, serie.numero_serie, "reps_hechas", repsPrecarga);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claveSerie, pesoUltimaVez, repsUltimaVez]);
+  }, [claveSerie, pesoPrecarga, repsPrecarga]);
 
   const tiempoObjetivo =
     currentExercise?.tipo_medicion === "TIEMPO"

@@ -66,6 +66,16 @@ describe("cargarUltimaVez (store offline-first)", () => {
         { numero_serie: 1, peso_kg: 77.5, reps_hechas: 6, rpe_real: null },
         { numero_serie: 2, peso_kg: 80, reps_hechas: 6, rpe_real: null },
       ],
+      // Historial por sesión (para la regla de 3 semanas) a partir de las mismas filas descargadas.
+      sesiones: [
+        {
+          fecha: "2026-10-12T13:00:00Z",
+          series: [
+            { numero_serie: 1, peso_kg: 77.5, reps_hechas: 6, rpe_real: null },
+            { numero_serie: 2, peso_kg: 80, reps_hechas: 6, rpe_real: null },
+          ],
+        },
+      ],
     });
     expect(ultimaVez[REMO]).toBeNull();
   });

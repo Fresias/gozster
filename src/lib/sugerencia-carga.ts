@@ -3,10 +3,14 @@
 // última vez (pieza 1) propone el peso/reps de cada serie. Función pura y testeable;
 // la copia y la UI viven en components/athlete/sugerencia-carga.tsx.
 
-import { serieDeReferencia, type UltimaVezEjercicio } from "@/lib/historial-ejercicio";
+import { serieDeReferencia, type SesionHistorialEjercicio, type UltimaVezEjercicio } from "@/lib/historial-ejercicio";
 
 export type TipoSugerencia = "subir" | "repetir";
-export type MotivoSugerencia = "completo" | "incompleto" | "rpe-limite" | "mismo-peso";
+export type MotivoSugerencia = "completo" | "incompleto" | "rpe-limite" | "mismo-peso" | "sostener" | "mas-reps";
+
+// Recién tras 3 semanas (21 días) sosteniendo la misma carga se sugiere subir.
+export const DIAS_SOSTENER_CARGA = 21;
+const MS_DIA = 86_400_000;
 
 // §2.3: a partir de este RPE la serie se considera "al límite" (se ignora si es NULL).
 export const RPE_LIMITE = 9.5;
@@ -54,12 +58,12 @@ function normalizar(texto: string): string {
     .toLowerCase();
 }
 
-// §2.3.1: número solo → ese número; rango ("6-8", "6 a 8", "6–8") → {piso, tope};
+// §2.3.1: número solo → ese número; rango ("6-8", "8/12", "6 a 8", "6–8") → {piso, tope};
 // cualquier otro texto ("AMRAP", "al fallo", "30 s", vacío) → null (sin objetivo numérico).
 export function parseObjetivo(texto: string | null | undefined): { piso: number; tope: number } | null {
   const limpio = (texto ?? "").trim();
   if (!limpio) return null;
-  const rango = limpio.match(/^(\d+)\s*(?:-|–|—|a)\s*(\d+)$/i);
+  const rango = limpio.match(/^(\d+)\s*(?:-|–|—|\/|a)\s*(\d+)$/i);
   if (rango) {
     const a = Number(rango[1]);
     const b = Number(rango[2]);
@@ -86,6 +90,28 @@ export function incrementoKg(pesoUltima: number, musculos: Prescripcion["musculo
 // §2.3: redondeo del peso sugerido a múltiplos de 0,5 kg.
 function redondearMedioKg(x: number): number {
   return Math.round(x * 2) / 2;
+}
+
+function serieDeSesion(s: SesionHistorialEjercicio, numeroSerie: number) {
+  return s.series.find((x) => x.numero_serie === numeroSerie) ?? s.series[s.series.length - 1];
+}
+
+// Racha de sesiones (más reciente primero) que cumplen `cumple` con la misma carga que la más reciente,
+// cortada en la primera que no. "Sostuvo" = racha de ≥ 2 sesiones y ≥ 21 días entre la más vieja y la más nueva.
+function sostuvoTresSemanas(
+  ultimaVez: UltimaVezEjercicio,
+  cumple: (s: SesionHistorialEjercicio) => boolean,
+  mismaCarga: (a: SesionHistorialEjercicio, b: SesionHistorialEjercicio) => boolean,
+): boolean {
+  const sesiones = ultimaVez.sesiones ?? [];
+  const nueva = sesiones[0];
+  if (!nueva || !cumple(nueva)) return false;
+  let vieja = nueva;
+  for (const s of sesiones.slice(1)) {
+    if (!cumple(s) || !mismaCarga(nueva, s)) break;
+    vieja = s;
+  }
+  return vieja !== nueva && (Date.parse(nueva.fecha) - Date.parse(vieja.fecha)) / MS_DIA >= DIAS_SOSTENER_CARGA;
 }
 
 // §2.3: decide subir/repetir y calcula peso y reps precargadas.
@@ -130,8 +156,22 @@ export function sugerirCarga(
   const completoReps = series.every((s) => s.reps_hechas >= objetivo.tope);
   const rpeAlLimite = series.some((s) => s.rpe_real != null && s.rpe_real >= RPE_LIMITE);
 
-  // §2.3.3: completó todo → subir.
+  // §2.3.3: completó todo → subir, pero sólo tras 3 semanas sosteniendo la misma carga.
   if (hizoTodasLasSeries && completoReps && !rpeAlLimite) {
+    const completa = (s: SesionHistorialEjercicio) =>
+      s.series.length >= prescripcion.seriesPrescriptas &&
+      s.series.every((x) => x.reps_hechas >= objetivo.tope && !(x.rpe_real != null && x.rpe_real >= RPE_LIMITE));
+    const mismoPeso = (a: SesionHistorialEjercicio, b: SesionHistorialEjercicio) =>
+      serieDeSesion(a, prescripcion.numeroSerie)?.peso_kg === serieDeSesion(b, prescripcion.numeroSerie)?.peso_kg;
+    if (!sostuvoTresSemanas(ultimaVez, completa, mismoPeso)) {
+      return {
+        tipo: "repetir",
+        motivo: "sostener",
+        pesoSugerido: ref.peso_kg,
+        repsSugeridas: esPesoCorporal ? ref.reps_hechas : objetivo.tope,
+        esPesoCorporal,
+      };
+    }
     if (esPesoCorporal) {
       return {
         tipo: "subir",
@@ -162,6 +202,20 @@ export function sugerirCarga(
     };
   }
 
+  // Dentro de un rango (ej. 8-12): mismo peso y mismas reps durante 3 semanas → probar una rep más.
+  if (!rpeAlLimite && objetivo.piso < objetivo.tope && ref.reps_hechas >= objetivo.piso && ref.reps_hechas < objetivo.tope) {
+    const sinRpeAlLimite = (s: SesionHistorialEjercicio) =>
+      !s.series.some((x) => x.rpe_real != null && x.rpe_real >= RPE_LIMITE);
+    const mismaCarga = (a: SesionHistorialEjercicio, b: SesionHistorialEjercicio) => {
+      const x = serieDeSesion(a, prescripcion.numeroSerie);
+      const y = serieDeSesion(b, prescripcion.numeroSerie);
+      return x?.peso_kg === y?.peso_kg && x?.reps_hechas === y?.reps_hechas;
+    };
+    if (sostuvoTresSemanas(ultimaVez, sinRpeAlLimite, mismaCarga)) {
+      return { tipo: "subir", motivo: "mas-reps", pesoSugerido: ref.peso_kg, repsSugeridas: ref.reps_hechas + 1, esPesoCorporal };
+    }
+  }
+
   // §2.3.4: quedaron reps sin completar → repetir con el mismo peso.
   return {
     tipo: "repetir",
@@ -181,8 +235,9 @@ export function formatearPeso(peso: number): string {
 
 // §2.6: título visible (no depende de la vista SIMPLE/TECNICA). El valor va aparte para la tipografía mono.
 export function partesTitulo(s: SugerenciaCarga): { prefijo: string; valor: string } {
-  const prefijo = s.tipo === "repetir" ? "Repetí" : s.esPesoCorporal ? "Probá" : "Subí a";
-  const valor = s.esPesoCorporal ? `${s.repsSugeridas} reps` : formatearPeso(s.pesoSugerido);
+  const porReps = s.esPesoCorporal || s.motivo === "mas-reps";
+  const prefijo = s.tipo === "repetir" ? "Repetí" : porReps ? "Probá" : "Subí a";
+  const valor = s.esPesoCorporal || (porReps && s.tipo === "subir") ? `${s.repsSugeridas} reps` : formatearPeso(s.pesoSugerido);
   return { prefijo, valor };
 }
 
@@ -204,5 +259,9 @@ export function motivoSugerencia(s: SugerenciaCarga, vista: "SIMPLE" | "TECNICA"
         : `La última vez fue al límite (RPE ${rpeFmt.format(s.rpe ?? 10)}). Repetí y buscá más control.`;
     case "mismo-peso":
       return "Mismo peso que la última vez.";
+    case "sostener":
+      return "Sostené esta carga hasta cumplir 3 semanas antes de subir.";
+    case "mas-reps":
+      return "Hace 3 semanas que hacés las mismas reps. Probá una más.";
   }
 }
