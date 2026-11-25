@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { reportarErrorApp } from "@/lib/reportar-error-app";
 
 export interface StudioErrorProps {
   error: Error & { digest?: string };
@@ -9,8 +10,17 @@ export interface StudioErrorProps {
 }
 
 export default function StudioError({ error, reset }: StudioErrorProps) {
+  const ultimoErrorReportadoRef = React.useRef<unknown>(null);
+
   React.useEffect(() => {
     console.error("Coach Studio Error Boundary:", error);
+    if (ultimoErrorReportadoRef.current === error) return;
+    ultimoErrorReportadoRef.current = error;
+    void reportarErrorApp({
+      contexto: "studio_error_boundary",
+      mensajeHumano: "Error inesperado en pantalla de Coach Studio",
+      error,
+    });
   }, [error]);
 
   return (

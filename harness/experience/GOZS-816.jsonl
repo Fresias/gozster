@@ -1,0 +1,1 @@
+{"id":"exp-gozs-816-1","timestamp":"2026-11-25T09:13:55.346Z","task":"GOZS-816","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"Usar sanitizeRedirectTo de src/lib/auth-redirect.ts para validar destinos redirectTo en /login y resolvePostPasswordChangeRedirect para enrutar por rol tras cambio obligatorio de contraseña.","verified":true,"tags":["auth","qa"]}
