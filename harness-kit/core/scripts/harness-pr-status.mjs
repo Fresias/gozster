@@ -10,6 +10,7 @@ import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ghSpawnOptions, resolveGhInvocation } from "../lib/gh-exec.mjs";
 import { main as mergeCheckMain, parseSealBlock } from "./harness-merge-check.mjs";
 
 export const PR_VIEW_FIELDS =
@@ -89,26 +90,19 @@ export function parseArgs(argv) {
 
 function defaultRunGh(args) {
   const opts = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
-  if (process.platform === "win32") {
-    return execFileSync(`gh ${args.map((a) => `"${a}"`).join(" ")}`, { ...opts, shell: true });
-  }
-  return execFileSync("gh", args, opts);
+  const inv = resolveGhInvocation(args);
+  return execFileSync(inv.command, inv.args, ghSpawnOptions(inv, opts));
 }
 
 /** Spawn a command with an internal timeout that terminates the child process cleanly. */
 export function spawnWithTimeout(command, args, timeoutMs, options = {}) {
   return new Promise((resolve) => {
-    const useShell = Boolean(options.shell);
-    const child = useShell
-      ? spawn(`${command} ${args.map((a) => `"${a}"`).join(" ")}`, {
-          shell: true,
-          stdio: ["ignore", "pipe", "pipe"],
-          cwd: options.cwd,
-        })
-      : spawn(command, args, {
-          stdio: ["ignore", "pipe", "pipe"],
-          cwd: options.cwd,
-        });
+    const inv = command === "gh" ? resolveGhInvocation(args) : { command, args };
+    const child = spawn(
+      inv.command,
+      inv.args,
+      ghSpawnOptions(inv, { stdio: ["ignore", "pipe", "pipe"], cwd: options.cwd }),
+    );
 
     let timedOut = false;
     let settled = false;
@@ -156,7 +150,7 @@ export function spawnWithTimeout(command, args, timeoutMs, options = {}) {
 
 /** Wait for PR checks using a single blocking `gh pr checks --watch --interval 30` call (never passes --timeout to gh). */
 export function defaultWaitChecks(args, timeoutMs) {
-  return spawnWithTimeout("gh", args, timeoutMs, { shell: process.platform === "win32" });
+  return spawnWithTimeout("gh", args, timeoutMs);
 }
 
 function loadProject(repoRoot) {

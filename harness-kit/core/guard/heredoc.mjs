@@ -236,6 +236,15 @@ export function skipCommandWrappers(tokens) {
  * (e.g. `python3`, `python3 -`, `node`, `node -`, `bash`, `bash -s`, `sh -s`,
  * `pwsh -Command -`, `iex`, `Invoke-Expression`). Returns interpreter kind or null.
  */
+/** Opciones cuyo valor va en el token siguiente (no es el script). */
+const STDIN_OPTS_WITH_VALUE = {
+  python: new Set(["-W", "-X", "--check-hash-based-pycs"]),
+  node: new Set(["-r", "--require", "--import", "--loader", "--experimental-loader", "-C", "--conditions", "--input-type"]),
+  shell: new Set(["-o", "-O"]),
+  ruby: new Set(["-I", "-r"]),
+  perl: new Set(["-I"]),
+};
+
 export function classifyStdinInterpreter(seg) {
   const cleaned = String(seg || "").replace(/<<-?\s*(?:["']?[A-Za-z_]\w*["']?|\\[A-Za-z_]\w*)/g, " ");
   const tokens = tokenizeSegment(cleaned);
@@ -301,7 +310,10 @@ export function classifyStdinInterpreter(seg) {
       positionals.push("-");
       break;
     }
-    if (t.startsWith("-")) continue;
+    if (t.startsWith("-")) {
+      if (STDIN_OPTS_WITH_VALUE[kind]?.has(t)) j++; // el valor separado no es el script
+      continue;
+    }
     positionals.push(t);
     break;
   }
@@ -586,6 +598,7 @@ export function parseHeredocs(cmd) {
 
   const pending = []; // { delim, kind, isInterpreter, bodyLines }
   let psHere = null; // { quote, bodyLines }
+  let carryQuote = null; // comilla abierta que continua en la linea siguiente
 
   for (const line of lines) {
     if (psHere !== null) {
@@ -645,7 +658,9 @@ export function parseHeredocs(cmd) {
     }
 
     // Scan header line outside quotes for `<<[-]?['"]?WORD['"]?` (not `<<<`) or trailing `@'` / `@"`
-    let quote = null;
+    // El estado de comillas sobrevive entre lineas: un `<<` dentro de un string
+    // multilinea abierto antes no es un heredoc (GOZS-804).
+    let quote = carryQuote;
     let lineIndex = null;
     let psOpen = null;
     for (let i = 0; i < line.length; i++) {
@@ -699,6 +714,7 @@ export function parseHeredocs(cmd) {
       }
     }
 
+    carryQuote = psOpen ? null : quote;
     if (psOpen && pending.length === 0) {
       psHere = { quote: psOpen.quote, bodyLines: [], argKind: classifyHereStringArgConsumer(line.slice(0, psOpen.at)) };
     }
@@ -722,6 +738,8 @@ export function parseHeredocs(cmd) {
     compactedLines.push(heredocLabel(lineCount));
   }
   for (const cur of pending) {
+    // Un heredoc sin cerrar no oculta texto al guard: el comando nunca llega recortado.
+    strippedAllLines.push(...cur.bodyLines);
     const lineCount = cur.bodyLines.length;
     records.push({
       kind: cur.kind,
@@ -773,7 +791,7 @@ export function extractStdinInterpreterInvocations(cmd) {
   }
 
   // Scan top-level clauses (after stripping heredoc bodies) for `echo/printf/Write-Output ... | <interp>` and `<interp> <<< "..."`
-  for (const rawLine of parsed.strippedAll.split(/\r?\n/)) {
+  for (const rawLine of joinQuotedLines(parsed.strippedAll)) {
     for (const clause of splitClausesOnLine(rawLine)) {
       const pipeParts = splitPipesInClause(clause);
       for (let i = 0; i < pipeParts.length; i++) {
@@ -820,6 +838,35 @@ export function extractStdinInterpreterInvocations(cmd) {
   }
 
   return invocations;
+}
+
+/**
+ * Une las líneas físicas que continúan un string entre comillas abierto, para que
+ * cláusulas y pipes se separen sobre líneas lógicas (GOZS-804). Recorrido lineal.
+ */
+function joinQuotedLines(text) {
+  const out = [];
+  let cur = "";
+  let quote = null;
+  let open = false;
+  for (const line of text.split(/\r?\n/)) {
+    cur = open ? `${cur}\n${line}` : line;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (quote === "'") {
+        if (ch === "'") quote = null;
+      } else if (quote === '"') {
+        if (ch === "\\" && i + 1 < line.length) i++;
+        else if (ch === '"') quote = null;
+      } else if (ch === "\\" && i + 1 < line.length) i++;
+      else if (ch === "'" || ch === '"') quote = ch;
+      else if (ch === "#" && (i === 0 || /\s/.test(line[i - 1]))) break;
+    }
+    open = quote !== null;
+    if (!open) out.push(cur);
+  }
+  if (open) out.push(cur);
+  return out;
 }
 
 function findUnquotedHereString(s) {
