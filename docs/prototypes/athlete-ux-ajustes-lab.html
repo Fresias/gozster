@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GOZSter · Laboratorio UX Athlete App (U1) — Antes / Después</title>
+<!--
+  Prototipo descartable (GOZS-828 · U1). HTML5 + CSS + JS vanilla, cero dependencias externas.
+  Tokens copiados de src/app/(athlete)/athlete/athlete-v7.css (modo Día y Noche).
+  Paths del SVG RachaFlama copiados de src/lib/racha-flama.ts (SVG_PATHS_FLAMA).
+  NO es código de producción: F2 aplica el JSON exportado en athlete-v7.css y componentes.
+-->
+<style>
+/* ===== Tokens v7 (Día) ===== */
+.lab {
+  --a-bg:#FAFAFA; --a-surface:#FFFFFF; --a-surface-2:#F4F4F5; --a-fg:#09090B; --a-fg-2:#52525B; --a-fg-3:#71717A;
+  --a-line:#E4E4E7; --a-line-strong:#71717A; --a-primary:#09090B; --a-on-primary:#FAFAFA;
+  --a-ok-bg:#E3F4EE; --a-ok-fg:#00664A; --a-ok-ic:#009E73;
+  --a-rec-bg:#FFF6DA; --a-rec-fg:#5C4300; --a-rec-ic:#A87B0B;
+  --a-bad:#DC2626; --a-bad-soft:#FEF2F2; --a-bad-fg:#B91C1C;
+  --a-hero:#09090B; --a-on-hero:#FAFAFA; --a-hero-2:#A1A1AA; --a-hero-line:#3F3F46;
+  --a-chip-ss-bg:#09090B; --a-chip-ss-fg:#FAFAFA; --a-chip-ap-bg:#F4F4F5; --a-chip-ap-fg:#09090B; --a-chip-ap-line:#09090B;
+  --a-elev-1:0 1px 2px rgba(9,9,11,.06),0 1px 3px 1px rgba(9,9,11,.04);
+  --a-elev-2:0 1px 2px rgba(9,9,11,.08),0 3px 8px 2px rgba(9,9,11,.08);
+  --a-silver:#D4D4D8;
+}
+.dark .lab {
+  --a-bg:#09090B; --a-surface:#18181B; --a-surface-2:#27272A; --a-fg:#FAFAFA; --a-fg-2:#A1A1AA; --a-fg-3:#A1A1AA;
+  --a-line:#27272A; --a-line-strong:#71717A; --a-primary:#FAFAFA; --a-on-primary:#09090B;
+  --a-ok-bg:#062E25; --a-ok-fg:#5FD3B0; --a-ok-ic:#009E73;
+  --a-rec-bg:#2A2208; --a-rec-fg:#F5D77A; --a-rec-ic:#D4A72C;
+  --a-bad:#DC2626; --a-bad-soft:#2A1010; --a-bad-fg:#FCA5A5;
+  --a-hero:#18181B; --a-on-hero:#FAFAFA; --a-hero-2:#A1A1AA; --a-hero-line:#3F3F46;
+  --a-chip-ss-bg:#FAFAFA; --a-chip-ss-fg:#09090B; --a-chip-ap-bg:#27272A; --a-chip-ap-fg:#FAFAFA; --a-chip-ap-line:#FAFAFA;
+  --a-elev-1:0 1px 2px rgba(0,0,0,.5);
+  --a-elev-2:0 3px 8px 2px rgba(0,0,0,.5);
+  --a-silver:#3F3F46;
+}
+/* Paletas de racha (racha-flama.ts) */
+.lab [data-cat="hierro"]{--ic:#18181B;--bg:#FFFFFF;--fg:#09090B;--bd:#D4D4D8;--core:#fff;--tongue:#18181B}
+.dark .lab [data-cat="hierro"]{--ic:#FAFAFA;--bg:#18181B;--fg:#FAFAFA;--bd:#3F3F46}
+.lab [data-cat="bronce"]{--ic:#7A6338;--bg:#F5F3EC;--fg:#45371B;--bd:#A38B5D}
+.dark .lab [data-cat="bronce"]{--ic:#C4A66B;--bg:#1C1A13;--fg:#EAE0C8;--bd:#7A6338}
+.lab [data-cat="oro"]{--ic:#BE8700;--bg:#FFFDF5;--fg:#5C3F00;--bd:#C99714}
+.dark .lab [data-cat="oro"]{--ic:#FACC15;--bg:#211C06;--fg:#FEF08A;--bd:#EAB308}
+.lab [data-cat="diamante"]{--ic:#0369A1;--tongue:#0284C7;--core:#FFFFFF;--bg:#F0F9FF;--fg:#0C4A6E;--bd:#0284C7}
+.dark .lab [data-cat="diamante"]{--ic:#38BDF8;--tongue:#0284C7;--core:#F0F9FF;--bg:#0B2239;--fg:#BAE6FD;--bd:#38BDF8}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"Geist",system-ui,-apple-system,"Segoe UI",sans-serif;background:#E7E7EA;color:#09090B;font-size:14px}
+.dark body{background:#000;color:#FAFAFA}
+.f-d{font-family:"Archivo","Arial Black",system-ui,sans-serif;font-weight:800;letter-spacing:-.02em}
+.f-m{font-family:"Geist Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+
+/* ===== Chrome del laboratorio ===== */
+.bar{position:sticky;top:0;z-index:20;background:#09090B;color:#FAFAFA;padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.bar h1{font-size:15px;margin:0 8px 0 0;font-family:"Archivo","Arial Black",sans-serif;letter-spacing:-.01em}
+.seg{display:inline-flex;border:1px solid #52525B;border-radius:8px;overflow:hidden}
+.seg button{background:transparent;color:#D4D4D8;border:0;padding:8px 12px;font:600 13px inherit;cursor:pointer;min-height:36px}
+.seg button[aria-pressed=true]{background:#FAFAFA;color:#09090B}
+.btn{background:#FAFAFA;color:#09090B;border:0;border-radius:8px;padding:8px 14px;font:700 13px inherit;cursor:pointer;min-height:36px}
+.btn.ghost{background:transparent;color:#FAFAFA;border:1px solid #52525B}
+.tabs{display:flex;gap:6px;padding:12px 16px 0;flex-wrap:wrap}
+.tabs button{border:1px solid #A1A1AA;background:#fff;color:#09090B;border-radius:999px;padding:8px 14px;font:700 13px inherit;cursor:pointer;min-height:40px}
+.tabs button[aria-selected=true]{background:#09090B;color:#fff;border-color:#09090B}
+.dark .tabs button{background:#18181B;color:#FAFAFA;border-color:#3F3F46}
+.dark .tabs button[aria-selected=true]{background:#FAFAFA;color:#09090B}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;padding:16px;align-items:start}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+.stage{display:flex;gap:24px;justify-content:center;flex-wrap:wrap}
+.col{display:flex;flex-direction:column;align-items:center;gap:8px}
+.col>b{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#52525B}
+.dark .col>b{color:#A1A1AA}
+.panel{background:#fff;border:1px solid #D4D4D8;border-radius:12px;padding:14px;position:sticky;top:64px;max-height:calc(100vh - 80px);overflow:auto}
+.dark .panel{background:#18181B;border-color:#3F3F46}
+.panel h2{font-size:14px;margin:0 0 4px}
+.panel h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#52525B;margin:14px 0 6px}
+.dark .panel h3{color:#A1A1AA}
+.ctl{display:grid;grid-template-columns:1fr auto;gap:2px 8px;margin:8px 0}
+.ctl label{font-size:12.5px}
+.ctl output{font:600 12px "Geist Mono",monospace;text-align:right}
+.ctl input[type=range]{grid-column:1/3;width:100%;min-height:28px}
+.ctl select{grid-column:1/3;min-height:36px}
+.tog{display:flex;align-items:center;gap:8px;font-size:12.5px;margin:6px 0;min-height:32px}
+.hint{font-size:12px;color:#52525B;margin:6px 0}
+.dark .hint{color:#A1A1AA}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#09090B;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+
+/* ===== Teléfono 390px ===== */
+.phone{width:390px;height:780px;overflow:auto;border-radius:28px;border:8px solid #09090B;background:var(--a-bg);color:var(--a-fg);position:relative;scrollbar-width:none}
+.dark .phone{border-color:#3F3F46}
+.phone::-webkit-scrollbar{display:none}
+.scr{padding:16px 14px 28px;display:grid;gap:12px;align-content:start}
+.card{background:var(--a-surface);border:1px solid var(--a-line);border-radius:16px;box-shadow:var(--a-elev-1)}
+.lbl{font:700 10.5px "Geist Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--a-fg-3)}
+.h1{font:800 24px/1.1 "Archivo","Arial Black",sans-serif;letter-spacing:-.02em;margin:0}
+.muted{color:var(--a-fg-2)}
+.chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;border:1.5px solid var(--a-chip-ap-line);background:var(--a-chip-ap-bg);color:var(--a-chip-ap-fg);font-weight:800;letter-spacing:.05em;text-transform:uppercase;line-height:1;padding:5px 9px}
+.chip.solid{background:var(--a-chip-ss-bg);color:var(--a-chip-ss-fg)}
+.chip.mode{font-size:var(--p-chip-fs,10px)}
+.chip.mode.lo{background:var(--a-surface-2);color:var(--a-fg-2);border-color:var(--a-line)}
+.tap{min-width:48px;min-height:48px;border-radius:12px;border:1.5px solid var(--a-line-strong);background:var(--a-surface);color:var(--a-fg);font:800 22px "Archivo",sans-serif;display:inline-flex;align-items:center;justify-content:center}
+
+/* ===== Racha (RachaFlama + chip) ===== */
+.racha{display:inline-flex;align-items:center;gap:6px;padding:var(--p-racha-py,4px) calc(var(--p-racha-py,4px) + 5px);min-height:var(--p-racha-h,30px);border-radius:999px;background:var(--bg);color:var(--fg);border:1.5px solid var(--bd);box-shadow:var(--a-elev-1), 0 0 calc(var(--p-glow,0) * 0.28px) calc(var(--p-glow,0) * 0.06px) color-mix(in srgb,var(--ic) 55%,transparent);font-weight:800;letter-spacing:.04em;line-height:1;white-space:nowrap}
+.racha .sem{font-size:var(--p-sem-fs,10.5px)}
+.flama{width:var(--p-flama,16px);height:var(--p-flama,16px);color:var(--ic);overflow:visible;flex-shrink:0}
+.flama .base{transform-box:fill-box;transform-origin:50% 100%}
+.flama .flick{animation:flick var(--d,2.6s) ease-in-out infinite}
+.flama .wave{animation:wave var(--wd,2.2s) linear infinite}
+.flama .rise{transform:translateY(var(--h,0px))}
+@keyframes flick{0%,100%{transform:scale(1,1) skewX(0)}25%{transform:scale(.985,1.035) skewX(-1.2deg)}50%{transform:scale(1.012,.98) skewX(0)}75%{transform:scale(1,1.025) skewX(1.2deg)}}
+@keyframes wave{from{transform:translateX(0)}to{transform:translateX(12px)}}
+@media(prefers-reduced-motion:reduce){.flama .flick,.flama .wave{animation:none}}
+
+.day{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 14px;min-height:64px}
+.day .n{width:40px;height:40px;border-radius:10px;background:var(--a-surface-2);display:grid;place-items:center;font:800 18px "Archivo",sans-serif}
+.day.hoy{border-color:var(--a-primary);border-width:2px}
+.est{font:700 12px "Geist Mono",monospace;color:var(--a-fg-2)}
+.hero{background:var(--a-hero);color:var(--a-on-hero);border-radius:20px;padding:16px;display:grid;gap:10px}
+.hero .lbl{color:var(--a-hero-2)}
+
+/* ===== Entrenamiento ===== */
+.serie{padding:14px;display:grid;gap:var(--p-serie-gap,12px)}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{border:1.5px solid var(--a-line-strong);border-radius:14px;padding:8px 10px;display:grid;gap:2px;position:relative}
+.field .v{font:900 40px/1 "Archivo","Arial Black",sans-serif;font-variant-numeric:tabular-nums}
+.stepper{display:flex;gap:6px;margin-top:4px}
+.stepper .tap{flex:1;min-height:48px;font-size:20px}
+.rpe-old{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
+.rpe-old button{min-height:34px;border:1px solid var(--a-line-strong);border-radius:6px;background:var(--a-surface);color:var(--a-fg);font:800 13px "Archivo",sans-serif;padding:0}
+.rpe-new{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.rpe-new button{display:flex;align-items:center;gap:8px;text-align:left;min-height:var(--p-rpe-h,48px);border:1.5px solid var(--a-line);border-radius:10px;background:var(--a-surface);color:var(--a-fg);padding:0 8px;cursor:pointer}
+.rpe-new b{font:900 18px "Archivo",sans-serif;min-width:22px;text-align:center}
+.rpe-new span{font-size:var(--p-rpe-fs,12px);line-height:1.15;color:var(--a-fg-2)}
+.rpe-new button[aria-pressed=true],.rpe-old button[aria-pressed=true]{background:var(--a-primary);color:var(--a-on-primary);border-color:var(--a-primary)}
+.rpe-new button[aria-pressed=true] span{color:var(--a-on-primary)}
+.sug{background:var(--a-rec-bg);color:var(--a-rec-fg);border:1.5px solid var(--a-rec-ic);border-radius:12px;padding:10px 12px;display:grid;gap:6px}
+.sug button{min-height:48px;border-radius:10px;border:0;background:var(--a-rec-ic);color:#fff;font:800 14px "Archivo",sans-serif}
+.dark .sug button{color:#09090B}
+.copied{display:inline-flex;gap:4px;align-items:center;font:700 11px "Geist Mono",monospace;color:var(--a-ok-fg);background:var(--a-ok-bg);border-radius:999px;padding:3px 8px;animation:cp 2.4s ease forwards}
+@keyframes cp{0%{opacity:0;transform:translateY(3px)}12%{opacity:1;transform:none}80%{opacity:1}100%{opacity:.0}}
+.done{min-height:56px;border-radius:14px;border:0;background:var(--a-ok-ic);color:#fff;font:900 16px "Archivo",sans-serif;letter-spacing:.03em}
+
+/* ===== Historial ===== */
+.ses{padding:var(--p-h-pad,12px);display:grid;gap:8px}
+.ses .top{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
+.datebox{width:var(--p-h-date,44px);height:var(--p-h-date,44px);border-radius:10px;background:var(--a-surface-2);display:grid;place-items:center;text-align:center;line-height:1}
+.datebox b{font:900 calc(var(--p-h-date,44px) * .42) "Archivo",sans-serif}
+.datebox i{font:700 9.5px "Geist Mono",monospace;font-style:normal;text-transform:uppercase;color:var(--a-fg-2)}
+.srow{display:grid;grid-template-columns:28px 1fr auto;align-items:center;min-height:var(--p-h-row,28px);font-size:13px;border-top:1px dashed var(--a-line)}
+.clases{display:grid;gap:8px;margin-top:var(--p-h-clases,12px)}
+.clase{padding:var(--p-h-pad,12px);display:grid;gap:6px;border-left:4px solid var(--a-ok-ic)}
+.nota{font-size:12.5px;color:var(--a-fg-2);border-left:2px solid var(--a-line-strong);padding-left:8px}
+
+/* ===== Progreso ===== */
+.cumpl-n{font:900 var(--p-c-fs,44px)/1 "Archivo","Arial Black",sans-serif;font-variant-numeric:tabular-nums}
+.bar-t{height:10px;border-radius:999px;background:var(--a-hero-line);overflow:hidden}
+.bar-t i{display:block;height:100%;background:var(--a-ok-ic)}
+.ring{width:calc(var(--p-c-fs,44px) * 2);height:calc(var(--p-c-fs,44px) * 2)}
+.seg2{display:inline-flex;border:1.5px solid var(--a-line-strong);border-radius:10px;overflow:hidden}
+.seg2 button{min-height:44px;min-width:56px;border:0;background:var(--a-surface);color:var(--a-fg);font:800 14px "Archivo",sans-serif;padding:0 14px}
+.seg2 button[aria-pressed=true]{background:var(--a-primary);color:var(--a-on-primary)}
+select.ex{min-height:48px;border-radius:12px;border:1.5px solid var(--a-line-strong);background:var(--a-surface);color:var(--a-fg);font:700 15px inherit;padding:0 10px;width:100%}
+.podio{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:end}
+.pod{border-radius:12px 12px 4px 4px;border:1px solid var(--a-line);background:var(--a-surface-2);padding:8px 6px;text-align:center;display:grid;gap:2px;align-content:start}
+.pod.p1{background:var(--a-primary);color:var(--a-on-primary)}
+.pod .pos{font:900 20px "Archivo",sans-serif}
+.pod .nm{font-weight:800;font-size:13px}
+.pod .mk{font:700 12px "Geist Mono",monospace}
+.rk{display:grid;grid-template-columns:var(--p-badge,28px) 1fr auto auto;gap:8px;align-items:center;min-height:var(--p-rk-h,48px);padding:0 10px;border-top:1px solid var(--a-line)}
+.rk .bd{width:var(--p-badge,28px);height:var(--p-badge,28px);border-radius:999px;background:var(--a-surface-2);display:grid;place-items:center;font:800 12px "Geist Mono",monospace}
+.rk.yo{background:var(--a-primary);color:var(--a-on-primary);border-radius:10px;border-top-color:transparent}
+.rk.yo .bd{background:var(--a-on-primary);color:var(--a-primary)}
+.rk small{display:block;font-size:11px;opacity:.75}
+.rk .mk{font:700 12.5px "Geist Mono",monospace;text-align:right}
+.ghosted{border:2px dashed var(--a-line-strong);border-radius:14px;padding:14px;color:var(--a-fg-2);font-size:13px}
+.priv{font-size:11.5px;color:var(--a-fg-2)}
+</style>
+</head>
+<body>
+<div class="lab" id="lab">
+  <div class="bar">
+    <h1>Laboratorio UX · Athlete App <span style="opacity:.6;font-weight:500">U1 · GOZS-828</span></h1>
+    <div class="seg" role="group" aria-label="Comparación" id="segMode">
+      <button data-mode="before">Antes</button><button data-mode="after">Después</button><button data-mode="both">Lado a lado</button>
+    </div>
+    <div class="seg" role="group" aria-label="Tema" id="segTheme">
+      <button data-theme="day">☀ Día</button><button data-theme="night">☾ Noche</button>
+    </div>
+    <button class="btn ghost" id="btnReset">Resetear valores recomendados</button>
+    <button class="btn" id="btnExport">Exportar JSON</button>
+  </div>
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div class="layout">
+    <div class="stage" id="stage"></div>
+    <aside class="panel" id="panel"></aside>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   1. PARÁMETROS — antes (estado actual v7) y recomendado (después)
+   ============================================================ */
+var SCHEMA = [
+  { scene:"inicio", title:"Inicio / Mis Días", params:[
+    { k:"flamaPx",     label:"Tamaño SVG llama",            unit:"px", min:16, max:36, step:1,   before:16,   rec:26,  v:"--p-flama" },
+    { k:"chipPadY",    label:"Padding vertical chip racha", unit:"px", min:4,  max:12, step:1,   before:4,    rec:6,   v:"--p-racha-py" },
+    { k:"chipMinH",    label:"Alto mínimo chip racha",      unit:"px", min:30, max:56, step:1,   before:30,   rec:44,  v:"--p-racha-h" },
+    { k:"semanasFs",   label:"Tamaño texto N SEM",          unit:"px", min:10, max:18, step:0.5, before:10.5, rec:14,  v:"--p-sem-fs" },
+    { k:"glow",        label:"Intensidad de glow",          unit:"%",  min:0,  max:100,step:5,   before:0,    rec:35,  v:"--p-glow" }
+  ]},
+  { scene:"entrenamiento", title:"Entrenamiento en vivo", params:[
+    { k:"chipFs",      label:"Tamaño chips especiales",     unit:"px", min:9,  max:14, step:0.5, before:10,   rec:11.5,v:"--p-chip-fs" },
+    { k:"chipContraste",label:"Contraste chips (0 suave · 100 sólido)", unit:"%", min:0, max:100, step:10, before:0, rec:100, v:null },
+    { k:"rpeFilaH",    label:"Alto de fila RPE",            unit:"px", min:40, max:64, step:2,   before:34,   rec:48,  v:"--p-rpe-h" },
+    { k:"rpeTextoFs",  label:"Tamaño texto corto RPE",      unit:"px", min:10, max:15, step:0.5, before:12,   rec:12.5,v:"--p-rpe-fs" },
+    { k:"serieGap",    label:"Espaciado vertical tarjeta",  unit:"px", min:8,  max:24, step:1,   before:12,   rec:14,  v:"--p-serie-gap" }
+  ]},
+  { scene:"historial", title:"Historial compacto + Clases", params:[
+    { k:"cardPad",     label:"Padding tarjetas",            unit:"px", min:8,  max:20, step:1,   before:18,   rec:12,  v:"--p-h-pad" },
+    { k:"fechaPx",     label:"Bloque fecha (día/mes)",      unit:"px", min:36, max:60, step:1,   before:52,   rec:44,  v:"--p-h-date" },
+    { k:"filaSerieH",  label:"Alto fila de series",         unit:"px", min:24, max:40, step:1,   before:38,   rec:28,  v:"--p-h-row" },
+    { k:"clasesGap",   label:"Separación bloque Clases",    unit:"px", min:6,  max:24, step:1,   before:12,   rec:14,  v:"--p-h-clases" }
+  ]},
+  { scene:"progreso", title:"Mi Progreso + Funcional", params:[
+    { k:"cumplFs",     label:"Escala % cumplimiento",       unit:"px", min:28, max:64, step:1,   before:28,   rec:48,  v:"--p-c-fs" },
+    { k:"rankFilaH",   label:"Alto fila ranking",           unit:"px", min:40, max:64, step:2,   before:48,   rec:48,  v:"--p-rk-h" },
+    { k:"podioH",      label:"Altura podio Top 3 (1°)",     unit:"px", min:60, max:120,step:4,   before:84,   rec:96,  v:null },
+    { k:"badgePx",     label:"Badge de posición",           unit:"px", min:22, max:36, step:1,   before:28,   rec:30,  v:"--p-badge" }
+  ]}
+];
+var CHOICES = { // selectores exportables (no sliders)
+  cumplEstilo: { label:"Estilo indicador % cumplimiento", opts:["barra","anillo","numero"], rec:"barra" }
+};
+var SCENE_LABELS = { inicio:"1 · Inicio", entrenamiento:"2 · Entrenamiento", historial:"3 · Historial", progreso:"4 · Mi Progreso" };
+
+var state = {
+  mode:"both", theme:"day", scene:"inicio",
+  values:{}, choices:{ cumplEstilo:"barra" },
+  prev:{ racha:"oro", chips:{ fallo:true, superserie:false, dropset:false, porlado:false, tiempo:false }, rpe:8, ejercicio:"sentadilla", cat:"M", copiaTick:0 }
+};
+function resetValues(){
+  SCHEMA.forEach(function(s){ s.params.forEach(function(p){ state.values[p.k]=p.rec; }); });
+  state.choices.cumplEstilo = CHOICES.cumplEstilo.rec;
+}
+resetValues();
+// Deep-link opcional: #scene=progreso&mode=after&theme=night
+location.hash.slice(1).split("&").forEach(function(kv){ var a=kv.split("="); if(a[0]==="scene"&&SCENE_LABELS[a[1]]) state.scene=a[1]; if(a[0]==="mode") state.mode=a[1]; if(a[0]==="theme") state.theme=a[1]; });
+
+/* ============================================================
+   2. RachaFlama — SVG real (paths de src/lib/racha-flama.ts)
+   ============================================================ */
+var P = {
+  OUTER:"M12 2.5C12.8 5.5 15 7.2 16.6 9.4C18 11.3 18.8 13.2 18.8 15.2C18.8 19 15.8 21.5 12 21.5C8.2 21.5 5.2 19 5.2 15.2C5.2 12.6 6.5 10.6 8 9.2C8.2 10.8 9 12 10.2 12.6C10 9.2 10.8 5.4 12 2.5Z",
+  CORE:"M12 11.6C13.2 13.3 14.5 14.7 14.5 16.7C14.5 18.3 13.4 19.5 12 19.5C10.6 19.5 9.5 18.3 9.5 16.7C9.5 14.7 10.8 13.3 12 11.6Z",
+  TL:"M10.2 20.9C6.2 20.8 3.1 18.6 2.8 15.4C2.6 12.8 3.6 10.6 4.7 9.1C5.2 10.8 6.4 12.0 8.8 13.4L10.2 20.9Z",
+  TR:"M13.8 20.9C17.8 20.8 20.9 18.6 21.2 15.4C21.4 12.9 20.4 10.9 19.3 9.5C18.8 11.1 17.6 12.2 15.2 13.5L13.8 20.9Z",
+  WAVE:"M-12 3q1.5-1.6 3 0t3 0t3 0t3 0t3 0t3 0t3 0t3 0t3 0t3 0t3 0t3 0V30H-12Z"
+};
+// Muestras representativas por categoría (semanas, % llenado, barritas activas)
+var RACHAS = {
+  hierro:{ sem:2, pct:40, bars:2, label:"Hierro" },
+  bronce:{ sem:8, pct:55, bars:3, label:"Bronce" },
+  oro:{ sem:24, pct:80, bars:4, label:"Oro" },
+  diamante:{ sem:52, pct:100, bars:0, label:"Diamante" }
+};
+var uidN = 0;
+function fillY(p){ return p>=100?-2.0:(p<=0?19.0:+(21.5-(p/100)*19.0-3).toFixed(2)); }
+function bars(active){
+  var s="";
+  for(var i=0;i<4;i++){
+    var on=i<active, x=2+i*5.25, beat=on&&i===active-1&&active>1;
+    s+='<rect x="'+x+'" y="20.4" width="4.25" height="2.4" rx="1.2" fill="currentColor"'+(on?'':' opacity=".25"')+'>'+
+      (beat?'<animate attributeName="height" values="2.4;3.7;2.4" dur="1.8s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.4 0 0.2 1;0.4 0 0.2 1"/>'+
+            '<animate attributeName="y" values="20.4;19.75;20.4" dur="1.8s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.4 0 0.2 1;0.4 0 0.2 1"/>':'')+'</rect>';
+  }
+  return s;
+}
+function flamaSVG(cat){
+  var r=RACHAS[cat], id="rf"+(++uidN), y=fillY(r.pct);
+  if(cat==="diamante"){
+    return '<svg class="flama" viewBox="0 0 24 24" fill="none" aria-hidden="true">'+
+      '<g class="base flick" style="--d:2.2s"><path d="'+P.TL+'" fill="var(--tongue)"/><path d="'+P.TR+'" fill="var(--tongue)"/>'+
+      '<path d="'+P.OUTER+'" fill="currentColor"/><path d="'+P.CORE+'" fill="var(--core)" opacity=".92"/></g></svg>';
+  }
+  return '<svg class="flama" viewBox="0 0 24 24" fill="none" aria-hidden="true"><g transform="translate(12 2) scale(.84) translate(-12 -2)">'+
+    '<g class="base flick" style="--d:2.6s"><defs><clipPath id="'+id+'"><path d="'+P.OUTER+'"/></clipPath></defs>'+
+    '<path d="'+P.OUTER+'" stroke="currentColor" stroke-width="1.65" stroke-linejoin="round"/>'+
+    '<g clip-path="url(#'+id+')"><g class="rise" style="--h:'+y+'px"><path class="wave" style="--wd:2.2s" d="'+P.WAVE+'" fill="currentColor"/></g></g></g></g>'+
+    bars(r.bars)+'</svg>';
+}
+function rachaChip(cat){
+  var r=RACHAS[cat];
+  return '<span class="racha" data-cat="'+cat+'" title="Racha '+r.label+'">'+flamaSVG(cat)+'<span class="sem">'+r.sem+' SEM</span></span>';
+}
+
+/* ============================================================
+   3. ESCENAS — cada una devuelve HTML según modo antes/después
+   ============================================================ */
+function sceneInicio(m){
+  var after=m==="after", st=state.prev;
+  var dias=[["1","Empuje · Pecho y hombros","6 ejercicios","~58 min",true],["2","Tirón · Espalda y bíceps","5 ejercicios","~49 min",false],["3","Piernas · Cuádriceps","6 ejercicios","~64 min",false]];
+  var cats=Object.keys(RACHAS).map(function(c){ return '<span class="chip" style="display:none">'+c+'</span>'; }).join("");
+  return '<div class="scr">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'+
+      '<div><div class="lbl">Semana 3 · Bloque Fuerza</div><h1 class="h1">Hola, Lucas</h1></div>'+
+      '<div style="flex-shrink:0">'+rachaChip(st.racha)+'</div></div>'+
+    '<div class="hero"><div class="lbl">Hoy toca</div><div class="h1" style="font-size:22px">Día 1 · Empuje</div>'+
+      '<div class="muted" style="color:var(--a-hero-2);font-size:13px">6 ejercicios'+(after?' · ~58 min':'')+'</div>'+
+      '<button class="tap" style="background:var(--a-on-hero);color:var(--a-hero);border:0;font-size:16px;width:100%">EMPEZAR ENTRENAMIENTO</button></div>'+
+    '<div class="lbl">Mis días</div>'+
+    dias.map(function(d){
+      return '<div class="card day'+(d[4]?' hoy':'')+'"><div class="n">'+d[0]+'</div><div><div style="font-weight:800">'+d[1]+'</div>'+
+        '<div class="muted" style="font-size:12.5px">'+d[2]+'</div></div>'+(after?'<div class="est">'+d[3]+'</div>':'<div class="est" style="opacity:.0">·</div>')+'</div>';
+    }).join("")+
+    '</div>';
+}
+
+var CHIPS=[["fallo","AL FALLO","solid"],["superserie","Superserie","solid"],["dropset","Drop set",""],["porlado","Por lado",""],["tiempo","Tiempo",""]];
+var RPE_TXT={1:"Muy fácil",2:"Fácil",3:"Liviano",4:"Cómodo",5:"Se siente, sobra",6:"Exigente · 4 más",7:"Pesado · 3 más",8:"Muy pesado · 2 más",9:"Al límite · 1 más",10:"Máximo, no sale otra"};
+function chipHtml(c,solid){ return '<span class="chip mode'+(solid?' solid':' lo')+'">'+c[1]+'</span>'; }
+function sceneEntreno(m){
+  var after=m==="after", st=state.prev, sel=st.rpe;
+  var contraste=state.values.chipContraste; if(!after) contraste=0;
+  var activos=CHIPS.filter(function(c){ return st.chips[c[0]]; });
+  var chips=activos.map(function(c){ return '<span class="chip mode'+(contraste>=50?' solid':' lo')+'">'+c[1]+'</span>'; }).join(" ");
+  var head='<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">'+
+    '<div><div class="lbl">Press banca · Serie 2 de 4</div></div>'+
+    (after?'':'<span class="chip" style="font-size:10px">OBJ. 8</span>')+'</div>'+
+    (chips?'<div style="display:flex;gap:6px;flex-wrap:wrap">'+chips+'</div>':'');
+  var rpe;
+  if(after){
+    rpe='<div class="rpe-new">'+[1,2,3,4,5,6,7,8,9,10].map(function(n){
+      return '<button data-rpe="'+n+'" aria-pressed="'+(n===sel)+'"><b>'+n+'</b><span>'+RPE_TXT[n]+'</span></button>'; }).join("")+'</div>';
+  } else {
+    rpe='<div class="rpe-old">'+[1,2,3,4,5,6,7,8,9,10].map(function(n){
+      return '<button data-rpe="'+n+'" aria-pressed="'+(n===sel)+'">'+n+'</button>'; }).join("")+'</div>';
+  }
+  var sug=after?'<div class="sug"><div class="lbl" style="color:inherit">Sugerencia de carga · 3 semanas de historial</div>'+
+    '<div style="font-weight:800;font-size:15px">82,5 kg × 8 <span style="font-weight:600">· subí 2,5 kg</span></div>'+
+    '<div style="font-size:12px">Las últimas 3 semanas cerraste 80 kg × 8 con RPE ≤ 8.</div>'+
+    '<button type="button">USAR 82,5 KG</button></div>':'';
+  var copy=after?'<span class="copied" data-t="'+st.copiaTick+'">↺ copiado de la serie 1</span>':'';
+  return '<div class="scr"><div class="card serie">'+head+
+    '<div class="fields"><div class="field"><span class="lbl">Peso (kg)</span><span class="v">80</span>'+
+      '<div class="stepper"><button class="tap">−</button><button class="tap">+</button></div></div>'+
+    '<div class="field"><span class="lbl">Reps</span><span class="v">8</span>'+
+      '<div class="stepper"><button class="tap">−</button><button class="tap">+</button></div></div></div>'+
+    '<div style="min-height:20px">'+copy+'</div>'+sug+
+    '<div class="lbl">Tu RPE (1–10)'+(after?' · elegí cómo se sintió':'')+'</div>'+rpe+
+    '<button class="done">SERIE COMPLETADA ✓</button></div></div>';
+}
+
+function sceneHistorial(m){
+  var after=m==="after";
+  var ses=[["24","NOV","Empuje · Pecho y hombros","6.420 kg","1h 02",[["1","Press banca","80 × 8 · RPE 8"],["2","Press inclinado","28 × 10 · RPE 7"],["3","Fondos","BW × 12 · RPE 8"]]],
+           ["21","NOV","Piernas · Cuádriceps","9.850 kg","1h 11",[["1","Sentadilla","110 × 5 · RPE 8"],["2","Prensa","200 × 10 · RPE 7"],["3","Curl femoral","45 × 12 · RPE 9"]]]];
+  var h=ses.map(function(s){
+    return '<div class="card ses"><div class="top"><div class="datebox"><div><b>'+s[0]+'</b><br><i>'+s[1]+'</i></div></div>'+
+      '<div><div style="font-weight:800">'+s[2]+'</div><div class="muted f-m" style="font-size:12px">'+s[3]+' · '+s[4]+'</div></div><span class="muted">▾</span></div>'+
+      s[5].map(function(r){ return '<div class="srow"><span class="f-m muted">'+r[0]+'</span><span>'+r[1]+'</span><span class="f-m">'+r[2]+'</span></div>'; }).join("")+'</div>';
+  }).join("");
+  var clases=after?'<div class="clases"><div class="lbl">Clases asistidas</div>'+
+    [["Funcional","Mar 25 NOV · 19:00","Bien","Buen ritmo, cuidá la técnica del swing."],["Funcional","Jue 20 NOV · 19:00","Cansado","Sin nota del coach."]].map(function(c){
+      return '<div class="card clase"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><div><div style="font-weight:800">'+c[0]+'</div>'+
+        '<div class="muted f-m" style="font-size:12px">'+c[1]+'</div></div><span class="chip" style="font-size:10.5px">'+c[2]+'</span></div>'+
+        '<div class="nota">'+c[3]+'</div></div>'; }).join("")+'</div>':'';
+  return '<div class="scr"><div><div class="lbl">Historial</div><h1 class="h1">Mis sesiones</h1></div>'+h+clases+'</div>';
+}
+
+var RANK={
+  sentadilla:{M:[["Lucas G.",140,3,1.75],["Mateo R.",135,3,1.69],["Tomás P.",130,5,1.62],["Joaquín S.",120,5,1.50],["Vos",115,5,1.44],["Nico F.",110,6,1.38]],
+              F:[["Martina R.",100,3,1.67],["Sofía L.",95,5,1.58],["Cami D.",90,5,1.50],["Vos",80,6,1.33],["Abril T.",75,8,1.25]]},
+  press:{M:[["Mateo R.",100,3,1.25],["Lucas G.",95,5,1.19],["Tomás P.",90,5,1.13],["Joaquín S.",85,6,1.06],["Vos",80,8,1.00],["Nico F.",75,8,0.94]],
+         F:[["Sofía L.",60,5,1.00],["Martina R.",55,5,0.92],["Cami D.",50,8,0.83],["Vos",45,8,0.75],["Abril T.",40,8,0.67]]},
+  muerto:{M:[["Lucas G.",180,3,2.25],["Tomás P.",170,3,2.13],["Mateo R.",165,5,2.06],["Nico F.",150,5,1.88],["Vos",140,5,1.75],["Joaquín S.",135,6,1.69]],
+          F:[["Martina R.",120,3,2.00],["Cami D.",115,5,1.92],["Sofía L.",110,5,1.83],["Vos",95,5,1.58],["Abril T.",90,8,1.50]]}
+};
+var EJ={sentadilla:"Sentadilla",press:"Press banca",muerto:"Peso muerto"};
+function ringSVG(p){
+  var r=40,c=2*Math.PI*r;
+  return '<svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="'+r+'" fill="none" stroke="var(--a-hero-line)" stroke-width="12"/>'+
+    '<circle cx="50" cy="50" r="'+r+'" fill="none" stroke="var(--a-ok-ic)" stroke-width="12" stroke-linecap="round" stroke-dasharray="'+(c*p/100)+' '+c+'" transform="rotate(-90 50 50)"/></svg>';
+}
+function sceneProgreso(m){
+  var after=m==="after", st=state.prev, est=state.choices.cumplEstilo, pct=83;
+  var hero;
+  if(!after){
+    hero='<div class="hero"><div class="lbl">Volumen del mes</div><div style="font:900 28px/1 Archivo,sans-serif">48.200 kg</div>'+
+      '<div style="color:var(--a-hero-2);font-size:13px">+6% vs. mes anterior</div></div>';
+  } else {
+    var ind = est==="anillo" ? '<div style="display:flex;align-items:center;gap:14px">'+ringSVG(pct)+'<div><div class="cumpl-n">'+pct+'%</div><div style="color:var(--a-hero-2);font-size:13px">10 de 12 sesiones</div></div></div>'
+      : est==="numero" ? '<div class="cumpl-n">'+pct+'%</div><div style="color:var(--a-hero-2);font-size:13px">10 de 12 sesiones</div>'
+      : '<div class="cumpl-n">'+pct+'%</div><div class="bar-t"><i style="width:'+pct+'%"></i></div><div style="color:var(--a-hero-2);font-size:13px">10 de 12 sesiones</div>';
+    hero='<div class="hero"><div class="lbl">Cumplimiento del plan · mes</div>'+ind+'</div>';
+  }
+  var func;
+  if(!after){
+    func='<div class="ghosted"><b>Funcional hoy:</b> sin ranking ni progreso propio por ejercicio. Las marcas no se muestran al alumno.</div>';
+  } else {
+    var rows=RANK[st.ejercicio][st.cat];
+    var top=rows.slice(0,3), rest=rows.slice(3);
+    var hs=[state.values.podioH, state.values.podioH*0.82, state.values.podioH*0.68];
+    var order=[1,0,2]; // 2°, 1°, 3°
+    var podio='<div class="podio">'+order.map(function(i){
+      var r=top[i]; if(!r) return '<div></div>';
+      var yo=r[0]==="Vos";
+      return '<div class="pod p'+(i+1)+'" style="min-height:'+hs[i].toFixed(0)+'px'+(yo?';outline:2px solid var(--a-ok-ic)':'')+'"><span class="pos">#'+(i+1)+'</span><span class="nm">'+r[0]+'</span>'+
+        '<span class="mk">'+r[1]+' × '+r[2]+'</span><span class="mk" style="opacity:.75">x'+r[3].toFixed(2)+'</span></div>'; }).join("")+'</div>';
+    var tabla=rest.map(function(r,i){
+      var yo=r[0]==="Vos", pos=i+4;
+      return '<div class="rk'+(yo?' yo':'')+'"><span class="bd">#'+pos+'</span><span style="font-weight:800">'+r[0]+'<small>'+st.cat+'</small></span>'+
+        '<span class="mk">'+r[1]+' × '+r[2]+'</span><span class="mk" style="min-width:42px">x'+r[3].toFixed(2)+'</span></div>'; }).join("");
+    func='<div class="lbl">Funcional · Mi progreso y ranking</div>'+
+      '<select class="ex" data-ex>'+Object.keys(EJ).map(function(k){ return '<option value="'+k+'"'+(k===st.ejercicio?' selected':'')+'>'+EJ[k]+'</option>'; }).join("")+'</select>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center"><div class="seg2" role="group">'+
+        '<button data-cat="M" aria-pressed="'+(st.cat==="M")+'">M</button><button data-cat="F" aria-pressed="'+(st.cat==="F")+'">F</button></div>'+
+        '<span class="priv">Nombre I. · sin peso corporal</span></div>'+
+      podio+'<div class="card" style="padding:4px 0">'+tabla+'</div>';
+  }
+  return '<div class="scr"><div><div class="lbl">Mi progreso</div><h1 class="h1">Noviembre 2026</h1></div>'+hero+func+'</div>';
+}
+var SCENES={inicio:sceneInicio,entrenamiento:sceneEntreno,historial:sceneHistorial,progreso:sceneProgreso};
+
+/* ============================================================
+   4. Render / eventos
+   ============================================================ */
+function $(s,r){ return (r||document).querySelector(s); }
+function applyVars(el,which){
+  SCHEMA.forEach(function(s){ s.params.forEach(function(p){
+    if(!p.v) return;
+    var val = which==="before" ? p.before : state.values[p.k];
+    var unit = p.v==="--p-glow" ? "" : (p.unit==="px"?"px":"");
+    el.style.setProperty(p.v, val+unit);
+  }); });
+}
+function render(){
+  document.documentElement.classList.toggle("dark",state.theme==="night");
+  document.querySelectorAll("#segMode button").forEach(function(b){ b.setAttribute("aria-pressed",b.dataset.mode===state.mode); });
+  document.querySelectorAll("#segTheme button").forEach(function(b){ b.setAttribute("aria-pressed",(b.dataset.theme==="night")===(state.theme==="night")); });
+  $("#tabs").innerHTML=Object.keys(SCENE_LABELS).map(function(k){ return '<button role="tab" data-scene="'+k+'" aria-selected="'+(k===state.scene)+'">'+SCENE_LABELS[k]+'</button>'; }).join("");
+  var modes=state.mode==="both"?["before","after"]:[state.mode];
+  $("#stage").innerHTML=modes.map(function(m){
+    return '<div class="col"><b>'+(m==="before"?"Antes · hoy":"Después · propuesta")+'</b><div class="phone" data-m="'+m+'">'+SCENES[state.scene](m)+'</div></div>'; }).join("");
+  document.querySelectorAll(".phone").forEach(function(p){ applyVars(p,p.dataset.m); });
+  renderPanel();
+}
+function sceneParams(){ return SCHEMA.filter(function(s){ return s.scene===state.scene; })[0]; }
+function renderPanel(){
+  var sc=sceneParams(), pr=state.prev, h='<h2>'+sc.title+'</h2><div class="hint">Los sliders mueven solo el panel «Después». «Antes» queda fijo con el estado actual.</div><h3>Parámetros</h3>';
+  sc.params.forEach(function(p){
+    h+='<div class="ctl"><label for="p_'+p.k+'">'+p.label+'</label><output id="o_'+p.k+'">'+state.values[p.k]+p.unit+'</output>'+
+      '<input type="range" id="p_'+p.k+'" data-k="'+p.k+'" min="'+p.min+'" max="'+p.max+'" step="'+p.step+'" value="'+state.values[p.k]+'"></div>';
+  });
+  h+='<h3>Vista previa (no se exporta)</h3>';
+  if(state.scene==="inicio"){
+    h+='<div class="ctl"><label for="selRacha">Categoría de racha</label><select id="selRacha">'+Object.keys(RACHAS).map(function(c){
+      return '<option value="'+c+'"'+(c===pr.racha?' selected':'')+'>'+RACHAS[c].label+' · '+RACHAS[c].sem+' sem</option>'; }).join("")+'</select></div>';
+  }
+  if(state.scene==="entrenamiento"){
+    CHIPS.forEach(function(c){ h+='<label class="tog"><input type="checkbox" data-chip="'+c[0]+'"'+(pr.chips[c[0]]?' checked':'')+'> '+c[1]+'</label>'; });
+    h+='<button class="btn" style="background:#09090B;color:#fff;margin-top:6px" id="btnCopia">↺ Repetir micro-feedback de auto-copia</button>';
+  }
+  if(state.scene==="progreso"){
+    h+='<h3>Estilo (se exporta)</h3><div class="ctl"><label for="selEstilo">'+CHOICES.cumplEstilo.label+'</label><select id="selEstilo">'+CHOICES.cumplEstilo.opts.map(function(o){
+      return '<option'+(o===state.choices.cumplEstilo?' selected':'')+'>'+o+'</option>'; }).join("")+'</select></div>';
+  }
+  h+='<h3>Decisiones cerradas</h3><div class="hint">Llama SVG actual, agrandada · sin <code>OBJ.</code> · ranking solo «Nombre I.», categoría, kg × reps, ratio y #pos.</div>';
+  $("#panel").innerHTML=h;
+}
+function exportObj(){
+  var o={ schema:"athlete-ux-ajustes/v1", origen:"docs/prototypes/athlete-ux-ajustes-lab.html", destino:"src/app/(athlete)/athlete/athlete-v7.css",
+    decisiones:{ rachaFlama:"mantener-svg-actual-agrandado", objetivoEnSerie:"quitar", etiquetasModo:["AL FALLO","Superserie","Drop set","Por lado","Tiempo"], rankingPrivacidad:"Nombre I. + categoria + kg x reps + ratio + posicion; sin peso corporal ni PII" },
+    parametros:{} };
+  SCHEMA.forEach(function(s){
+    var sc={}; s.params.forEach(function(p){ sc[p.k]={ valor:Number(state.values[p.k]), unidad:p.unit, antes:p.before, cssVar:p.v }; });
+    o.parametros[s.scene]=sc;
+  });
+  o.parametros.progreso.cumplEstilo={ valor:state.choices.cumplEstilo };
+  return o;
+}
+function toast(t){ var e=$("#toast"); e.textContent=t; e.classList.add("on"); setTimeout(function(){ e.classList.remove("on"); },2200); }
+
+document.addEventListener("click",function(e){
+  var t=e.target.closest("button,select,input"); if(!t) return;
+  if(t.closest("#segMode")){ state.mode=t.dataset.mode; render(); }
+  else if(t.closest("#segTheme")){ state.theme=t.dataset.theme; render(); }
+  else if(t.dataset.scene){ state.scene=t.dataset.scene; render(); }
+  else if(t.id==="btnReset"){ resetValues(); render(); toast("Valores recomendados restaurados"); }
+  else if(t.id==="btnExport"){
+    var txt=JSON.stringify(exportObj(),null,2);
+    var done=function(){ toast("JSON copiado y descargado"); };
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done,function(){ toast("Descargado (portapapeles bloqueado)"); }); } else { toast("Descargado"); }
+    var a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([txt],{type:"application/json"})); a.download="athlete-ux-ajustes-params.json"; document.body.appendChild(a); a.click(); a.remove();
+  }
+  else if(t.dataset.rpe){ state.prev.rpe=+t.dataset.rpe; render(); }
+  else if(t.dataset.cat&&t.closest(".seg2")){ state.prev.cat=t.dataset.cat; render(); }
+  else if(t.id==="btnCopia"){ state.prev.copiaTick++; render(); }
+});
+document.addEventListener("input",function(e){
+  var t=e.target;
+  if(t.dataset&&t.dataset.k){
+    state.values[t.dataset.k]=+t.value;
+    var p=null; SCHEMA.forEach(function(s){ s.params.forEach(function(q){ if(q.k===t.dataset.k) p=q; }); });
+    $("#o_"+t.dataset.k).textContent=t.value+p.unit;
+    document.querySelectorAll('.phone[data-m="after"]').forEach(function(ph){ applyVars(ph,"after"); });
+    if(p.k==="chipContraste"||p.k==="podioH") render_keepPanel();
+  }
+});
+function render_keepPanel(){ // escenas que dependen del valor en el markup: re-render sin tocar el panel
+  var y=document.querySelectorAll(".phone"); var sc=document.querySelectorAll(".phone");
+  sc.forEach(function(p){ var sTop=p.scrollTop; p.innerHTML=SCENES[state.scene](p.dataset.m); p.scrollTop=sTop; applyVars(p,p.dataset.m); });
+}
+document.addEventListener("change",function(e){
+  var t=e.target;
+  if(t.id==="selRacha"){ state.prev.racha=t.value; render(); }
+  else if(t.id==="selEstilo"){ state.choices.cumplEstilo=t.value; render(); }
+  else if(t.dataset&&t.dataset.chip){ state.prev.chips[t.dataset.chip]=t.checked; render_keepPanel(); }
+  else if(t.dataset&&t.dataset.ex!==undefined){ state.prev.ejercicio=t.value; render(); }
+});
+render();
+</script>
+</body>
+</html>
