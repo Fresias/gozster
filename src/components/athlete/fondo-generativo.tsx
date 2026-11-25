@@ -3,7 +3,7 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { useAthleteStore } from "@/store/use-athlete-store";
-import { FONDO_BASE, fondoValue, leerSemilla } from "@/lib/athlete/fondo";
+import { deformedGridSvg, leerSemilla } from "@/lib/athlete/fondo";
 
 /** Lienzo liso en el ejercicio, el onboarding de nombre y el cuestionario (01 §10). */
 export function fondoEsLiso(params: {
@@ -18,7 +18,7 @@ export function fondoEsLiso(params: {
 }
 
 /**
- * Malla asimétrica estática. La semilla se elige una vez por visita (sessionStorage);
+ * Deformed Grid Mesh II (SVG inline). La semilla se elige una vez por visita (sessionStorage);
  * se calcula por (tema, semilla), sin animación ni repintado al navegar.
  * Dos capas (claro/oscuro) conmutadas por la clase `.dark`, sin depender de JS para el tema.
  */
@@ -37,11 +37,11 @@ export function FondoGenerativo() {
   }, []);
 
   const claro = React.useMemo(
-    () => (semilla === null ? "" : fondoValue(false, semilla, FONDO_BASE.claro)),
+    () => (semilla === null ? "" : deformedGridSvg(false, semilla, `m3m-l-${semilla}`)),
     [semilla],
   );
   const oscuro = React.useMemo(
-    () => (semilla === null ? "" : fondoValue(true, semilla, FONDO_BASE.oscuro)),
+    () => (semilla === null ? "" : deformedGridSvg(true, semilla, `m3m-d-${semilla}`)),
     [semilla],
   );
 
@@ -63,13 +63,15 @@ export function FondoGenerativo() {
         data-testid="fondo-generativo"
         data-semilla={semilla}
         className="dark:hidden"
-        style={{ ...capa, background: claro }}
+        style={capa}
+        dangerouslySetInnerHTML={{ __html: claro }}
       />
       <div
         aria-hidden="true"
         data-testid="fondo-generativo-oscuro"
         className="hidden dark:block"
-        style={{ ...capa, background: oscuro }}
+        style={capa}
+        dangerouslySetInnerHTML={{ __html: oscuro }}
       />
     </>
   );
