@@ -22,6 +22,11 @@ describe("routine-helpers (Ponytail & Karpathy)", () => {
       expect(parseDefaultReps("4x10", 1)).toBe(10);
     });
 
+    it("NxM con rango mantiene la regla del rango (máximo con barra)", () => {
+      expect(parseDefaultReps("4x8/12", 1)).toBe(12);
+      expect(parseDefaultReps("4x0", 1)).toBe(10);
+    });
+
     it("no confunde 'N x lado' con NxM", () => {
       expect(parseDefaultReps("8 x lado", 1)).toBe(8);
       expect(parseDefaultReps("15'' x lado", 1)).toBe(15);
