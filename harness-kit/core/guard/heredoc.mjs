@@ -730,7 +730,9 @@ export function parseHeredocs(cmd, opts = {}) {
       psHere = { quote: psOpen.quote, bodyLines: [], argKind: classifyHereStringArgConsumer(line.slice(0, psOpen.at)) };
     }
 
-    strippedAllLines.push(line);
+    // El opener `@'` / `@"` se reemplaza por un literal vacio balanceado: la comilla no puede
+    // quedar abierta para el splitter del guard (GOZS-809). compactedData conserva la linea.
+    strippedAllLines.push(psHere !== null && psOpen ? line.slice(0, psOpen.at) + "''" : line);
     compactedLines.push(line);
   }
 
@@ -750,6 +752,9 @@ export function parseHeredocs(cmd, opts = {}) {
       isPsHereString: true,
     });
     compactedLines.push(heredocLabel(lineCount));
+    // Un here-string sin cerrar no oculta texto al guard (GOZS-809).
+    // Sin comillas: una comilla suelta del cuerpo abriria un string que taparia lo que sigue.
+    for (const b of psHere.bodyLines) strippedAllLines.push(b.replace(/['"]/g, " "));
   }
   for (const cur of pending) {
     // Un heredoc sin cerrar no oculta texto al guard: el comando nunca llega recortado.
