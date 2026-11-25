@@ -526,3 +526,17 @@ describe("GOZS-804 C: classifyComparableBlock con comandos colapsados", () => {
     expect(block("gh pr merge 5 --squash gh pr view 5")).toEqual({ comparable: false, reason: "prSealLiterals" });
   });
 });
+
+describe("GOZS-804 C: hasRealPrCreate no corta colas dentro de comillas", () => {
+  it("GIVEN gh pr merge con un literal entre comillas THEN sigue siendo prSealLiterals", () => {
+    const res = classifyComparableBlock({ decision: "block", rule: "pr.requires-seal", cmd: "gh pr merge 5 --body 'x gh pr create y'" });
+    expect(res).toEqual({ comparable: false, reason: "prSealLiterals" });
+  });
+});
+
+describe("GOZS-804 C: merge seguido de echo con literal", () => {
+  it("GIVEN gh pr merge 5 --squash echo 'gh pr create --fill' THEN prSealLiterals", () => {
+    const res = classifyComparableBlock({ decision: "block", rule: "pr.requires-seal", cmd: "gh pr merge 5 --squash echo 'gh pr create --fill'" });
+    expect(res).toEqual({ comparable: false, reason: "prSealLiterals" });
+  });
+});
