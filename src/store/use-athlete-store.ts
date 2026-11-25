@@ -140,6 +140,8 @@ export interface RestTimerState {
   totalSeconds: number;
   exerciseName: string;
   setNumber: number;
+  /** Vencimiento absoluto (Date.now()) mientras corre; null en pausa/detenido. */
+  endsAt?: number | null;
 }
 
 interface AthleteStoreState {
@@ -2640,14 +2642,16 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
 
       startRestTimer: (seconds, exerciseName, setNumber) => {
+        const safeSeconds = Math.max(0, seconds);
         set({
           restTimer: {
             isActive: true,
             isPaused: false,
-            secondsRemaining: seconds,
-            totalSeconds: seconds,
+            secondsRemaining: safeSeconds,
+            totalSeconds: safeSeconds,
             exerciseName,
             setNumber,
+            endsAt: Date.now() + safeSeconds * 1000,
           },
         });
       },
@@ -2656,7 +2660,14 @@ export const useAthleteStore = create<AthleteStoreState>()(
         const { restTimer } = get();
         if (!restTimer.isActive || restTimer.isPaused) return;
 
-        if (restTimer.secondsRemaining <= 1) {
+        // Ancla al reloj: recupera el tiempo perdido si la pestaña estuvo suspendida.
+        const clockRemaining =
+          restTimer.endsAt != null
+            ? Math.max(0, Math.ceil((restTimer.endsAt - Date.now()) / 1000))
+            : restTimer.secondsRemaining - 1;
+        const nextRemaining = Math.min(restTimer.secondsRemaining - 1, clockRemaining);
+
+        if (nextRemaining <= 0) {
           // Timer terminado: reproducir sonido, vibrar y avisar con toast v7
           playRestTimerAlert();
           triggerHapticVibration([300, 150, 300]);
@@ -2665,6 +2676,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
               ...restTimer,
               isActive: false,
               secondsRemaining: 0,
+              endsAt: null,
             },
             toastSesion: {
               mensaje: "Terminó el descanso. A la serie.",
@@ -2675,21 +2687,35 @@ export const useAthleteStore = create<AthleteStoreState>()(
           set({
             restTimer: {
               ...restTimer,
-              secondsRemaining: restTimer.secondsRemaining - 1,
+              secondsRemaining: nextRemaining,
             },
           });
         }
       },
 
       pauseTimer: () => {
-        set((state) => ({
-          restTimer: { ...state.restTimer, isPaused: true },
-        }));
+        set((state) => {
+          const { restTimer } = state;
+          const synced =
+            restTimer.isActive && !restTimer.isPaused && restTimer.endsAt != null
+              ? Math.min(
+                  restTimer.secondsRemaining,
+                  Math.max(0, Math.ceil((restTimer.endsAt - Date.now()) / 1000)),
+                )
+              : restTimer.secondsRemaining;
+          return {
+            restTimer: { ...restTimer, isPaused: true, secondsRemaining: synced, endsAt: null },
+          };
+        });
       },
 
       resumeTimer: () => {
         set((state) => ({
-          restTimer: { ...state.restTimer, isPaused: false },
+          restTimer: {
+            ...state.restTimer,
+            isPaused: false,
+            endsAt: Date.now() + state.restTimer.secondsRemaining * 1000,
+          },
         }));
       },
 
@@ -2702,18 +2728,27 @@ export const useAthleteStore = create<AthleteStoreState>()(
             totalSeconds: 0,
             exerciseName: "",
             setNumber: 0,
+            endsAt: null,
           },
         });
       },
 
       addTimerSeconds: (seconds) => {
-        set((state) => ({
-          restTimer: {
-            ...state.restTimer,
-            secondsRemaining: state.restTimer.secondsRemaining + seconds,
-            totalSeconds: state.restTimer.totalSeconds + seconds,
-          },
-        }));
+        set((state) => {
+          const { restTimer } = state;
+          const nextRemaining = Math.max(0, restTimer.secondsRemaining + seconds);
+          const nextTotal = Math.max(nextRemaining, Math.max(0, restTimer.totalSeconds + seconds));
+          return {
+            restTimer: {
+              ...restTimer,
+              secondsRemaining: nextRemaining,
+              totalSeconds: nextTotal,
+              ...(restTimer.isActive && !restTimer.isPaused
+                ? { endsAt: Date.now() + nextRemaining * 1000 }
+                : {}),
+            },
+          };
+        });
       },
 
       setSession: (session) => {

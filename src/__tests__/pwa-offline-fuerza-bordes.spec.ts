@@ -321,15 +321,55 @@ describe("GOZS-807 · temporizador de descanso", () => {
     expect(timer()).toMatchObject({ secondsRemaining: 45, totalSeconds: 45, exerciseName: "B", setNumber: 2 });
   });
 
-  it("el descanso se rige por ticks del intervalo, no por reloj: sin ticks (pestaña suspendida) no avanza", () => {
-    // Caracterización del comportamiento actual (ver reporte GOZS-807): Date.now() no interviene.
+  it("anclado a Date.now(): un solo tick tras 45 s de suspensión salta a 45", () => {
     vi.useFakeTimers();
     try {
-      s().startRestTimer(30, "Peso muerto", 1);
-      vi.advanceTimersByTime(10 * 60_000); // 10 min "suspendida", sin intervalo montado
-      expect(timer().secondsRemaining).toBe(30);
+      s().startRestTimer(90, "Peso muerto", 1);
+      vi.advanceTimersByTime(45_000);
+      s().tickTimer();
+      expect(timer().secondsRemaining).toBe(45);
+      expect(playRestTimerAlert).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("suspensión >= 90 s finaliza con alerta única", () => {
+    vi.useFakeTimers();
+    try {
+      s().startRestTimer(90, "Peso muerto", 1);
+      vi.advanceTimersByTime(120_000);
+      s().tickTimer();
+      s().tickTimer();
+      expect(timer()).toMatchObject({ isActive: false, secondsRemaining: 0 });
+      expect(playRestTimerAlert).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("pausa congela aunque avance el reloj y reanudar recalcula endsAt", () => {
+    vi.useFakeTimers();
+    try {
+      s().startRestTimer(60, "Remo", 1);
+      vi.advanceTimersByTime(20_000);
+      s().pauseTimer();
+      expect(timer()).toMatchObject({ isPaused: true, secondsRemaining: 40, endsAt: null });
+      vi.advanceTimersByTime(60_000);
+      s().tickTimer();
+      expect(timer().secondsRemaining).toBe(40);
+      s().resumeTimer();
+      expect(timer().secondsRemaining).toBe(40);
+      expect(timer().endsAt).toBe(Date.now() + 40_000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("addTimerSeconds nunca deja segundos negativos", () => {
+    s().startRestTimer(20, "Press", 1);
+    s().addTimerSeconds(-50);
+    expect(timer().secondsRemaining).toBe(0);
+    expect(timer().totalSeconds).toBeGreaterThanOrEqual(0);
   });
 });
