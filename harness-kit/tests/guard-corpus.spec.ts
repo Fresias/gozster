@@ -307,6 +307,34 @@ const A2_CASES: CorpusCase[] = [
     expectAllowed: false,
     expectRule: "fs.protected",
   },
+  // GOZS-809: el opener `@'` / `@"` no puede dejar comillas abiertas que oculten el resto
+  ...[
+    { q: "'", open: "@'", close: "'@" },
+    { q: '"', open: '@"', close: '"@' },
+  ].flatMap(({ open, close }) => {
+    const pre = `$body = ${open}\nhola\n${close}\n`;
+    const mk = (n: string, tail: string, rule: string, cmd = pre + tail) => ({
+      label: `GOZS-809 ${open} ${n}`,
+      cmd,
+      runtime: "cc-pwsh",
+      expectAllowed: false,
+      expectRule: rule,
+    });
+    return [
+      mk("redirect .claude", "'x' > .claude/settings.json", "fs.protected"),
+      mk("Out-File .claude", "$body | Out-File .claude/settings.json", "fs.protected"),
+      mk("Set-Content rules.json", "Set-Content harness-kit/core/guard/rules.json $body", "harness.authorized-only"),
+      mk("gh pr create", "gh pr create --fill", "pr.requires-seal"),
+      mk("cierre + ; redirect", "", "fs.protected", `echo ${open}\nhola\n${close} ; echo x > .claude/settings.json`),
+      mk("sin cerrar", "", "fs.protected", `echo ${open}\n'\necho x > .claude/settings.json`),
+    ];
+  }),
+  {
+    label: "GOZS-809 here-string de datos seguido de Write-Output -> allow",
+    cmd: "$body = @'\ngh pr create --fill\n'@\nWrite-Output $body",
+    runtime: "cc-pwsh",
+    expectAllowed: true,
+  },
   {
     label: 'R1 bash -c "$(cat <<EOF echo hola > /tmp/x)" -> allow',
     cmd: "bash -c \"$(cat <<'EOF'\necho hola > /tmp/x\nEOF\n)\"",
