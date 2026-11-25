@@ -13,6 +13,10 @@ import {
 } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ForcePasswordChange } from "@/components/auth/force-password-change";
+import {
+  resolvePostPasswordChangeRedirect,
+  sanitizeRedirectTo,
+} from "@/lib/auth-redirect";
 import { cerrarSesionAlumno } from "@/lib/session-scope";
 
 /**
@@ -33,7 +37,7 @@ function debeCambiarPassword(
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") || "/studio";
+  const redirectTo = sanitizeRedirectTo(searchParams.get("redirectTo"), "/studio");
   // El middleware redirige a /login?forceChange=1 a quien ya tiene sesión pero aún no cambió su clave.
   const forceChangeParam = searchParams.get("forceChange");
   // El middleware redirige a /login?roleMismatch=1 a un ALUMNO que intenta entrar a Coach Studio.
@@ -225,8 +229,25 @@ function LoginForm() {
     return (
       <ForcePasswordChange
         email={cambioObligatorio.email}
-        // Con la clave definitiva ya activa, el alumno entra directo a su app.
-        onSuccess={() => window.location.assign("/athlete")}
+        // Con la clave definitiva ya activa, enruta según el rol en perfiles (fallback seguro: /athlete).
+        onSuccess={async () => {
+          let rol: string | null | undefined = null;
+          try {
+            const supabase = createClient();
+            const { data } = await supabase.auth.getUser();
+            if (data.user) {
+              const { data: perfil } = await supabase
+                .from("perfiles")
+                .select("rol")
+                .eq("id", data.user.id)
+                .maybeSingle();
+              rol = perfil?.rol;
+            }
+          } catch {
+            rol = null;
+          }
+          window.location.assign(resolvePostPasswordChangeRedirect(rol, redirectTo));
+        }}
       />
     );
   }
