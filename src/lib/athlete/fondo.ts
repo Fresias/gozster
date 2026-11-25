@@ -17,10 +17,13 @@ export const DEFORMED_GRID_CONFIG = {
   curves: true,
 } as const;
 
+export type GridCfg = { [K in keyof typeof DEFORMED_GRID_CONFIG]: (typeof DEFORMED_GRID_CONFIG)[K] extends boolean ? boolean : number };
+
 export const FONDO_BASE = { claro: "#FAFAFA", oscuro: "#09090B" } as const;
 const TRAZO = { claro: "#09090B", oscuro: "#FAFAFA" } as const;
 const W = 390;
 const H = 820;
+const PAD = 28;
 
 /** mulberry32 */
 export function rng(seed: number): () => number {
@@ -42,7 +45,7 @@ const smooth = (t: number) => t * t * (3 - 2 * t);
 
 /** Hash entero 2D -> [0,1), determinista por semilla. */
 function hash2(ix: number, iy: number, seed: number): number {
-  let h = Math.imul(ix, 374761393) ^ Math.imul(iy, 668265263) ^ Math.imul(seed | 0, 2246822519);
+  let h = Math.imul(ix, 374761393) ^ Math.imul(iy, 668265263) ^ Math.imul(seed | 0, 1442695041);
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
@@ -59,9 +62,9 @@ function valueNoise(x: number, y: number, seed: number): number {
   return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
 }
 
-/** Ruido fractal de 2 octavas, rango [0,1]. */
+/** Ruido fractal de 2 octavas, rango [-1,1]. */
 export function fbm2D(x: number, y: number, seed: number): number {
-  return (valueNoise(x, y, seed) + 0.5 * valueNoise(x * 2, y * 2, seed + 101)) / 1.5;
+  return (valueNoise(x, y, seed) * 0.68 + valueNoise(x * 2.05 + 13.7, y * 2.05 - 7.3, seed + 31) * 0.32) * 2 - 1;
 }
 
 type Pt = readonly [number, number];
@@ -86,18 +89,18 @@ export function deformedGridSvg(
   dark: boolean,
   seed: number,
   id: string,
-  cfg: typeof DEFORMED_GRID_CONFIG = DEFORMED_GRID_CONFIG,
+  cfg: GridCfg = DEFORMED_GRID_CONFIG,
 ): string {
   const { cols, rows, warp, freq, fill, angle, strokeWidth, opacity, curves } = cfg;
   const grid: Pt[][] = [];
   for (let j = 0; j <= rows; j++) {
     const fila: Pt[] = [];
     for (let i = 0; i <= cols; i++) {
-      const nx = i * freq * 0.5;
-      const ny = j * freq * 0.5;
-      const dx = (fbm2D(nx, ny, seed) - 0.5) * 2 * warp;
-      const dy = (fbm2D(nx + 57.3, ny + 91.7, seed + 7) - 0.5) * 2 * warp;
-      fila.push([(i / cols) * W + dx, (j / rows) * H + dy]);
+      const dx = fbm2D(i * freq, j * freq, seed) * warp;
+      const dy = fbm2D(i * freq + 19.3, j * freq + 47.1, seed + 101) * warp;
+      const gx = -PAD + (i / cols) * (W + PAD * 2);
+      const gy = -PAD + (j / rows) * (H + PAD * 2);
+      fila.push([gx + dx, gy + dy]);
     }
     grid.push(fila);
   }
@@ -108,21 +111,23 @@ export function deformedGridSvg(
     .map((d) => `<path d="${d}"/>`)
     .join("");
 
-  // Ángulo CSS: 0° = hacia arriba, sentido horario. Gradiente centrado en el bbox.
+  // Dirección trigonométrica del playground (195° = desvanece de derecha a izquierda).
   const rad = (angle * Math.PI) / 180;
-  const vx = (Math.sin(rad) * fill) / 2;
-  const vy = (-Math.cos(rad) * fill) / 2;
-  const g = (n: number) => (0.5 + n).toFixed(4);
-  const x1 = g(-vx);
-  const y1 = g(-vy);
-  const x2 = g(vx);
-  const y2 = g(vy);
+  const x1 = `${(50 - Math.cos(rad) * 50).toFixed(1)}%`;
+  const y1 = `${(50 - Math.sin(rad) * 50).toFixed(1)}%`;
+  const x2 = `${(50 + Math.cos(rad) * 50).toFixed(1)}%`;
+  const y2 = `${(50 + Math.sin(rad) * 50).toFixed(1)}%`;
+  const stopEnd = Math.min(100, Math.max(12, Math.round(fill * 100)));
+  const stopMid = Math.max(5, Math.round(stopEnd * 0.45));
+  const stops =
+    `<stop offset="0%" stop-color="#fff" stop-opacity="1"/><stop offset="${stopMid}%" stop-color="#fff" stop-opacity="0.72"/><stop offset="${stopEnd}%" stop-color="#fff" stop-opacity="0"/>` +
+    (stopEnd < 100 ? `<stop offset="100%" stop-color="#fff" stop-opacity="0"/>` : "");
   const trazoColor = dark ? TRAZO.oscuro : TRAZO.claro;
   const base = dark ? FONDO_BASE.oscuro : FONDO_BASE.claro;
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" width="100%" height="100%">` +
     `<defs><linearGradient id="${id}-g" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">` +
-    `<stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>` +
+    `${stops}</linearGradient>` +
     `<mask id="${id}-m" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="url(#${id}-g)"/></mask></defs>` +
     `<rect width="${W}" height="${H}" fill="${base}"/>` +
     `<g mask="url(#${id}-m)" fill="none" stroke="${trazoColor}" stroke-width="${strokeWidth}" stroke-opacity="${opacity}" stroke-linecap="round">${paths}</g></svg>`

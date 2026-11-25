@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFORMED_GRID_CONFIG, deformedGridSvg } from "@/lib/athlete/fondo";
+import { DEFORMED_GRID_CONFIG, deformedGridSvg, fbm2D } from "@/lib/athlete/fondo";
 
 const paths = (svg: string) => svg.match(/<path d="[^"]+"\/>/g) ?? [];
 
@@ -21,10 +21,37 @@ describe("fondo Deformed Grid Mesh II", () => {
     expect(a).toContain("Q");
   });
 
-  it("gradiente de máscara a 195° con recorrido completo", () => {
+  it("gradiente de máscara a 195° (fórmula trigonométrica) con 3 stops", () => {
     const a = deformedGridSvg(false, 1, "t");
-    // 195° CSS: vector (sin, -cos) = (-0.2588, 0.9659) → de arriba-derecha a abajo-izquierda
-    expect(a).toContain('x1="0.6294" y1="0.0170" x2="0.3706" y2="0.9830"');
+    expect(a).toContain('x1="98.3%" y1="62.9%" x2="1.7%" y2="37.1%"');
+    expect(a).toContain('<stop offset="0%" stop-color="#fff" stop-opacity="1"/>');
+    expect(a).toContain('<stop offset="45%" stop-color="#fff" stop-opacity="0.72"/>');
+    expect(a).toContain('<stop offset="100%" stop-color="#fff" stop-opacity="0"/>');
+  });
+
+  it("sangrado pad=28 con warp=0 (polilínea para leer coordenadas)", () => {
+    const a = deformedGridSvg(false, 1, "t", { ...DEFORMED_GRID_CONFIG, warp: 0, curves: false });
+    const [h0, hUlt] = [paths(a)[0], paths(a)[34]];
+    expect(h0).toMatch(/^<path d="M-28.0 -28.0L/);
+    expect(h0).toContain("L418.0 -28.0");
+    expect(hUlt).toMatch(/^<path d="M-28.0 848.0L/);
+  });
+
+  it("fbm2D en [-1,1], determinista y con 2 octavas", () => {
+    for (let i = 0; i < 50; i++) {
+      const v = fbm2D(i * 0.6, i * 0.37, 1234);
+      expect(v).toBeGreaterThanOrEqual(-1);
+      expect(v).toBeLessThanOrEqual(1);
+      expect(fbm2D(i * 0.6, i * 0.37, 1234)).toBe(v);
+    }
+    expect(fbm2D(0.6, 0.6, 1)).not.toBe(fbm2D(0.6, 0.6, 2));
+  });
+
+  it("desplazamiento usa c*freq y r*freq sobre la grilla con sangrado", () => {
+    const a = deformedGridSvg(false, 1234, "t", { ...DEFORMED_GRID_CONFIG, curves: false });
+    const dx = fbm2D(0, 0, 1234) * 70;
+    const dy = fbm2D(19.3, 47.1, 1234 + 101) * 70;
+    expect(paths(a)[0]).toContain(`M${(-28 + dx).toFixed(1)} ${(-28 + dy).toFixed(1)}L`);
   });
 
   it("semillas distintas dan coordenadas distintas", () => {
