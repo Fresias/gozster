@@ -3,6 +3,7 @@
   "runtimes": ["antigravity", "claude-code", "gemini-cli", "opencode"],
   "adapters": ["multica", "supabase"],
   "issue_prefix": "GOZS",
+  "default_base_branch": "develop",
   "bot_noreply_email": "356475546+AgentsMultica@users.noreply.github.com",
   "authorizers": { "owner": "Fresias", "delegates": [] },
   "gate": "npm test && npm run typecheck && npm run lint && npm run build"
