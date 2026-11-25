@@ -1,0 +1,1 @@
+{"id":"exp-gozs-842-1","timestamp":"2026-11-25T21:18:18.864Z","task":"GOZS-842","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"Las RPCs SECURITY DEFINER nuevas se cubren en la suite de ataques: catálogo (prosecdef, search_path, ACL) + ataques por rol + validaciones 22023.","verified":true,"tags":["qa","harness"]}
