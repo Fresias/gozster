@@ -1,1 +1,0 @@
-{"candidate_id":"c1-heredoc-multilinea","target_component":"harness-kit/core/guard","rationale":"Estado de comillas entre lineas en parseHeredocs, opciones con valor en intérpretes por stdin, analizador C y gh literal en Windows","mutations":[{"file":"harness/guardrails.local.md","action":"append","content":"<!-- ppc GOZS-804 -->"}]}
