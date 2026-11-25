@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error - mjs module
 import { ghShellCommand, main, parseArgs, upsertSealBlock } from "../core/scripts/harness-ship.mjs";
@@ -11,7 +14,15 @@ const LESSON = "harness/experience/GOZS-781.jsonl";
 const BODY = "/work/pr-body.md";
 
 /** Simulated repo: git, gh, harness-learn.sh and harness-gate.sh share one state. */
-function fakeEnv(over: Partial<{ behind: number; gateFails: boolean; prs: { number: number; url: string }[]; dirty: string[] }> = {}) {
+function fakeEnv(
+  over: Partial<{
+    behind: number;
+    gateFails: boolean;
+    prs: { number: number; url: string }[];
+    dirty: string[];
+    defaultBaseBranch: string;
+  }> = {},
+) {
   const st = {
     head: "aaaaaaa1",
     commits: [] as string[],
@@ -88,7 +99,10 @@ function fakeEnv(over: Partial<{ behind: number; gateFails: boolean; prs: { numb
   const deps = {
     run,
     repoRoot: "/repo",
-    project: { issue_prefix: "GOZS" },
+    project: {
+      issue_prefix: "GOZS",
+      ...(over.defaultBaseBranch ? { default_base_branch: over.defaultBaseBranch } : {}),
+    },
     bash: "BASH",
     scriptsDir: "/kit/scripts",
     readFile: (f: string) => {
@@ -209,5 +223,33 @@ describe("GOZS-781: harness-ship.mjs", () => {
     const once = upsertSealBlock("## Resumen\r\n\r\nx\r\n", b1);
     const twice = upsertSealBlock(once, b2);
     expect(twice).toBe(`## Resumen\n\nx\n\n${b2}`);
+  });
+
+  it("GIVEN project.json con default_base_branch: develop WHEN corre sin --base THEN usa origin/develop y crea la PR contra --base develop (GOZS-835)", async () => {
+    const { st, deps } = fakeEnv({ defaultBaseBranch: "develop" });
+    const res = await main(ARGS, deps);
+    expect(res.exitCode).toBe(0);
+    expect(st.calls).toContain("git fetch --quiet origin develop");
+    expect(st.calls).toContain("git rev-list --count HEAD..origin/develop");
+    expect(st.calls).toContain("BASH harness-gate.sh --base origin/develop");
+    const createCall = st.calls.find((c) => c.startsWith("gh pr create")) ?? "";
+    expect(createCall).toContain("--base develop");
+  });
+
+  it("GIVEN project.json con default_base_branch: develop WHEN se pasa --base main explícito THEN respeta origin/main y --base main (GOZS-835)", async () => {
+    const { st, deps } = fakeEnv({ defaultBaseBranch: "develop" });
+    const res = await main([...ARGS, "--base", "main"], deps);
+    expect(res.exitCode).toBe(0);
+    expect(st.calls).toContain("git fetch --quiet origin main");
+    expect(st.calls).toContain("git rev-list --count HEAD..origin/main");
+    expect(st.calls).toContain("BASH harness-gate.sh --base origin/main");
+    const createCall = st.calls.find((c) => c.startsWith("gh pr create")) ?? "";
+    expect(createCall).toContain("--base main");
+  });
+
+  it("GIVEN harness/project.json del repo (GOZS-835) THEN declara default_base_branch: develop", () => {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const projectJson = JSON.parse(readFileSync(path.resolve(here, "..", "..", "harness", "project.json"), "utf8"));
+    expect(projectJson.default_base_branch).toBe("develop");
   });
 });

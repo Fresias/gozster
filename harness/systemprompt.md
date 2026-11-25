@@ -9,4 +9,5 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 
 ## Governance & Roles
 - Squad: @backend-eng, @frontend-eng, @qa-eng. Ramas `feature/<issue-#>-slug` o `fix/<issue-#>-slug`. Commits convencionales.
+- Flujo `develop` → `main`: PRs a `develop` (`gozster-dev`); `main` solo promociones y harness (`--base main`, `@Fresias`).
 - PR y commits como AgentsMultica (nunca como una persona) → review @qa-eng en Multica (`review-selection.md`) → approve @Fresias en GitHub → merge con checks verdes.

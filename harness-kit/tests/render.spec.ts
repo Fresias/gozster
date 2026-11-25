@@ -252,6 +252,17 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
       expect(hash, `El hash de ${file} debe comenzar con sha256:`).toMatch(/^sha256:[a-f0-9]{64}$/);
     }
   });
+
+  it("GIVEN harness/systemprompt.md y AGENTS.md renderizado (GOZS-835) THEN documentan el flujo develop → main dentro del presupuesto", () => {
+    const systemPrompt = readFileSync(path.join(repoRoot, "harness", "systemprompt.md"), "utf8").replace(/\r\n/g, "\n");
+    const agents = readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8").replace(/\r\n/g, "\n");
+
+    expect(systemPrompt).toMatch(/develop`?\s*→\s*`?main/);
+    expect(agents).toMatch(/develop`?\s*→\s*`?main/);
+    expect(agents).toContain("--base main");
+    expect(agents.split("\n").length).toBeLessThan(150);
+    expect(agents.length).toBeLessThanOrEqual(8000);
+  });
 });
 
 describe("harness-render: idempotencia y detección de drift (--check)", () => {
