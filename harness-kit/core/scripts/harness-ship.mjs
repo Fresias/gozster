@@ -28,14 +28,14 @@ Uso:
   --lesson     Lección para harness/experience/<ISSUE>.jsonl (opcional si ya está registrada)
   --title      Título de la PR (se usa solo al crearla)
   --body-file  Cuerpo de la PR; el bloque del sello se agrega o reemplaza solo. Ponelo fuera del repo.
-  --base       Rama base (por defecto: main)
+  --base       Rama base (por defecto: default_base_branch de project.json o main)
   --draft      Crea la PR como borrador
   --issue      Id del issue (por defecto: se deriva de la rama <tipo>/<n>-slug + issue_prefix)
 `;
 
 /** Parse CLI arguments. */
 export function parseArgs(argv) {
-  const opts = { lesson: "", title: "", bodyFile: "", base: "main", draft: false, issue: "", help: false, error: "" };
+  const opts = { lesson: "", title: "", bodyFile: "", base: "", draft: false, issue: "", help: false, error: "" };
   const valued = { "--lesson": "lesson", "--title": "title", "--body-file": "bodyFile", "--base": "base", "--issue": "issue" };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -151,13 +151,14 @@ export async function main(argv, deps = {}) {
   }
 
   // 2. Behind origin/<base>? Stop before committing the lesson.
-  const fetch = git("fetch", "--quiet", "origin", opts.base);
-  if (fetch.status !== 0) return fail(`git fetch origin ${opts.base} falló:\n${tail(fetch.stderr, 10)}`);
-  const behind = Number(git("rev-list", "--count", `HEAD..origin/${opts.base}`).stdout.trim() || "0");
+  const targetBase = opts.base || (typeof project.default_base_branch === "string" && project.default_base_branch.trim()) || "main";
+  const fetch = git("fetch", "--quiet", "origin", targetBase);
+  if (fetch.status !== 0) return fail(`git fetch origin ${targetBase} falló:\n${tail(fetch.stderr, 10)}`);
+  const behind = Number(git("rev-list", "--count", `HEAD..origin/${targetBase}`).stdout.trim() || "0");
   if (behind > 0) {
     return fail(
-      `la rama está ${behind} commit(s) atrás de origin/${opts.base}. Actualizala antes de sellar:\n` +
-        `  git merge origin/${opts.base}   (resolvé conflictos y commiteá)\n` +
+      `la rama está ${behind} commit(s) atrás de origin/${targetBase}. Actualizala antes de sellar:\n` +
+        `  git merge origin/${targetBase}   (resolvé conflictos y commiteá)\n` +
         `y volvé a correr harness-ship.mjs. No se commiteó la lección ni se corrió el gate.`,
     );
   }
@@ -179,7 +180,7 @@ export async function main(argv, deps = {}) {
     log("[harness-ship] Sello vigente para HEAD: no se vuelve a correr el gate.");
   } else {
     log("[harness-ship] Corriendo harness-gate.sh…");
-    const gate = sh("harness-gate.sh", "--base", `origin/${opts.base}`);
+    const gate = sh("harness-gate.sh", "--base", `origin/${targetBase}`);
     if (gate.status !== 0) {
       err(`[harness-ship] El gate falló (código ${gate.status}). Últimas ${TAIL_LINES} líneas:\n${tail(gate.stdout + gate.stderr)}`);
       return { exitCode: gate.status || 1 };
@@ -215,7 +216,7 @@ export async function main(argv, deps = {}) {
     url = existing.url;
     log(`[harness-ship] PR #${existing.number} actualizada (cuerpo con el sello nuevo).`);
   } else {
-    const args = ["pr", "create", "--title", opts.title, "--body-file", bodyPath, "--base", opts.base];
+    const args = ["pr", "create", "--title", opts.title, "--body-file", bodyPath, "--base", targetBase];
     if (opts.draft) args.push("--draft");
     const create = run("gh", args, { cwd: repoRoot });
     if (create.status !== 0) return fail(`gh pr create falló:\n${tail(create.stderr, 10)}`);
