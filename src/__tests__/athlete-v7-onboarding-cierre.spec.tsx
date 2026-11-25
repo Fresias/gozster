@@ -129,7 +129,7 @@ describe("Athlete v7 · FE-11 Onboarding de 4 pasos y cierre", () => {
       expect(html).toBe("");
     });
 
-    it("sin nombreAlumno prop y con planAlumno null devuelve vacío aunque currentSession sea Fernando Rosales (GH #548)", () => {
+    it("sin nombreAlumno prop y con planAlumno null devuelve vacío aunque currentSession sea Tomás Villalba (GH #548)", () => {
       const { container } = render(<OnboardingAlumno />);
       expect(container.innerHTML).toBe("");
       expect(container.textContent).not.toContain("Fernando");

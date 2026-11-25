@@ -32,7 +32,7 @@ import { DEMO_ALUMNOS } from "@/services/coach-demo-dataset";
  * Reporta a: @pm-gozster
  *
  * Criterios de Aceptación Verificados:
- * 1. Pipeline reactivo de alertas de dolor en vivo (Fix Fernando Rosales) y alumno_historial_dolor (GOZS-348)
+ * 1. Pipeline reactivo de alertas de dolor en vivo (Fix Tomás Villalba) y alumno_historial_dolor (GOZS-348)
  * 2. Diagrama de Sankey interactivo ($100k -> $80k cobrado / $20k por cobrar) y filtros por actividad (GOZS-349)
  * 3. In-App Chat en fila de alumno, notificación al atleta en login y Drawer en Cobros (GOZS-350)
  * 4. Limpieza de W/N/F/D en vista técnica, toggle cascada en config y alta con cobro (GOZS-351)
@@ -46,9 +46,9 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
   });
 
   // ==========================================================================
-  // 1. CRITERIO: PIPELINE REACTIVO DE DOLOR (CASO FERNANDO ROSALES) (GOZS-348)
+  // 1. CRITERIO: PIPELINE REACTIVO DE DOLOR (CASO TOMÁS VILLALBA) (GOZS-348)
   // ==========================================================================
-  describe("1. Pipeline Reactivo de Alertas de Dolor en Vivo (Caso Fernando Rosales) y alumno_historial_dolor (GOZS-348)", () => {
+  describe("1. Pipeline Reactivo de Alertas de Dolor en Vivo (Caso Tomás Villalba) y alumno_historial_dolor (GOZS-348)", () => {
     interface ReporteDolorInput {
       alumno_id: string;
       alumno_nombre: string;
@@ -94,10 +94,10 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
       };
     }
 
-    it("GIVEN un reporte de dolor crítico emitido por Fernando Rosales WHEN ingresa al pipeline THEN genera una alerta de severidad CRITICA con red flags identificadas", () => {
+    it("GIVEN un reporte de dolor crítico emitido por Tomás Villalba WHEN ingresa al pipeline THEN genera una alerta de severidad CRITICA con red flags identificadas", () => {
       const reporteFernando: ReporteDolorInput = {
-        alumno_id: "alumno-fernando-rosales-01",
-        alumno_nombre: "Fernando Rosales",
+        alumno_id: "alumno-tomas-villalba-01",
+        alumno_nombre: "Tomás Villalba",
         zona_corporal: "Rodilla derecha",
         escala_dolor: 8,
         sintomas_alarma: ["Dolor punzante/súbito", "Inestabilidad articular"],
@@ -107,7 +107,7 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
 
       const alerta = transformarReporteDolorAAlerta(reporteFernando);
 
-      expect(alerta.alumnoNombre).toBe("Fernando Rosales");
+      expect(alerta.alumnoNombre).toBe("Tomás Villalba");
       expect(alerta.zona).toBe("Rodilla derecha");
       expect(alerta.severidad).toBe("CRITICA");
       expect(alerta.esSintomaAlarma).toBe(true);
@@ -115,7 +115,7 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
       expect(prioridadAlerta(alerta)).toBe(0); // Máxima prioridad (roja)
     });
 
-    it("GIVEN alertas múltiples con Fernando Rosales WHEN se ordenan por prioridad THEN la alerta crítica de Fernando se ubica en el tope de la bandeja", () => {
+    it("GIVEN alertas múltiples con Tomás Villalba WHEN se ordenan por prioridad THEN la alerta crítica de Fernando se ubica en el tope de la bandeja", () => {
       const alertas: CriticalAlert[] = [
         {
           id: "alt-1",
@@ -134,7 +134,7 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
           id: "alt-2",
           type: "DOLOR",
           alumnoId: "alumno-fernando-01",
-          alumnoNombre: "Fernando Rosales",
+          alumnoNombre: "Tomás Villalba",
           ejercicioNombre: "Sentadilla Trasera",
           setNumber: 2,
           detalle: "Dolor agudo 8/10 en rodilla con inestabilidad",
@@ -161,13 +161,13 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
 
       const ordenadas = ordenarAlertasPorPrioridad(alertas);
 
-      expect(ordenadas[0]!.alumnoNombre).toBe("Fernando Rosales");
+      expect(ordenadas[0]!.alumnoNombre).toBe("Tomás Villalba");
       expect(ordenadas[0]!.severidad).toBe("CRITICA");
       expect(ordenadas[1]!.severidad).toBe("MEDIA");
       expect(ordenadas[2]!.severidad).toBe("BAJA");
     });
 
-    it("GIVEN la tabla de alumnos en CoachStudioView WHEN Fernando Rosales tiene dolor registrado THEN la UI expone el badge reactivo 🚨 [Zona] sin depender de listas fijas demo", () => {
+    it("GIVEN la tabla de alumnos en CoachStudioView WHEN Tomás Villalba tiene dolor registrado THEN la UI expone el badge reactivo 🚨 [Zona] sin depender de listas fijas demo", () => {
       interface AlumnoFila {
         id: string;
         nombre_completo: string;
@@ -188,7 +188,7 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
 
       const alumnoFernando: AlumnoFila = {
         id: "alumno-fer-id",
-        nombre_completo: "Fernando Rosales",
+        nombre_completo: "Tomás Villalba",
         alertasActivas: [{ zona: "Rodilla", severidad: "CRITICA" }],
       };
 

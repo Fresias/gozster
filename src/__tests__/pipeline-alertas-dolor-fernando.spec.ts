@@ -14,7 +14,7 @@ import {
 } from "@/components/coach/critical-alerts-store";
 import { getDemoAlumnoAlerts, DEMO_GIMNASIO } from "@/services/coach-demo-dataset";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import { useAthleteStore, DEFAULT_ATHLETE_ID } from "@/store/use-athlete-store";
+import { useAthleteStore, DEFAULT_ATHLETE_ID, DEFAULT_ATHLETE_NAME } from "@/store/use-athlete-store";
 import { supabase } from "@/lib/supabase/client";
 
 vi.mock("@/lib/supabase/client", async () => {
@@ -66,7 +66,7 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
 
   describe("2. Pipeline Reactivo: Reporte de Dolor en Athlete App y Detección Inmediata", () => {
     it("GIVEN un reporte en sesión activa en Athlete App THEN fetchCriticalAlerts y store lo detectan de inmediato", async () => {
-      // 1. Fernando Rosales reporta un dolor en su sesión activa
+      // 1. Tomás Villalba reporta un dolor en su sesión activa
       await useAthleteStore.getState().reportarMolestia({
         ejercicioEnRutinaId: "ej-sentadilla-1",
         ejercicioId: "ej-sentadilla-con-barra",
@@ -94,9 +94,9 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
       expect(fernandoAlert?.detalle).toContain("Pinchazo agudo");
     });
 
-    it("GIVEN Fernando Rosales con dolor reportado THEN getDemoAlumnoAlerts emite el badge reactivo 🚨 [Zona]", async () => {
-      // Estado inicial: Fernando Rosales no tiene alertas
-      expect(getDemoAlumnoAlerts("Fernando Rosales").length).toBe(0);
+    it("GIVEN Tomás Villalba con dolor reportado THEN getDemoAlumnoAlerts emite el badge reactivo 🚨 [Zona]", async () => {
+      // Estado inicial: Tomás Villalba no tiene alertas
+      expect(getDemoAlumnoAlerts(DEFAULT_ATHLETE_NAME).length).toBe(0);
 
       // Fernando reporta dolor de Hombro en Press Inclinado
       await useAthleteStore.getState().reportarMolestia({
@@ -110,8 +110,8 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
         momento: "EN_SERIE",
       });
 
-      // El badge reactivo se genera para Fernando Rosales
-      const badges = getDemoAlumnoAlerts("Fernando Rosales");
+      // El badge reactivo se genera para Tomás Villalba
+      const badges = getDemoAlumnoAlerts(DEFAULT_ATHLETE_NAME);
       expect(badges.length).toBeGreaterThan(0);
       const painBadge = badges.find((b) => b.type === "pain");
       expect(painBadge).toBeDefined();
@@ -122,12 +122,12 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
       expect((painBadge as any)?.reporteDolorId).toBeDefined();
     });
 
-    it("Fernando Rosales figura en la lista de alumnos del Studio para renderizar su fila y badge", () => {
+    it("Tomás Villalba figura en la lista de alumnos del Studio para renderizar su fila y badge", () => {
       const fernandoEnGimnasio = DEMO_GIMNASIO.alumnos.find(
-        (a) => a.nombre_completo === "Fernando Rosales"
+        (a) => a.nombre_completo === "Tomás Villalba"
       );
       expect(fernandoEnGimnasio).toBeDefined();
-      expect(fernandoEnGimnasio?.nombre_completo).toBe("Fernando Rosales");
+      expect(fernandoEnGimnasio?.nombre_completo).toBe("Tomás Villalba");
     });
   });
 
@@ -139,7 +139,7 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
         action: "PAIN_REPORT_SUBMITTED",
         payload: {
           studentId: DEFAULT_ATHLETE_ID,
-          studentName: "Fernando Rosales",
+          studentName: "Tomás Villalba",
           exerciseId: "ej-peso-muerto",
           exerciseName: "Peso Muerto Rumano",
           zonaArticular: "LUMBAR",
@@ -155,7 +155,7 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
       const offlineAlert = inboxAlerts.find((a) => a.id === "offline-pain-ev-101");
 
       expect(offlineAlert).toBeDefined();
-      expect(offlineAlert?.alumnoNombre).toBe("Fernando Rosales");
+      expect(offlineAlert?.alumnoNombre).toBe("Tomás Villalba");
       expect(offlineAlert?.zona).toBe("Lumbar");
       expect(offlineAlert?.severidad).toBe("CRITICA");
       expect(offlineAlert?.esSintomaAlarma).toBe(true);
@@ -168,7 +168,7 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
         action: "PAIN_REPORT_SUBMITTED",
         payload: {
           studentId: DEFAULT_ATHLETE_ID,
-          studentName: "Fernando Rosales",
+          studentName: "Tomás Villalba",
           exerciseId: "ej-curl-biceps",
           exerciseName: "Curl de Bíceps en Polea",
           zonaArticular: "CODO",
@@ -186,7 +186,7 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
       expect(alert?.severidad).toBe("ALTA");
       expect(alert?.esSintomaAlarma).toBe(false);
 
-      const badges = getDemoAlumnoAlerts("Fernando Rosales");
+      const badges = getDemoAlumnoAlerts("Tomás Villalba");
       expect(badges.some((b) => b.label === "🚨 Codo")).toBe(true);
     });
 
@@ -197,7 +197,7 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
         action: "PAIN_REPORT_SUBMITTED",
         payload: {
           studentId: DEFAULT_ATHLETE_ID,
-          studentName: "Fernando Rosales",
+          studentName: "Tomás Villalba",
           exerciseId: "ej-sentadilla-1",
           exerciseName: "Sentadilla Trasera con Barra",
           zonaArticular: "RODILLA",
@@ -209,14 +209,14 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
       });
 
       // El badge está activo
-      expect(getDemoAlumnoAlerts("Fernando Rosales").length).toBe(1);
+      expect(getDemoAlumnoAlerts("Tomás Villalba").length).toBe(1);
 
       // El entrenador atiende o cierra el caso
       useDemoAlertEstados.getState().setEstado(alertId, "ATENDIDO");
       await persistAlertEstado(alertId, "ATENDIDO");
 
       // La alerta ya no figura como PENDIENTE y el badge se apaga
-      expect(getDemoAlumnoAlerts("Fernando Rosales").length).toBe(0);
+      expect(getDemoAlumnoAlerts("Tomás Villalba").length).toBe(0);
     });
   });
 });

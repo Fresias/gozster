@@ -120,7 +120,7 @@ const FILAS: FilaAlumno[] = [
   { nombre: "Paula Medrano", arquetipo: "CONSTANTE" },
   { nombre: "Dante Quinteros", arquetipo: "IRREGULAR" },
   { nombre: "Noelia Barrios", arquetipo: "IRREGULAR" },
-  { nombre: "Fernando Rosales", arquetipo: "CONSTANTE" },
+  { nombre: "Tomás Villalba", arquetipo: "CONSTANTE" },
 ];
 
 const DIAS_VENCIDOS = [12, 18, 15, 22, 11, 20];

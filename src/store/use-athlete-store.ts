@@ -340,15 +340,15 @@ interface AthleteStoreState {
   verificarYRegistrarLogroDiamante: (semanas: number, alumnoId?: string) => Promise<void>;
 }
 
-export const DEFAULT_ATHLETE_ID = "66b92b9a-1ce7-4e2e-a47c-7c5600000000";
-export const DEFAULT_ATHLETE_NAME = "Fernando Rosales";
+export const DEFAULT_ATHLETE_ID = "00000000-0000-4000-8000-000000000001";
+export const DEFAULT_ATHLETE_NAME = "Alumno GOZSter";
 
 const defaultSession: LiveWorkoutSession = {
   id: "session-today-001",
-  nombre_rutina: "Fernando Rosales: DIA 1 (F Y H FER ROSALES)",
+  nombre_rutina: "Rutina Demo: Día 1 (Fuerza)",
   fecha: new Date().toISOString().split("T")[0] || "2026-10-16",
-  studentName: "Fernando Rosales",
-  studentId: "66b92b9a-1ce7-4e2e-a47c-7c5600000000",
+  studentName: DEFAULT_ATHLETE_NAME,
+  studentId: DEFAULT_ATHLETE_ID,
   dia_id: "6a669097-5bd8-4547-87f7-a43700000001",
   molestias: [],
   ejercicios: [
