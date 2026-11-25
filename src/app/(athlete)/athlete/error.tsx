@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { reportarErrorApp } from "@/lib/reportar-error-app";
 
 export interface AthleteErrorProps {
   error: Error & { digest?: string };
@@ -9,8 +10,17 @@ export interface AthleteErrorProps {
 }
 
 export default function AthleteError({ error, reset }: AthleteErrorProps) {
+  const ultimoErrorReportadoRef = React.useRef<unknown>(null);
+
   React.useEffect(() => {
     console.error("Athlete App Error Boundary:", error);
+    if (ultimoErrorReportadoRef.current === error) return;
+    ultimoErrorReportadoRef.current = error;
+    void reportarErrorApp({
+      contexto: "athlete_error_boundary",
+      mensajeHumano: "Error inesperado en pantalla de Athlete App",
+      error,
+    });
   }, [error]);
 
   return (
