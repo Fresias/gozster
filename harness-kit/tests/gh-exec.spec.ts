@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
+// @ts-expect-error - mjs module
 import { escapeCmdArg, ghShellCommand, resolveGhInvocation } from "../core/lib/gh-exec.mjs";
 
 const TITLES = ['a "b" & c', 'x | y "', "100% ^ done", 'impar " & echo PWNED | find "x"', 'ok\\', "plain"];
