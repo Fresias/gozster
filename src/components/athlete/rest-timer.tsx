@@ -27,7 +27,20 @@ export function RestTimer() {
       tickTimer();
     }, 1000);
 
-    return () => clearInterval(interval);
+    // Al desbloquear/volver a la app, refleja de inmediato el tiempo real transcurrido.
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      const { restTimer: t } = useAthleteStore.getState();
+      if (t.endsAt != null && Math.ceil((t.endsAt - Date.now()) / 1000) < t.secondsRemaining) {
+        tickTimer();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [restTimer.isActive, restTimer.isPaused, mostrarTimerDescanso, tickTimer]);
 
   if (!restTimer.isActive || mostrarTimerDescanso === false) {
