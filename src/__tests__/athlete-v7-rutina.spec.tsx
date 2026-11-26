@@ -140,23 +140,26 @@ describe("Athlete v7 · FE-04 Rutina del día como pantalla propia", () => {
     });
   });
 
-  it("CP2: renderiza cabecera, barra de avance segmentada, próximo ejercicio (.a-next) y contenedor de biserie (.a-ss)", () => {
+  it("CP2: renderiza cabecera con anillo monocromático, próximo ejercicio (.a-next), tilde en número al terminar y card de superserie (.a-ss con píldora SS)", () => {
     const html = renderToStaticMarkup(<RutinaDelDia />);
 
     expect(html).toContain('data-testid="volver-a-mis-dias-btn"');
     expect(html).toContain('data-testid="athlete-settings-btn"');
     expect(html).toContain('<h1 class="a-t-d">DÍA 1</h1>');
-    expect(html).toContain("Lucía Fernández · 4 ejercicios");
+    expect(html).toContain("4 ejercicios · ~");
     expect(html).toContain('data-testid="session-elapsed-chip"');
 
+    // Anillo monocromático en cabecera sin barra ni texto "3/7 series"
     expect(html).toContain('role="progressbar"');
-    expect(html).toContain("1 de 4 ejercicios");
-    expect(html).toContain("3/7 series");
+    expect(html).toContain('data-testid="rutina-progress-card"');
+    expect(html).not.toContain("3/7 series");
 
-    // Sentadilla hecha, Press banca plano es próximo (a-next) dentro de Biserie A1
-    expect(html).toContain("Hecho");
-    expect(html).toContain("Biserie A1 · sin descanso entre ejercicios");
-    expect(html).toContain("0/2");
+    // Sentadilla hecha (tilde en número con aria-label="Hecho"), Press banca plano es próximo (a-next) dentro de Superserie SS
+    expect(html).toContain('aria-label="Hecho"');
+    expect(html).toContain('data-testid="ss-pill-1"');
+    expect(html).toContain(">SS</button>");
+    expect(html).toContain("2 ejercicios");
+    expect(html).toContain("a-ss-timeline");
     expect(html).toContain('class="a-row a-next"');
     expect(html).toContain("Seguir: Press banca plano");
     expect(html).toContain("45 s · 1 serie");

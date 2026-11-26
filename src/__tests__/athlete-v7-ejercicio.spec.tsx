@@ -122,17 +122,19 @@ describe("Athlete v7 · FE-05 Pantalla del ejercicio", () => {
     expect(discosPorLado(70, 20)).toEqual({ perSide: 25, discos: [25], resto: 0 });
   });
 
-  it("CP4: ejercicio unilateral muestra segmentado Derecha | Izquierda y botón 'Registrar derecha'", () => {
+  it("CP4: ejercicio unilateral muestra selector Igual D/I | Separar D/I y botón 'Registrar serie 1'", () => {
     useAthleteStore.setState({ ejercicioAbiertoId: "ej-zb" });
     const html = renderToStaticMarkup(<EjercicioActivo />);
 
     expect(html).toContain('data-testid="badge-unilateral"');
     expect(html).toContain("Por lado");
     expect(html).toContain('data-testid="unilateral-indicator"');
-    expect(html).toContain('data-testid="uni-side-D"');
-    expect(html).toContain('data-testid="uni-side-I"');
+    expect(html).toContain('data-testid="uni-mode-same"');
+    expect(html).toContain('data-testid="uni-mode-split"');
+    expect(html).toContain("Igual D/I");
+    expect(html).toContain("Separar D/I");
     expect(html).toContain('aria-pressed="true"');
-    expect(html).toContain("Registrar derecha");
+    expect(html).toContain("Registrar serie 1");
   });
 
   it("CP2: ingreso manual decimal acepta punto y coma ('62,5' y '62.5' -> 62.5, nunca 625) y actualiza el store", () => {

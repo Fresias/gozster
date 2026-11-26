@@ -34,15 +34,15 @@ describe("Stage 2: Frontend & Mobile UI - Molestias, Red Flags y Sustituciones T
     const ejercicioContent = readSource("../components/athlete/ejercicio-activo.tsx");
     const painModalContent = readSource("../components/athlete/pain-report-modal.tsx");
 
-    it("incluye el botón 'Tengo una molestia' visible en RutinaDelDia con objetivo táctil >= 44px", () => {
-      expect(rutinaContent).toContain('data-testid="header-pain-report-btn"');
-      expect(rutinaContent).toContain("Tengo una molestia");
-      expect(rutinaContent).toContain("a-molbtn");
+    it("mantiene RutinaDelDia sin botón rojo llamativo de molestia (el reporte vive como ícono dentro de cada ejercicio)", () => {
+      expect(rutinaContent).not.toContain('data-testid="header-pain-report-btn"');
+      expect(rutinaContent).not.toContain("a-molbtn");
     });
 
-    it("incluye el botón 'Tengo una molestia' en EjercicioActivo", () => {
+    it("incluye el botón discreto de molestia solo con ícono y aria-label accesible en EjercicioActivo", () => {
       expect(ejercicioContent).toContain("data-testid={`exercise-pain-report-btn-${ej.id}`}");
-      expect(ejercicioContent).toContain("Tengo una molestia");
+      expect(ejercicioContent).toContain('aria-label="Tengo una molestia"');
+      expect(ejercicioContent).toContain("a-tool-pain");
     });
 
     it("dispone de modal de reporte con 8 zonas anatómicas normalizadas", () => {
