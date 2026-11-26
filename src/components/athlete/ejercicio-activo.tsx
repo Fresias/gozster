@@ -895,6 +895,60 @@ export function EjercicioActivo() {
             })}
           </div>
 
+          {atypicalPrompt && (
+            <div className="a-kgwarn" role="alert" id="kgWarnSS" data-testid="atypical-confirmation-dialog">
+              <b className="a-t-bs" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <TriangleAlert width={16} height={16} className="a-i" />{" "}
+                {atypicalPrompt.exerciseName ? `${atypicalPrompt.exerciseName}: ` : ""}¿{fmtAr.format(atypicalPrompt.peso)} kg?
+              </b>
+              <span className="a-t-sec">{atypicalPrompt.mensaje}</span>
+              <div className="a-two">
+                <button
+                  type="button"
+                  className="a-mini a-ghost"
+                  onClick={() => setAtypicalPrompt(null)}
+                  data-testid="atypical-corregir-btn"
+                >
+                  Corregir
+                </button>
+                <button
+                  type="button"
+                  className="a-mini"
+                  data-testid="atypical-confirmar-btn"
+                  onClick={() => {
+                    const entradas: Record<
+                      string,
+                      { pesoKg: number; reps: number; parUni?: { D: { kg: number; reps: number }; I: { kg: number; reps: number } } }
+                    > = {};
+                    for (const item of ssEjercicios) {
+                      const st = item.series.find((s) => s.numero_serie === vueltaActivaSS);
+                      if (!st || st.completada) continue;
+                      const itemUni = Boolean(item.es_unilateral);
+                      const itemSplit = Boolean(ssSplitByEx[item.id]);
+                      const izq = ssIzqByEx[item.id] ?? { kg: st.peso_kg, reps: st.reps_hechas };
+                      if (itemUni) {
+                        const par = itemSplit
+                          ? { D: { kg: st.peso_kg, reps: st.reps_hechas }, I: izq }
+                          : { D: { kg: st.peso_kg, reps: st.reps_hechas }, I: { kg: st.peso_kg, reps: st.reps_hechas } };
+                        entradas[item.id] = {
+                          pesoKg: Math.max(par.D.kg, par.I.kg),
+                          reps: Math.max(par.D.reps, par.I.reps),
+                          parUni: par,
+                        };
+                      } else {
+                        entradas[item.id] = { pesoKg: st.peso_kg, reps: st.reps_hechas };
+                      }
+                    }
+                    setAtypicalPrompt(null);
+                    handleRegistrarVueltaSuperserie(ssEjercicios, vueltaActivaSS, entradas, true);
+                  }}
+                >
+                  Sí, es correcto
+                </button>
+              </div>
+            </div>
+          )}
+
           <button
             type="button"
             className="a-btn a-gym a-pill"
@@ -917,14 +971,14 @@ export function EjercicioActivo() {
                     : { D: { kg: st.peso_kg, reps: st.reps_hechas }, I: { kg: st.peso_kg, reps: st.reps_hechas } };
                   entradas[item.id] = {
                     pesoKg: Math.max(par.D.kg, par.I.kg),
-                    reps: par.D.reps,
+                    reps: Math.max(par.D.reps, par.I.reps),
                     parUni: par,
                   };
                 } else {
                   entradas[item.id] = { pesoKg: st.peso_kg, reps: st.reps_hechas };
                 }
               }
-              handleRegistrarVueltaSuperserie(ssEjercicios, vueltaActivaSS, entradas);
+              handleRegistrarVueltaSuperserie(ssEjercicios, vueltaActivaSS, entradas, false);
             }}
           >
             <Check width={18} height={18} className="a-i" />{" "}

@@ -325,6 +325,8 @@ export function useLiveWorkout() {
     peso: number;
     reps: number;
     isEditing?: boolean;
+    isSuperserie?: boolean;
+    exerciseName?: string;
   } | null>(null);
   const atypicalDialogRef = React.useRef<HTMLDialogElement>(null);
 
@@ -565,10 +567,17 @@ export function useLiveWorkout() {
     return () => clearInterval(interval);
   }, [timerTiempoActivo, timerTiempoPausado, tiempoCountdown]);
 
-  const checkPlausibilityBeforeRegister = (peso: number, reps: number, confirmarAtipica: boolean): boolean => {
-    if (!currentExercise || !currentSet || confirmarAtipica) return true;
-    const num = currentSet.numero_serie;
-    const ejId = currentExercise.ejercicio_id ?? currentExercise.id;
+  const checkPlausibilityForExercise = (
+    exercise: LiveWorkoutExercise,
+    setObj: LiveWorkoutExercise["series"][number],
+    peso: number,
+    reps: number,
+    confirmarAtipica: boolean,
+    opts?: { isSuperserie?: boolean },
+  ): boolean => {
+    if (confirmarAtipica) return true;
+    const num = setObj.numero_serie;
+    const ejId = exercise.ejercicio_id ?? exercise.id;
 
     const prevPesos: number[] = [];
     if (ultimaVez[ejId]?.series) {
@@ -576,7 +585,7 @@ export function useLiveWorkout() {
         if (typeof s.peso_kg === "number") prevPesos.push(s.peso_kg);
       }
     }
-    for (const s of currentExercise.series) {
+    for (const s of exercise.series) {
       if (s.completada && typeof s.peso_kg === "number" && s.numero_serie !== num) {
         prevPesos.push(s.peso_kg);
       }
@@ -588,7 +597,7 @@ export function useLiveWorkout() {
     }
 
     let ultPeso: number | null = null;
-    const prevCompletadasHoy = currentExercise.series.filter(
+    const prevCompletadasHoy = exercise.series.filter(
       (s) => s.completada && s.numero_serie < num,
     );
     if (prevCompletadasHoy.length > 0) {
@@ -596,18 +605,18 @@ export function useLiveWorkout() {
     } else if (ultimaVez[ejId]?.series?.length) {
       const ref = serieDeReferencia(ultimaVez[ejId]!, num);
       ultPeso = ref ? ref.peso_kg : ultimaVez[ejId]!.series[ultimaVez[ejId]!.series.length - 1]!.peso_kg;
-    } else if (typeof currentSet.last_session_weight_kg === "number" && currentSet.last_session_weight_kg > 0) {
-      ultPeso = currentSet.last_session_weight_kg;
+    } else if (typeof setObj.last_session_weight_kg === "number" && setObj.last_session_weight_kg > 0) {
+      ultPeso = setObj.last_session_weight_kg;
     }
 
     const evalRes = evaluarPlausibilidadSerie({
       peso,
       reps,
-      rpe: currentSet.rpe_real,
+      rpe: setObj.rpe_real,
       historialPesos: prevPesos,
       ultimoPeso: ultPeso,
-      musculos: currentExercise.musculos_principales,
-      nombreEjercicio: currentExercise.nombre,
+      musculos: exercise.musculos_principales,
+      nombreEjercicio: exercise.nombre,
     });
 
     if (evalRes.estado === "bloqueado") {
@@ -621,11 +630,18 @@ export function useLiveWorkout() {
         peso: evalRes.peso,
         reps: evalRes.reps,
         isEditing: false,
+        isSuperserie: opts?.isSuperserie,
+        exerciseName: opts?.isSuperserie ? exercise.nombre : undefined,
       });
       return false;
     }
 
     return true;
+  };
+
+  const checkPlausibilityBeforeRegister = (peso: number, reps: number, confirmarAtipica: boolean): boolean => {
+    if (!currentExercise || !currentSet || confirmarAtipica) return true;
+    return checkPlausibilityForExercise(currentExercise, currentSet, peso, reps, confirmarAtipica);
   };
 
   // Registrar serie actual (con override opcional para payload unilateral)
@@ -774,8 +790,18 @@ export function useLiveWorkout() {
     setPlausibilityError(null);
 
     const pesoRefMax = Math.max(par.D.kg, par.I.kg);
-    const repsRef = par.D.reps;
-    if (!checkPlausibilityBeforeRegister(pesoRefMax, repsRef, confirmarAtipica)) {
+    const repsRef = Math.max(par.D.reps, par.I.reps);
+    const pesoParaValidar =
+      Math.min(par.D.kg, par.I.kg) < 0 ? Math.min(par.D.kg, par.I.kg) : pesoRefMax;
+    const repsParaValidar =
+      Math.min(par.D.reps, par.I.reps) < 0
+        ? Math.min(par.D.reps, par.I.reps)
+        : !Number.isInteger(par.I.reps)
+          ? par.I.reps
+          : !Number.isInteger(par.D.reps)
+            ? par.D.reps
+            : repsRef;
+    if (!checkPlausibilityBeforeRegister(pesoParaValidar, repsParaValidar, confirmarAtipica)) {
       return;
     }
 
@@ -801,6 +827,7 @@ export function useLiveWorkout() {
         parUni?: { D: UniEntry; I: UniEntry };
       }
     >,
+    confirmarAtipica = false,
   ) => {
     setPlausibilityError(null);
     const pendientes = grupoEjercicios.filter((ex) => {
@@ -810,6 +837,38 @@ export function useLiveWorkout() {
     });
     if (pendientes.length === 0) return;
 
+    // Validar plausibilidad de toda la vuelta antes de mutar ninguna serie (atómico)
+    for (const ex of pendientes) {
+      const st = ex.series.find((s) => s.numero_serie === roundNumber);
+      if (!st) continue;
+      const ent = entradas[ex.id];
+      const pesoBase = ent ? ent.pesoKg : st.peso_kg;
+      const repsBase = ent ? ent.reps : st.reps_hechas;
+      const pesoParaValidar = ent?.parUni
+        ? Math.min(ent.parUni.D.kg, ent.parUni.I.kg) < 0
+          ? Math.min(ent.parUni.D.kg, ent.parUni.I.kg)
+          : Math.max(pesoBase, ent.parUni.D.kg, ent.parUni.I.kg)
+        : pesoBase;
+      const repsParaValidar = ent?.parUni
+        ? Math.min(ent.parUni.D.reps, ent.parUni.I.reps) < 0
+          ? Math.min(ent.parUni.D.reps, ent.parUni.I.reps)
+          : !Number.isInteger(ent.parUni.I.reps)
+            ? ent.parUni.I.reps
+            : !Number.isInteger(ent.parUni.D.reps)
+              ? ent.parUni.D.reps
+              : Math.max(repsBase, ent.parUni.D.reps, ent.parUni.I.reps)
+        : repsBase;
+      if (
+        !checkPlausibilityForExercise(ex, st, pesoParaValidar, repsParaValidar, confirmarAtipica, {
+          isSuperserie: true,
+        })
+      ) {
+        return;
+      }
+    }
+
+    setAtypicalPrompt(null);
+    const esAtipica = Boolean(confirmarAtipica);
     const nuevosUniLogs: Record<string, { D: UniEntry; I: UniEntry }> = {};
     let huboRecord = false;
     let primerRecordEx = "";
@@ -819,7 +878,11 @@ export function useLiveWorkout() {
       if (!st) continue;
       const ent = entradas[ex.id];
       const peso = ent ? ent.pesoKg : st.peso_kg;
-      const reps = ent ? ent.reps : st.reps_hechas;
+      const reps = ent?.parUni
+        ? Math.max(ent.reps, ent.parUni.D.reps, ent.parUni.I.reps)
+        : ent
+          ? ent.reps
+          : st.reps_hechas;
       updateSetField(ex.id, roundNumber, "peso_kg", peso);
       updateSetField(ex.id, roundNumber, "reps_hechas", reps);
 
@@ -828,13 +891,15 @@ export function useLiveWorkout() {
       }
 
       const ejId = ex.ejercicio_id ?? ex.id;
-      const serieCandidata = { peso_kg: peso, reps_hechas: reps, set_type: st.set_type, atipica: false };
+      const serieCandidata = { peso_kg: peso, reps_hechas: reps, set_type: st.set_type, atipica: esAtipica };
       const resultado = esNuevoRecord(serieCandidata, marcas[ejId] ?? null);
 
-      completeSet(ex.id, roundNumber, false);
-      registrarSerieEnMarcas(ejId, serieCandidata);
+      completeSet(ex.id, roundNumber, esAtipica);
+      if (!esAtipica) {
+        registrarSerieEnMarcas(ejId, serieCandidata);
+      }
 
-      if (resultado.esRecord) {
+      if (resultado.esRecord && !esAtipica) {
         huboRecord = true;
         if (!primerRecordEx) primerRecordEx = ex.nombre;
         registrarRecordSesion(`${ex.id}-${roundNumber}`, {
