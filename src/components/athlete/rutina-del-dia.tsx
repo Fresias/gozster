@@ -10,6 +10,7 @@ import {
 } from "@/lib/athlete/nombre";
 import { isWarmup } from "@/lib/serie-tipo";
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
+import { AnilloProgreso } from "@/components/athlete/anillo-progreso";
 import { useAtraparFocoEnHoja } from "@/components/athlete/athlete-sheet";
 import { CierreDiaModal } from "@/components/athlete/cierre-dia-modal";
 import { CuestionarioInicial } from "@/components/athlete/cuestionario-inicial";
@@ -63,6 +64,11 @@ function formatSetLogText(ej: LiveWorkoutExercise, s: LiveWorkoutSet): string {
   return `${formatAr.format(s.peso_kg)} kg × ${s.reps_hechas}`;
 }
 
+function estimarMinutosRutina(totalSets: number): number {
+  if (totalSets <= 0) return 15;
+  return Math.max(10, Math.round((totalSets * 1.95) / 5) * 5);
+}
+
 export function RutinaDelDia() {
   const {
     currentSession,
@@ -109,7 +115,6 @@ export function RutinaDelDia() {
     pendingEvents,
     totalSets,
     completedSetsCount,
-    completedExercisesCount,
     totalExercises,
     totalVolumeKg,
     effectiveVolumeKg,
@@ -122,6 +127,7 @@ export function RutinaDelDia() {
   } = useLiveWorkout();
 
   const [confirmingFinish, setConfirmingFinish] = React.useState(false);
+  const [ssTooltipGrupo, setSsTooltipGrupo] = React.useState<number | null>(null);
   const settingsBtnRef = React.useRef<HTMLButtonElement>(null);
   const settingsTitleRef = React.useRef<HTMLHeadingElement>(null);
   const settingsSheetRef = React.useRef<HTMLDivElement>(null);
@@ -209,9 +215,6 @@ export function RutinaDelDia() {
     [currentSession.ejercicios, molestias],
   );
 
-  const setsProgressPercent =
-    totalSets > 0 ? Math.round((completedSetsCount / totalSets) * 100) : 0;
-
   const remainingSets = Math.max(0, totalSets - completedSetsCount);
 
   const isSetPendingOffline = React.useCallback(
@@ -281,9 +284,40 @@ export function RutinaDelDia() {
       inSuperset ? "" : "a-card",
       "a-row",
       isNext ? "a-next" : "",
+      isDone ? "a-done" : "",
     ]
       .filter(Boolean)
       .join(" ");
+
+    const metaTags: React.ReactNode[] = [];
+    if (isDropSet) {
+      metaTags.push(
+        <span key="drop" className="a-subtag" data-testid={`dropset-tag-${ej.id}`}>
+          Drop set
+        </span>,
+      );
+    }
+    if (ej.es_unilateral) {
+      metaTags.push(
+        <span key="uni" className="a-subtag" data-testid={`badge-unilateral-${ej.id}`}>
+          Por lado
+        </span>,
+      );
+    }
+    if (ej.tipo_medicion === "TIEMPO") {
+      metaTags.push(
+        <span key="time" className="a-subtag" data-testid={`badge-tiempo-${ej.id}`}>
+          <Timer width={11} height={11} className="a-i" /> Tiempo
+        </span>,
+      );
+    }
+    if (showWarmupChip) {
+      metaTags.push(
+        <span key="warm" className="a-subtag a-warm" data-testid={`warmup-tag-${ej.id}`}>
+          Aproximación
+        </span>,
+      );
+    }
 
     return (
       <button
@@ -293,55 +327,38 @@ export function RutinaDelDia() {
         data-testid={`exercise-select-btn-${ej.id}`}
         className={rowClass}
       >
-        <span className="a-num">{idx}</span>
+        <span
+          className={`a-num${isDone ? " a-done" : isNext ? " a-active" : ""}`}
+          aria-label={isDone ? "Hecho" : undefined}
+        >
+          {isDone ? <Check width={14} height={14} className="a-i" /> : idx}
+        </span>
         <span className="a-rt">
           <b className="a-t-bs">{ej.nombre}</b>
           <small className="a-t-sec">{formatEjercicioMeta(ej)}</small>
           {showAnyChip && (
-            <span className="a-tags mt-1">
-              {isDropSet && (
-                <span className="a-chip a-ss a-t-label" data-testid={`dropset-tag-${ej.id}`}>
-                  Drop set
-                </span>
-              )}
-              {ej.es_unilateral && (
-                <span className="a-chip a-line a-t-label" data-testid={`badge-unilateral-${ej.id}`}>
-                  Por lado
-                </span>
-              )}
-              {ej.tipo_medicion === "TIEMPO" && (
-                <span className="a-chip a-line a-t-label" data-testid={`badge-tiempo-${ej.id}`}>
-                  <Timer width={12} height={12} className="a-i" /> Tiempo
-                </span>
-              )}
-              {showWarmupChip && (
-                <span className="a-chip a-ap a-t-label" data-testid={`warmup-tag-${ej.id}`}>
-                  Aproximación
-                </span>
-              )}
+            <span className="a-subtags">
+              {metaTags.map((tag, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <span className="a-dot-sep" aria-hidden="true">·</span>}
+                  {tag}
+                </React.Fragment>
+              ))}
             </span>
           )}
         </span>
-        {isDone ? (
-          <span className="a-chip a-ok a-t-label">
-            <Check width={12} height={12} className="a-i" /> Hecho
-          </span>
-        ) : hasMolestia ? (
+        {hasMolestia ? (
           <span className="a-chip a-bad a-t-label" data-testid={`molestia-chip-${ej.id}`}>
             <TriangleAlert width={12} height={12} className="a-i" /> Molestia
           </span>
         ) : (
-          <span
-            className="a-dots"
-            aria-label={`${completedCount} de ${ej.series.length} series`}
-          >
-            {ej.series.map((s, sIdx) => (
-              <i
-                key={s.numero_serie ?? sIdx}
-                className={s.completada ? "a-on" : undefined}
-              />
-            ))}
-          </span>
+          <AnilloProgreso
+            completadas={completedCount}
+            total={ej.series.length}
+            size={26}
+            strokeWidth={2.8}
+            ariaLabel={`${completedCount} de ${ej.series.length} series`}
+          />
         )}
       </button>
     );
@@ -362,6 +379,7 @@ export function RutinaDelDia() {
         );
         const totalRounds = groupExercises[0]?.series.length ?? 0;
         const label = etiquetaGrupoSuperserie(currentSession.ejercicios, ej);
+        const tipOpen = ssTooltipGrupo === grupo;
 
         return (
           <section
@@ -371,20 +389,41 @@ export function RutinaDelDia() {
             data-testid={`superserie-grupo-${grupo}`}
           >
             <div className="a-ss-h">
-              <span className="a-t-label">{label} · sin descanso entre ejercicios</span>
-              <span className="a-t-label">
-                {roundsDone}/{totalRounds}
-              </span>
+              <div className={`a-ss-pill-wrap${tipOpen ? " a-open" : ""}`}>
+                <button
+                  type="button"
+                  className="a-ss-pill"
+                  aria-expanded={tipOpen}
+                  data-testid={`ss-pill-${grupo}`}
+                  onClick={() => setSsTooltipGrupo((cur) => (cur === grupo ? null : grupo))}
+                >
+                  SS
+                </button>
+                <span className="a-ss-cap a-t-sec">
+                  {groupExercises.length} {groupExercises.length === 1 ? "ejercicio" : "ejercicios"}
+                </span>
+                <div className="a-ss-popover" role="tooltip">
+                  <b>Superserie</b>
+                  Hacés estos {groupExercises.length} ejercicios seguidos sin pausa y descansás recién al terminar la vuelta completa.
+                </div>
+              </div>
+              <AnilloProgreso
+                completadas={roundsDone}
+                total={totalRounds}
+                size={24}
+                strokeWidth={2.8}
+                ariaLabel={`Superserie ${roundsDone} de ${totalRounds} vueltas`}
+              />
             </div>
-            {groupExercises.map((x) => renderExerciseRow(x, true))}
+            <div className="a-ss-timeline">
+              {groupExercises.map((x) => renderExerciseRow(x, true))}
+            </div>
           </section>
         );
       }
       return renderExerciseRow(ej, false);
     });
   };
-
-  const modalDefaultExercise = nextExercise ?? currentSession.ejercicios[0];
 
   return (
     <div className="a-view a-anim" data-testid="live-workout-container">
@@ -414,22 +453,40 @@ export function RutinaDelDia() {
         </div>
       </div>
 
-      {/* Título del día + timer de sesión si empezó */}
+      {/* Título del día + anillo de progreso monocromático (Opción 4 Final) */}
       <div className="a-wk-title">
-        <div>
+        <div className="a-wk-title-copy">
           <h1 className="a-t-d">{cleanDiaTitle || "DÍA 1"}</h1>
-          <span className="a-t-sec a-muted">
-            {currentSession.studentName
-              ? `${currentSession.studentName} · ${totalExercises} ejercicios`
-              : `${totalExercises} ejercicios`}
-          </span>
+          <div className="a-wk-subrow">
+            <span className="a-t-sec a-muted">
+              {totalExercises} {totalExercises === 1 ? "ejercicio" : "ejercicios"} · ~{estimarMinutosRutina(totalSets)} min
+            </span>
+            {(sessionStartedAt !== null || completedSetsCount > 0) && (
+              <span className="a-chip a-line a-t-label" data-testid="session-elapsed-chip">
+                <Timer width={12} height={12} className="a-i" />
+                <span>{formatMmSs(elapsedSec)}</span>
+              </span>
+            )}
+          </div>
+          {!isSimpleView && (
+            <div className="a-vols a-t-sec">
+              <span>
+                Volumen efectivo: <b>{formatAr.format(effectiveVolumeKg)} kg</b>
+              </span>
+              <span>
+                Bruto: <b>{formatAr.format(totalVolumeKg)} kg</b>
+              </span>
+            </div>
+          )}
         </div>
-        {(sessionStartedAt !== null || completedSetsCount > 0) && (
-          <span className="a-chip a-line a-t-label" data-testid="session-elapsed-chip">
-            <Timer width={12} height={12} className="a-i" />
-            <span>{formatMmSs(elapsedSec)}</span>
-          </span>
-        )}
+        <AnilloProgreso
+          completadas={completedSetsCount}
+          total={totalSets}
+          size={42}
+          strokeWidth={4}
+          ariaLabel="Avance de la sesión"
+          testId="rutina-progress-card"
+        />
       </div>
 
       {/* Barra de error de guardado */}
@@ -467,50 +524,6 @@ export function RutinaDelDia() {
         </button>
       )}
 
-      {/* Tarjeta de avance segmentada */}
-      <div className="a-card a-pcard" data-testid="rutina-progress-card">
-        <div className="a-t">
-          <span className="a-t-bs">
-            {completedExercisesCount} de {totalExercises} ejercicios
-          </span>
-          <span className="a-t-label a-muted">
-            {completedSetsCount}/{totalSets} series
-          </span>
-        </div>
-        <div
-          className="a-segbar"
-          role="progressbar"
-          aria-valuenow={setsProgressPercent}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="Avance de la sesión"
-        >
-          {currentSession.ejercicios.map((ej) => (
-            <span
-              key={ej.id}
-              style={{ "--n": Math.max(1, ej.series.length) } as React.CSSProperties}
-            >
-              {ej.series.map((s, sIdx) => (
-                <i
-                  key={s.numero_serie ?? sIdx}
-                  className={s.completada ? "a-on" : undefined}
-                />
-              ))}
-            </span>
-          ))}
-        </div>
-        {!isSimpleView && (
-          <div className="a-vols a-t-sec">
-            <span>
-              Volumen efectivo: <b>{formatAr.format(effectiveVolumeKg)} kg</b>
-            </span>
-            <span>
-              Bruto: <b>{formatAr.format(totalVolumeKg)} kg</b>
-            </span>
-          </div>
-        )}
-      </div>
-
       {/* Segmentado: Entrenar | Registro de la sesión */}
       <div className="a-seg" role="group" aria-label="Vista de la sesión">
         <button
@@ -541,7 +554,7 @@ export function RutinaDelDia() {
           {nextExercise && (
             <button
               type="button"
-              className="a-btn a-gym"
+              className="a-btn a-gym a-pill"
               onClick={() => openExercise(nextExercise.id)}
               data-testid="empezar-rutina-btn"
             >
@@ -549,23 +562,6 @@ export function RutinaDelDia() {
               <ArrowRight width={18} height={18} className="a-i" />
             </button>
           )}
-
-          <button
-            type="button"
-            className="a-molbtn"
-            onClick={() =>
-              setPainModalData({
-                exerciseId: modalDefaultExercise?.id || "",
-                ejercicioId: modalDefaultExercise?.ejercicio_id || "",
-                exerciseName: currentSession.nombre_rutina,
-                setNumber: 1,
-              })
-            }
-            data-testid="header-pain-report-btn"
-          >
-            <TriangleAlert width={18} height={18} className="a-i" />
-            Tengo una molestia
-          </button>
 
           {confirmingFinish ? (
             <div
@@ -580,7 +576,7 @@ export function RutinaDelDia() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  className="a-btn a-ghost"
+                  className="a-btn a-soft a-pill"
                   onClick={() => setConfirmingFinish(false)}
                   data-testid="terminar-seguir-btn"
                 >
@@ -588,7 +584,7 @@ export function RutinaDelDia() {
                 </button>
                 <button
                   type="button"
-                  className="a-btn"
+                  className="a-btn a-pill"
                   disabled={isFinishing}
                   onClick={() => {
                     setConfirmingFinish(false);
@@ -603,7 +599,7 @@ export function RutinaDelDia() {
           ) : (
             <button
               type="button"
-              className={`a-btn${nextExercise ? " a-ghost" : ""}`}
+              className={`a-btn a-pill${nextExercise ? " a-soft" : ""}`}
               disabled={isFinishing}
               onClick={() => {
                 if (workoutFinished || isAllWorkoutCompleted) {

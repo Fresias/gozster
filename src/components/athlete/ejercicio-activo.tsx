@@ -8,6 +8,7 @@ import { AvisoMolestia } from "@/components/athlete/aviso-molestia";
 import { VideoUploadModal } from "@/components/athlete/video-upload-modal";
 import { CierreDiaModal } from "@/components/athlete/cierre-dia-modal";
 import { AvisoRecord } from "@/components/athlete/aviso-record";
+import { AnilloProgreso } from "@/components/athlete/anillo-progreso";
 import { Tooltip1RM } from "@/components/athlete/tooltip-1rm";
 import {
   TriangleAlert,
@@ -125,9 +126,6 @@ export function EjercicioActivo() {
     seriesRecord,
     optimisticBanner,
     setOptimisticBanner,
-    uniSide,
-    setUniSide,
-    uniPend,
     uniLogs,
     sessionPRs,
     sessionStartTimeRef,
@@ -170,7 +168,8 @@ export function EjercicioActivo() {
     repRange,
     sugerencia,
     handleRegistrarSerie,
-    handleRegistrarUnilateral,
+    handleRegistrarParUnilateral,
+    handleRegistrarVueltaSuperserie,
     handleAdjustPeso,
     handleAdjustReps,
     handleDirectUpdatePeso,
@@ -191,6 +190,7 @@ export function EjercicioActivo() {
   const reintentarVideoDeSerie = useAthleteStore((s) => s.reintentarVideoDeSerie);
 
   const [descansoInfo, setDescansoInfo] = React.useState(false);
+  const [ssTooltipOpen, setSsTooltipOpen] = React.useState(false);
   const [rpeAyuda, setRpeAyuda] = React.useState(false);
   const [aproxSaltada, setAproxSaltada] = React.useState<Record<string, boolean>>({});
   const [aproxHechasPorEj, setAproxHechasPorEj] = React.useState<Record<string, boolean[]>>({});
@@ -199,9 +199,20 @@ export function EjercicioActivo() {
   const [pesoDraft, setPesoDraft] = React.useState<string | null>(null);
   const [barraDraft, setBarraDraft] = React.useState<string | null>(null);
   const [segundos, setSegundos] = React.useState(0);
+  const [uniSplit, setUniSplit] = React.useState(false);
+  const [uniIzqKg, setUniIzqKg] = React.useState<number>(0);
+  const [uniIzqReps, setUniIzqReps] = React.useState<number>(10);
+  const [uniIzqDraft, setUniIzqDraft] = React.useState<string | null>(null);
+  const [ssSplitByEx, setSsSplitByEx] = React.useState<Record<string, boolean>>({});
+  const [ssIzqByEx, setSsIzqByEx] = React.useState<Record<string, { kg: number; reps: number }>>({});
 
   React.useEffect(() => {
     setPesoDraft(null);
+    setUniIzqDraft(null);
+    if (serie) {
+      setUniIzqKg(serie.peso_kg);
+      setUniIzqReps(serie.reps_hechas);
+    }
   }, [currentExercise?.id, serie?.numero_serie]);
 
   React.useEffect(() => {
@@ -269,14 +280,46 @@ export function EjercicioActivo() {
   const esTiempo = ej.tipo_medicion === "TIEMPO";
   const esDrop = isDropset(ej.tipo_serie) || (serie ? isDropset(serie.set_type) : false);
   const esUni = Boolean(ej.es_unilateral);
-  const completas = ej.series.every((s) => s.completada);
+  const ssGrupo = ej.es_superserie ? ej.grupo_superserie || 1 : null;
+  const ssEjercicios =
+    ssGrupo !== null
+      ? currentSession.ejercicios.filter(
+          (x) => x.es_superserie && (x.grupo_superserie || 1) === ssGrupo,
+        )
+      : [];
+  const esCicloSS = ssEjercicios.length >= 2;
+  const totalVueltasSS = esCicloSS ? Math.max(...ssEjercicios.map((x) => x.series.length), 0) : 0;
+  const vueltasHechasSS = esCicloSS
+    ? Math.min(...ssEjercicios.map((x) => x.series.filter((s) => s.completada).length))
+    : 0;
+  let vueltaActivaSS: number | null = null;
+  if (esCicloSS) {
+    for (let r = 1; r <= totalVueltasSS; r += 1) {
+      const hayPendiente = ssEjercicios.some((x) =>
+        x.series.some((s) => s.numero_serie === r && !s.completada),
+      );
+      if (hayPendiente) {
+        vueltaActivaSS = r;
+        break;
+      }
+    }
+  }
+  const completas = esCicloSS ? vueltaActivaSS === null : ej.series.every((s) => s.completada);
   const hechas = ej.series.filter((s) => s.completada);
   const tieneNotas = Boolean(ej.notas?.trim() || ej.comentario?.trim());
-  const siguiente = firstIncompleteExercise && firstIncompleteExercise.id !== ej.id ? firstIncompleteExercise : null;
+  const siguiente = esCicloSS
+    ? currentSession.ejercicios.find(
+        (x) =>
+          (!x.es_superserie || (x.grupo_superserie || 1) !== ssGrupo) &&
+          x.series.some((s) => !s.completada),
+      ) ?? null
+    : firstIncompleteExercise && firstIncompleteExercise.id !== ej.id
+      ? firstIncompleteExercise
+      : null;
   const ultima = ultimaVez[ej.ejercicio_id ?? ej.id];
   const refUltima = ultima && serie ? serieDeReferencia(ultima, serie.numero_serie) : null;
   const pesoRef = refUltima?.peso_kg ?? null;
-  const abierta = serie && !completas && !isAllWorkoutCompleted;
+  const abierta = esCicloSS ? vueltaActivaSS !== null && !isAllWorkoutCompleted : Boolean(serie && !completas && !isAllWorkoutCompleted);
 
   // Aproximación en línea, calculada desde el peso de trabajo (D-20).
   const pesoTrabajo = ej.series.find((s) => !isWarmup(s.set_type))?.peso_kg || serie?.peso_kg || 0;
@@ -361,58 +404,129 @@ export function EjercicioActivo() {
             <Timer width={18} height={18} className="a-i" />
             <span className="a-t-label">{ej.descanso_segundos} s</span>
           </button>
+          {!ejercicioEstaBloqueado && (
+            <button
+              type="button"
+              className="a-tool a-tool-pain"
+              aria-label="Tengo una molestia"
+              title="Reportar molestia"
+              data-testid={`exercise-pain-report-btn-${ej.id}`}
+              onClick={() =>
+                setPainModalData({
+                  exerciseId: ej.id,
+                  ejercicioId: ej.ejercicio_id || "",
+                  exerciseName: ej.nombre,
+                  setNumber: serie?.numero_serie || 1,
+                })
+              }
+            >
+              <TriangleAlert width={18} height={18} className="a-i" />
+            </button>
+          )}
         </div>
       </div>
 
       <div className="a-ex-head" data-testid={`single-exercise-container-${ej.id}`}>
-        <div className="a-xmeta">
-          <span className="a-eb a-t-label" style={{ margin: 0 }}>
-            Ejercicio {currentExerciseIndex + 1} de {currentSession.ejercicios.length}
-          </span>
-          {sessionStartedAt ? (
-            <span className="a-chip a-line a-t-label">
-              <Timer width={12} height={12} className="a-i" /> {mmss(segundos)}
-            </span>
-          ) : null}
+        <div className="a-ex-head-top">
+          <div className="a-ex-head-main">
+            {!esCicloSS && (
+              <span
+                className={`a-num${completas ? " a-done" : " a-active"}`}
+                aria-label={completas ? "Hecho" : undefined}
+              >
+                {completas ? <Check width={14} height={14} className="a-i" /> : currentExerciseIndex + 1}
+              </span>
+            )}
+            <div className="a-ex-head-copy">
+              <div className="a-xmeta">
+                {esCicloSS ? (
+                  <>
+                    <div className={`a-ss-pill-wrap${ssTooltipOpen ? " a-open" : ""}`}>
+                      <button
+                        type="button"
+                        className="a-ss-pill"
+                        aria-expanded={ssTooltipOpen}
+                        data-testid="superserie-circuit-banner"
+                        onClick={() => setSsTooltipOpen((v) => !v)}
+                      >
+                        SS
+                      </button>
+                      <div className="a-ss-popover" role="tooltip">
+                        <b>Superserie</b>
+                        Hacés estos {ssEjercicios.length} ejercicios seguidos sin pausa y registrás la vuelta completa al iniciar el descanso.
+                      </div>
+                    </div>
+                    <span className="a-eb a-t-label" style={{ margin: 0 }}>
+                      {vueltaActivaSS !== null
+                        ? `Vuelta ${vueltaActivaSS} de ${totalVueltasSS}`
+                        : "Vueltas completas"}
+                    </span>
+                  </>
+                ) : (
+                  <span className="a-eb a-t-label" style={{ margin: 0 }}>
+                    Ejercicio {currentExerciseIndex + 1} de {currentSession.ejercicios.length}
+                  </span>
+                )}
+                {sessionStartedAt ? (
+                  <span className="a-chip a-line a-t-label">
+                    <Timer width={12} height={12} className="a-i" /> {mmss(segundos)}
+                  </span>
+                ) : null}
+              </div>
+              <h1 className="a-t-h">{esCicloSS ? "Superserie" : ej.nombre}</h1>
+            </div>
+          </div>
+          <AnilloProgreso
+            completadas={esCicloSS ? vueltasHechasSS : hechas.length}
+            total={esCicloSS ? totalVueltasSS : ej.series.length}
+            size={40}
+            strokeWidth={3.8}
+            ariaLabel={
+              esCicloSS
+                ? `Superserie ${vueltasHechasSS} de ${totalVueltasSS} vueltas`
+                : `${hechas.length} de ${ej.series.length} series`
+            }
+          />
         </div>
-        <h1 className="a-t-h">{ej.nombre}</h1>
-        <div className="a-tags">
-          {ej.musculos_principales.map((m) => (
-            <span key={m} className="a-chip a-t-sec">
-              {m}
-            </span>
-          ))}
-          {ej.es_superserie && (
-            <span className="a-chip a-ss a-t-label" data-testid="superserie-circuit-banner">
-              {etiquetaGrupoSuperserie(currentSession.ejercicios, ej)}
-            </span>
-          )}
-          {esDrop && (
-            <span className="a-chip a-ss a-t-label" data-testid="dropset-badge">
-              Drop set
-            </span>
-          )}
-          {esUni && (
-            <span className="a-chip a-line a-t-label" data-testid="badge-unilateral">
-              Por lado
-            </span>
-          )}
-          {esTiempo && (
-            <span className="a-chip a-line a-t-label" data-testid="badge-tipo-tiempo">
-              <Timer width={12} height={12} className="a-i" /> Tiempo
-            </span>
-          )}
-          {serie && isWarmup(serie.set_type) && (
-            <span className="a-chip a-ap a-t-label" data-testid="warmup-badge">
-              Aproximación
-            </span>
-          )}
-          {ej.force_rpe_required && (
-            <span className="a-chip a-line a-t-label" data-testid={`force-rpe-badge-${ej.id}`}>
-              RPE obligatorio
-            </span>
-          )}
-        </div>
+        {!esCicloSS && (
+          <div className="a-tags">
+            {ej.musculos_principales.map((m) => (
+              <span key={m} className="a-chip a-t-sec">
+                {m}
+              </span>
+            ))}
+            {ej.es_superserie && (
+              <span className="a-chip a-ss a-t-label" data-testid="superserie-circuit-banner">
+                {etiquetaGrupoSuperserie(currentSession.ejercicios, ej)}
+              </span>
+            )}
+            {esDrop && (
+              <span className="a-chip a-ss a-t-label" data-testid="dropset-badge">
+                Drop set
+              </span>
+            )}
+            {esUni && (
+              <span className="a-chip a-line a-t-label" data-testid="badge-unilateral">
+                Por lado
+              </span>
+            )}
+            {esTiempo && (
+              <span className="a-chip a-line a-t-label" data-testid="badge-tipo-tiempo">
+                <Timer width={12} height={12} className="a-i" /> Tiempo
+              </span>
+            )}
+            {serie && isWarmup(serie.set_type) && (
+              <span className="a-chip a-ap a-t-label" data-testid="warmup-badge">
+                Aproximación
+              </span>
+            )}
+            {ej.force_rpe_required && (
+              <span className="a-chip a-line a-t-label" data-testid={`force-rpe-badge-${ej.id}`}>
+                RPE obligatorio
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {descansoInfo && (
@@ -539,7 +653,283 @@ export function EjercicioActivo() {
         </p>
       )}
 
-      {abierta ? (
+      {abierta && esCicloSS && vueltaActivaSS !== null ? (
+        <section
+          className="a-setcard a-ss-cycle"
+          aria-label={`Vuelta ${vueltaActivaSS} de ${totalVueltasSS}`}
+          data-testid={`ss-cycle-card-${ssGrupo}-${vueltaActivaSS}`}
+        >
+          <div className="a-ss-inline-list">
+            {ssEjercicios.map((item) => {
+              const itemIdx = currentSession.ejercicios.findIndex((e) => e.id === item.id) + 1;
+              const itemSet = item.series.find((s) => s.numero_serie === vueltaActivaSS) ?? item.series[item.series.length - 1];
+              const itemDone = item.series.length > 0 && item.series.every((s) => s.completada);
+              const itemUni = Boolean(item.es_unilateral);
+              const itemSplit = Boolean(ssSplitByEx[item.id]);
+              const itemTiempo = item.tipo_medicion === "TIEMPO";
+              const itemUltima = ultimaVez[item.ejercicio_id ?? item.id];
+              const itemRef = itemUltima && itemSet ? serieDeReferencia(itemUltima, itemSet.numero_serie) : null;
+              const izqVals = ssIzqByEx[item.id] ?? {
+                kg: itemSet?.peso_kg ?? 0,
+                reps: itemSet?.reps_hechas ?? 10,
+              };
+
+              const updateIzq = (field: "kg" | "reps", nextVal: number) => {
+                setSsIzqByEx((prev) => ({
+                  ...prev,
+                  [item.id]: {
+                    kg: field === "kg" ? Math.max(0, nextVal) : izqVals.kg,
+                    reps: field === "reps" ? Math.max(1, nextVal) : izqVals.reps,
+                  },
+                }));
+              };
+
+              return (
+                <div key={item.id} className="a-ss-ex-block" data-testid={`ss-cycle-item-${item.id}`}>
+                  <div className="a-ss-ex-top">
+                    <span
+                      className={`a-num${itemDone ? " a-done" : " a-active"}`}
+                      aria-label={itemDone ? "Hecho" : undefined}
+                    >
+                      {itemDone ? <Check width={14} height={14} className="a-i" /> : itemIdx}
+                    </span>
+                    <div className="a-ss-ex-copy">
+                      <b className="a-t-bs">{item.nombre}</b>
+                      <small className="a-t-sec a-muted">
+                        {item.repeticiones_objetivo}
+                        {itemUni ? " por lado" : ""}
+                        {itemRef ? ` · Última: ${formatearCarga(itemRef)}` : ""}
+                      </small>
+                    </div>
+                  </div>
+
+                  {itemSet && !itemSet.completada && (
+                    <div className="a-ss-ex-ctrl">
+                      {itemUni && !itemTiempo && (
+                        <div className="a-seg a-seg-compact" role="group" aria-label={`Carga por lado en ${item.nombre}`}>
+                          <button
+                            type="button"
+                            aria-pressed={!itemSplit}
+                            data-testid={`ss-uni-same-${item.id}`}
+                            onClick={() => setSsSplitByEx((p) => ({ ...p, [item.id]: false }))}
+                          >
+                            Igual D/I
+                          </button>
+                          <button
+                            type="button"
+                            aria-pressed={itemSplit}
+                            data-testid={`ss-uni-split-${item.id}`}
+                            onClick={() => {
+                              setSsIzqByEx((prev) => ({
+                                ...prev,
+                                [item.id]: prev[item.id] ?? { kg: itemSet.peso_kg, reps: itemSet.reps_hechas },
+                              }));
+                              setSsSplitByEx((p) => ({ ...p, [item.id]: true }));
+                            }}
+                          >
+                            Separar D/I
+                          </button>
+                        </div>
+                      )}
+
+                      {itemUni && itemSplit && !itemTiempo ? (
+                        <div className="a-uni-split">
+                          <div className="a-uni-side-card" data-testid={`ss-uni-side-D-${item.id}`}>
+                            <span className="a-uni-side-pill">DER</span>
+                            <div className="a-uni-grid">
+                              <div className="a-mini-step">
+                                <button
+                                  type="button"
+                                  disabled={itemSet.peso_kg <= 0}
+                                  aria-label={`Restar ${fmtAr.format(pasoPeso)} kg derecha`}
+                                  onClick={() => updateSetField(item.id, itemSet.numero_serie, "peso_kg", Math.max(0, itemSet.peso_kg - pasoPeso))}
+                                >
+                                  −
+                                </button>
+                                <span className="a-mini-val">
+                                  {fmtAr.format(itemSet.peso_kg)} <small>kg</small>
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-label={`Sumar ${fmtAr.format(pasoPeso)} kg derecha`}
+                                  onClick={() => updateSetField(item.id, itemSet.numero_serie, "peso_kg", itemSet.peso_kg + pasoPeso)}
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <div className="a-mini-step">
+                                <button
+                                  type="button"
+                                  disabled={itemSet.reps_hechas <= 1}
+                                  aria-label="Restar 1 rep derecha"
+                                  onClick={() => updateSetField(item.id, itemSet.numero_serie, "reps_hechas", Math.max(1, itemSet.reps_hechas - 1))}
+                                >
+                                  −
+                                </button>
+                                <span className="a-mini-val">
+                                  {itemSet.reps_hechas} <small>reps</small>
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-label="Sumar 1 rep derecha"
+                                  onClick={() => updateSetField(item.id, itemSet.numero_serie, "reps_hechas", itemSet.reps_hechas + 1)}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="a-uni-side-card" data-testid={`ss-uni-side-I-${item.id}`}>
+                            <span className="a-uni-side-pill a-alt">IZQ</span>
+                            <div className="a-uni-grid">
+                              <div className="a-mini-step">
+                                <button
+                                  type="button"
+                                  disabled={izqVals.kg <= 0}
+                                  aria-label={`Restar ${fmtAr.format(pasoPeso)} kg izquierda`}
+                                  onClick={() => updateIzq("kg", izqVals.kg - pasoPeso)}
+                                >
+                                  −
+                                </button>
+                                <span className="a-mini-val">
+                                  {fmtAr.format(izqVals.kg)} <small>kg</small>
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-label={`Sumar ${fmtAr.format(pasoPeso)} kg izquierda`}
+                                  onClick={() => updateIzq("kg", izqVals.kg + pasoPeso)}
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <div className="a-mini-step">
+                                <button
+                                  type="button"
+                                  disabled={izqVals.reps <= 1}
+                                  aria-label="Restar 1 rep izquierda"
+                                  onClick={() => updateIzq("reps", izqVals.reps - 1)}
+                                >
+                                  −
+                                </button>
+                                <span className="a-mini-val">
+                                  {izqVals.reps} <small>reps</small>
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-label="Sumar 1 rep izquierda"
+                                  onClick={() => updateIzq("reps", izqVals.reps + 1)}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="a-uni-grid">
+                          {!itemTiempo && (
+                            <div className="a-mini-step">
+                              <button
+                                type="button"
+                                disabled={itemSet.peso_kg <= 0}
+                                aria-label={`Restar ${fmtAr.format(pasoPeso)} kg en ${item.nombre}`}
+                                onClick={() => updateSetField(item.id, itemSet.numero_serie, "peso_kg", Math.max(0, itemSet.peso_kg - pasoPeso))}
+                              >
+                                −
+                              </button>
+                              <span className="a-mini-val">
+                                {fmtAr.format(itemSet.peso_kg)} <small>kg</small>
+                              </span>
+                              <button
+                                type="button"
+                                aria-label={`Sumar ${fmtAr.format(pasoPeso)} kg en ${item.nombre}`}
+                                onClick={() => updateSetField(item.id, itemSet.numero_serie, "peso_kg", itemSet.peso_kg + pasoPeso)}
+                              >
+                                +
+                              </button>
+                            </div>
+                          )}
+                          <div className="a-mini-step">
+                            <button
+                              type="button"
+                              disabled={itemSet.reps_hechas <= 1}
+                              aria-label={itemTiempo ? "Restar 5 segundos" : `Restar 1 rep en ${item.nombre}`}
+                              onClick={() =>
+                                updateSetField(
+                                  item.id,
+                                  itemSet.numero_serie,
+                                  "reps_hechas",
+                                  Math.max(1, itemSet.reps_hechas - (itemTiempo ? 5 : 1)),
+                                )
+                              }
+                            >
+                              −
+                            </button>
+                            <span className="a-mini-val">
+                              {itemSet.reps_hechas} <small>{itemTiempo ? "s" : "reps"}</small>
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={itemTiempo ? "Sumar 5 segundos" : `Sumar 1 rep en ${item.nombre}`}
+                              onClick={() =>
+                                updateSetField(
+                                  item.id,
+                                  itemSet.numero_serie,
+                                  "reps_hechas",
+                                  itemSet.reps_hechas + (itemTiempo ? 5 : 1),
+                                )
+                              }
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            className="a-btn a-gym a-pill"
+            disabled={ejercicioEstaBloqueado}
+            data-testid="registrar-serie-btn"
+            onClick={() => {
+              const entradas: Record<
+                string,
+                { pesoKg: number; reps: number; parUni?: { D: { kg: number; reps: number }; I: { kg: number; reps: number } } }
+              > = {};
+              for (const item of ssEjercicios) {
+                const st = item.series.find((s) => s.numero_serie === vueltaActivaSS);
+                if (!st || st.completada) continue;
+                const itemUni = Boolean(item.es_unilateral);
+                const itemSplit = Boolean(ssSplitByEx[item.id]);
+                const izq = ssIzqByEx[item.id] ?? { kg: st.peso_kg, reps: st.reps_hechas };
+                if (itemUni) {
+                  const par = itemSplit
+                    ? { D: { kg: st.peso_kg, reps: st.reps_hechas }, I: izq }
+                    : { D: { kg: st.peso_kg, reps: st.reps_hechas }, I: { kg: st.peso_kg, reps: st.reps_hechas } };
+                  entradas[item.id] = {
+                    pesoKg: Math.max(par.D.kg, par.I.kg),
+                    reps: par.D.reps,
+                    parUni: par,
+                  };
+                } else {
+                  entradas[item.id] = { pesoKg: st.peso_kg, reps: st.reps_hechas };
+                }
+              }
+              handleRegistrarVueltaSuperserie(ssEjercicios, vueltaActivaSS, entradas);
+            }}
+          >
+            <Check width={18} height={18} className="a-i" />{" "}
+            {`Registrar vuelta ${vueltaActivaSS} · ${ej.descanso_segundos} s`}
+          </button>
+        </section>
+      ) : abierta && serie ? (
         <section
           className={`a-setcard ${esDrop ? "a-drop" : ""}`}
           aria-label={`Serie ${serie.numero_serie} de ${ej.series.length}`}
@@ -663,80 +1053,226 @@ export function EjercicioActivo() {
           {!esTiempo && (
             <>
               {esUni && (
-                <div className="a-seg" role="group" aria-label="Lado" data-testid="unilateral-indicator">
+                <div className="a-seg a-seg-compact" role="group" aria-label="Cargas por lado" data-testid="unilateral-indicator">
                   <button
                     type="button"
-                    aria-pressed={uniSide === "D"}
-                    data-testid="uni-side-D"
-                    onClick={() => setUniSide("D")}
+                    aria-pressed={!uniSplit}
+                    data-testid="uni-mode-same"
+                    onClick={() => setUniSplit(false)}
                   >
-                    Derecha {uniPend.D && <Check width={15} height={15} className="a-i" />}
+                    Igual D/I
                   </button>
                   <button
                     type="button"
-                    aria-pressed={uniSide === "I"}
-                    data-testid="uni-side-I"
-                    onClick={() => setUniSide("I")}
+                    aria-pressed={uniSplit}
+                    data-testid="uni-mode-split"
+                    onClick={() => {
+                      setUniIzqKg(serie.peso_kg);
+                      setUniIzqReps(serie.reps_hechas);
+                      setUniSplit(true);
+                    }}
                   >
-                    Izquierda {uniPend.I && <Check width={15} height={15} className="a-i" />}
+                    Separar D/I
                   </button>
                 </div>
               )}
-              <label
-                className="a-lbl a-t-label"
-                htmlFor={`peso-${ej.id}-${serie.numero_serie}`}
-                data-testid={esUni ? "badge-peso-unilateral" : undefined}
-              >
-                Peso{esUni ? " por lado" : ""}
-              </label>
-              <div className="a-stepper">
-                <button
-                  type="button"
-                  disabled={serie.peso_kg <= 0}
-                  onClick={() => {
-                    setPesoDraft(null);
-                    handleAdjustPeso(-pasoPeso);
-                  }}
-                  aria-label={`Restar ${fmtAr.format(pasoPeso)} kg`}
-                  data-testid="peso-decrement-btn"
-                >
-                  −{fmtAr.format(pasoPeso)}
-                </button>
-                <div className={`a-val ${pesoWarn ? "a-warn" : ""}`}>
-                  <input
-                    id={`peso-${ej.id}-${serie.numero_serie}`}
-                    className={`a-t-mi${(pesoDraft ?? fmtAr.format(serie.peso_kg)).length >= 5 ? " a-long" : ""}`}
-                    style={{ ["--n" as string]: String(Math.max(1, (pesoDraft ?? fmtAr.format(serie.peso_kg)).length)) }}
-                    type="text"
-                    inputMode="decimal"
-                    min="0"
-                    max="500"
-                    autoComplete="off"
-                    aria-label="Peso en kilogramos"
-                    aria-invalid={pesoWarn || undefined}
-                    value={pesoDraft ?? fmtAr.format(serie.peso_kg)}
-                    onFocus={() => setPesoDraft(fmtAr.format(serie.peso_kg))}
-                    onChange={(e) => {
-                      const next = e.target.value;
-                      setPesoDraft(next);
-                      handleDirectUpdatePeso(parsearPesoDecimal(next));
-                    }}
-                    onBlur={() => setPesoDraft(null)}
-                  />
-                  <span className="a-t-sec">kg</span>
+
+              {esUni && uniSplit ? (
+                <div className="a-uni-split">
+                  <div className="a-uni-side-card" data-testid="uni-side-D">
+                    <span className="a-uni-side-pill">DER</span>
+                    <div className="a-uni-grid">
+                      <div className="a-mini-step">
+                        <button
+                          type="button"
+                          disabled={serie.peso_kg <= 0}
+                          onClick={() => {
+                            setPesoDraft(null);
+                            handleAdjustPeso(-pasoPeso);
+                          }}
+                          aria-label={`Restar ${fmtAr.format(pasoPeso)} kg derecha`}
+                          data-testid="peso-decrement-btn"
+                        >
+                          −
+                        </button>
+                        <input
+                          id={`peso-${ej.id}-${serie.numero_serie}`}
+                          className="a-mini-input"
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          aria-label="Peso derecha en kilogramos"
+                          value={pesoDraft ?? fmtAr.format(serie.peso_kg)}
+                          onFocus={() => setPesoDraft(fmtAr.format(serie.peso_kg))}
+                          onChange={(e) => {
+                            setPesoDraft(e.target.value);
+                            handleDirectUpdatePeso(parsearPesoDecimal(e.target.value));
+                          }}
+                          onBlur={() => setPesoDraft(null)}
+                        />
+                        <span className="a-mini-unit">kg</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPesoDraft(null);
+                            handleAdjustPeso(pasoPeso);
+                          }}
+                          aria-label={`Sumar ${fmtAr.format(pasoPeso)} kg derecha`}
+                          data-testid="peso-increment-btn"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="a-mini-step">
+                        <button
+                          type="button"
+                          disabled={serie.reps_hechas <= 1}
+                          onClick={() => handleAdjustReps(-1)}
+                          aria-label="Restar una repetición derecha"
+                          data-testid="reps-decrement-btn"
+                        >
+                          −
+                        </button>
+                        <span className="a-mini-val">
+                          {serie.reps_hechas} <small>reps</small>
+                        </span>
+                        <button
+                          type="button"
+                          disabled={repRange?.isRange ? serie.reps_hechas >= repRange.max : false}
+                          onClick={() => handleAdjustReps(1)}
+                          aria-label="Sumar una repetición derecha"
+                          data-testid="reps-increment-btn"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="a-uni-side-card" data-testid="uni-side-I">
+                    <span className="a-uni-side-pill a-alt">IZQ</span>
+                    <div className="a-uni-grid">
+                      <div className="a-mini-step">
+                        <button
+                          type="button"
+                          disabled={uniIzqKg <= 0}
+                          onClick={() => {
+                            setUniIzqDraft(null);
+                            setUniIzqKg((v) => Math.max(0, v - pasoPeso));
+                          }}
+                          aria-label={`Restar ${fmtAr.format(pasoPeso)} kg izquierda`}
+                        >
+                          −
+                        </button>
+                        <input
+                          className="a-mini-input"
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          aria-label="Peso izquierda en kilogramos"
+                          value={uniIzqDraft ?? fmtAr.format(uniIzqKg)}
+                          onFocus={() => setUniIzqDraft(fmtAr.format(uniIzqKg))}
+                          onChange={(e) => {
+                            setUniIzqDraft(e.target.value);
+                            setUniIzqKg(parsearPesoDecimal(e.target.value));
+                          }}
+                          onBlur={() => setUniIzqDraft(null)}
+                        />
+                        <span className="a-mini-unit">kg</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUniIzqDraft(null);
+                            setUniIzqKg((v) => v + pasoPeso);
+                          }}
+                          aria-label={`Sumar ${fmtAr.format(pasoPeso)} kg izquierda`}
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="a-mini-step">
+                        <button
+                          type="button"
+                          disabled={uniIzqReps <= 1}
+                          onClick={() => setUniIzqReps((v) => Math.max(1, v - 1))}
+                          aria-label="Restar una repetición izquierda"
+                        >
+                          −
+                        </button>
+                        <span className="a-mini-val">
+                          {uniIzqReps} <small>reps</small>
+                        </span>
+                        <button
+                          type="button"
+                          disabled={repRange?.isRange ? uniIzqReps >= repRange.max : false}
+                          onClick={() => setUniIzqReps((v) => v + 1)}
+                          aria-label="Sumar una repetición izquierda"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPesoDraft(null);
-                    handleAdjustPeso(pasoPeso);
-                  }}
-                  aria-label={`Sumar ${fmtAr.format(pasoPeso)} kg`}
-                  data-testid="peso-increment-btn"
-                >
-                  +{fmtAr.format(pasoPeso)}
-                </button>
-              </div>
+              ) : (
+                <>
+                  <label
+                    className="a-lbl a-t-label"
+                    htmlFor={`peso-${ej.id}-${serie.numero_serie}`}
+                    data-testid={esUni ? "badge-peso-unilateral" : undefined}
+                  >
+                    Peso{esUni ? " por lado" : ""}
+                  </label>
+                  <div className="a-stepper">
+                    <button
+                      type="button"
+                      disabled={serie.peso_kg <= 0}
+                      onClick={() => {
+                        setPesoDraft(null);
+                        handleAdjustPeso(-pasoPeso);
+                      }}
+                      aria-label={`Restar ${fmtAr.format(pasoPeso)} kg`}
+                      data-testid="peso-decrement-btn"
+                    >
+                      −{fmtAr.format(pasoPeso)}
+                    </button>
+                    <div className={`a-val ${pesoWarn ? "a-warn" : ""}`}>
+                      <input
+                        id={`peso-${ej.id}-${serie.numero_serie}`}
+                        className={`a-t-mi${(pesoDraft ?? fmtAr.format(serie.peso_kg)).length >= 5 ? " a-long" : ""}`}
+                        style={{ ["--n" as string]: String(Math.max(1, (pesoDraft ?? fmtAr.format(serie.peso_kg)).length)) }}
+                        type="text"
+                        inputMode="decimal"
+                        min="0"
+                        max="500"
+                        autoComplete="off"
+                        aria-label="Peso en kilogramos"
+                        aria-invalid={pesoWarn || undefined}
+                        value={pesoDraft ?? fmtAr.format(serie.peso_kg)}
+                        onFocus={() => setPesoDraft(fmtAr.format(serie.peso_kg))}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setPesoDraft(next);
+                          handleDirectUpdatePeso(parsearPesoDecimal(next));
+                        }}
+                        onBlur={() => setPesoDraft(null)}
+                      />
+                      <span className="a-t-sec">kg</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPesoDraft(null);
+                        handleAdjustPeso(pasoPeso);
+                      }}
+                      aria-label={`Sumar ${fmtAr.format(pasoPeso)} kg`}
+                      data-testid="peso-increment-btn"
+                    >
+                      +{fmtAr.format(pasoPeso)}
+                    </button>
+                  </div>
+                </>
+              )}
 
               {atypicalPrompt && (
                 <div className="a-kgwarn" role="alert" id="kgWarn" data-testid="atypical-confirmation-dialog">
@@ -764,8 +1300,12 @@ export function EjercicioActivo() {
                         const editando = atypicalPrompt.isEditing;
                         setAtypicalPrompt(null);
                         if (editando) handleSaveEdit(true);
-                        else if (esUni) handleRegistrarUnilateral(true);
-                        else handleRegistrarSerie(true);
+                        else if (esUni) {
+                          const par = uniSplit
+                            ? { D: { kg: serie.peso_kg, reps: serie.reps_hechas }, I: { kg: uniIzqKg, reps: uniIzqReps } }
+                            : { D: { kg: serie.peso_kg, reps: serie.reps_hechas }, I: { kg: serie.peso_kg, reps: serie.reps_hechas } };
+                          handleRegistrarParUnilateral(par, true);
+                        } else handleRegistrarSerie(true);
                       }}
                     >
                       Sí, es correcto
@@ -776,48 +1316,52 @@ export function EjercicioActivo() {
             </>
           )}
 
-          <label className="a-lbl a-t-label" htmlFor={`reps-${ej.id}-${serie.numero_serie}`}>
-            {esTiempo ? "Segundos" : "Repeticiones"}
-          </label>
-          <div className="a-stepper a-sm">
-            <button
-              type="button"
-              disabled={serie.reps_hechas <= 1}
-              onClick={() => handleAdjustReps(esTiempo ? -5 : -1)}
-              aria-label={esTiempo ? "Restar 5 segundos" : "Restar una repetición"}
-              data-testid="reps-decrement-btn"
-            >
-              {esTiempo ? "−5" : "−1"}
-            </button>
-            <div className="a-val">
-              <input
-                id={`reps-${ej.id}-${serie.numero_serie}`}
-                className="a-t-mi"
-                style={{ ["--n" as string]: String(serie.reps_hechas).length }}
-                type="text"
-                inputMode="numeric"
-                min="0"
-                max={!esTiempo && repRange?.isRange ? repRange.max : 100}
-                autoComplete="off"
-                aria-label={esTiempo ? "Tiempo en segundos" : "Cantidad de repeticiones"}
-                value={serie.reps_hechas}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value.replace(/\D/g, ""), 10);
-                  handleDirectUpdateReps(Number.isNaN(v) ? 0 : v);
-                }}
-              />
-              <span className="a-t-sec">{esTiempo ? "s" : "reps"}</span>
-            </div>
-            <button
-              type="button"
-              disabled={!esTiempo && repRange?.isRange ? serie.reps_hechas >= repRange.max : false}
-              onClick={() => handleAdjustReps(esTiempo ? 5 : 1)}
-              aria-label={esTiempo ? "Sumar 5 segundos" : "Sumar una repetición"}
-              data-testid="reps-increment-btn"
-            >
-              {esTiempo ? "+5" : "+1"}
-            </button>
-          </div>
+          {(!esUni || !uniSplit || esTiempo) && (
+            <>
+              <label className="a-lbl a-t-label" htmlFor={`reps-${ej.id}-${serie.numero_serie}`}>
+                {esTiempo ? "Segundos" : "Repeticiones"}
+              </label>
+              <div className="a-stepper a-sm">
+                <button
+                  type="button"
+                  disabled={serie.reps_hechas <= 1}
+                  onClick={() => handleAdjustReps(esTiempo ? -5 : -1)}
+                  aria-label={esTiempo ? "Restar 5 segundos" : "Restar una repetición"}
+                  data-testid="reps-decrement-btn"
+                >
+                  {esTiempo ? "−5" : "−1"}
+                </button>
+                <div className="a-val">
+                  <input
+                    id={`reps-${ej.id}-${serie.numero_serie}`}
+                    className="a-t-mi"
+                    style={{ ["--n" as string]: String(serie.reps_hechas).length }}
+                    type="text"
+                    inputMode="numeric"
+                    min="0"
+                    max={!esTiempo && repRange?.isRange ? repRange.max : 100}
+                    autoComplete="off"
+                    aria-label={esTiempo ? "Tiempo en segundos" : "Cantidad de repeticiones"}
+                    value={serie.reps_hechas}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value.replace(/\D/g, ""), 10);
+                      handleDirectUpdateReps(Number.isNaN(v) ? 0 : v);
+                    }}
+                  />
+                  <span className="a-t-sec">{esTiempo ? "s" : "reps"}</span>
+                </div>
+                <button
+                  type="button"
+                  disabled={!esTiempo && repRange?.isRange ? serie.reps_hechas >= repRange.max : false}
+                  onClick={() => handleAdjustReps(esTiempo ? 5 : 1)}
+                  aria-label={esTiempo ? "Sumar 5 segundos" : "Sumar una repetición"}
+                  data-testid="reps-increment-btn"
+                >
+                  {esTiempo ? "+5" : "+1"}
+                </button>
+              </div>
+            </>
+          )}
 
           {!esTiempo && repRange?.isRange && (
             <small className="a-t-sec a-muted" data-testid="rep-range-badge">
@@ -947,9 +1491,18 @@ export function EjercicioActivo() {
 
           <button
             type="button"
-            className="a-btn a-gym"
+            className="a-btn a-gym a-pill"
             disabled={ejercicioEstaBloqueado}
-            onClick={() => (esUni ? handleRegistrarUnilateral(false) : handleRegistrarSerie(false))}
+            onClick={() => {
+              if (esUni) {
+                const par = uniSplit
+                  ? { D: { kg: serie.peso_kg, reps: serie.reps_hechas }, I: { kg: uniIzqKg, reps: uniIzqReps } }
+                  : { D: { kg: serie.peso_kg, reps: serie.reps_hechas }, I: { kg: serie.peso_kg, reps: serie.reps_hechas } };
+                handleRegistrarParUnilateral(par, false);
+              } else {
+                handleRegistrarSerie(false);
+              }
+            }}
             data-testid="registrar-serie-btn"
           >
             <Check width={18} height={18} className="a-i" />{" "}
@@ -957,29 +1510,23 @@ export function EjercicioActivo() {
               ? `Registrar ${serie.reps_hechas} s`
               : esDrop
                 ? `Registrar drop ${serie.numero_serie}`
-                : esUni
-                  ? `Registrar ${uniSide === "D" ? "derecha" : "izquierda"}`
-                  : `Registrar serie ${serie.numero_serie}`}
+                : `Registrar serie ${serie.numero_serie}`}
           </button>
-
-          <div className="a-pagedots" aria-hidden="true">
-            {ej.series.map((s) => (
-              <i key={s.numero_serie} className={s.completada || s.numero_serie === serie.numero_serie ? "a-on" : ""} />
-            ))}
-          </div>
         </section>
       ) : (
         <section className="a-card a-donecard">
           <b className="a-t-title" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <Check width={20} height={20} className="a-i" /> Ejercicio completo
+            <Check width={20} height={20} className="a-i" /> {esCicloSS ? "Superserie completa" : "Ejercicio completo"}
           </b>
           <span className="a-t-sec a-muted">
-            {ej.series.length} {ej.series.length === 1 ? "serie registrada" : "series registradas"}.
+            {esCicloSS
+              ? `${totalVueltasSS} ${totalVueltasSS === 1 ? "vuelta registrada" : "vueltas registradas"}.`
+              : `${ej.series.length} ${ej.series.length === 1 ? "serie registrada" : "series registradas"}.`}
           </span>
           {siguiente ? (
             <button
               type="button"
-              className="a-btn a-gym"
+              className="a-btn a-gym a-pill"
               onClick={() => {
                 setSelectedExerciseId(siguiente.id);
                 setEjercicioAbiertoId(siguiente.id);
@@ -990,7 +1537,7 @@ export function EjercicioActivo() {
           ) : (
             <button
               type="button"
-              className="a-btn a-gym"
+              className="a-btn a-gym a-pill"
               disabled={isFinishing}
               onClick={isAllWorkoutCompleted ? () => setShowCelebrationModal(true) : handleTerminarEntrenamiento}
               data-testid="terminar-entrenamiento-btn-entrenar"
@@ -999,24 +1546,6 @@ export function EjercicioActivo() {
             </button>
           )}
         </section>
-      )}
-
-      {!ejercicioEstaBloqueado && (
-        <button
-          type="button"
-          className="a-molbtn"
-          data-testid={`exercise-pain-report-btn-${ej.id}`}
-          onClick={() =>
-            setPainModalData({
-              exerciseId: ej.id,
-              ejercicioId: ej.ejercicio_id || "",
-              exerciseName: ej.nombre,
-              setNumber: serie?.numero_serie || 1,
-            })
-          }
-        >
-          <TriangleAlert width={18} height={18} className="a-i" /> Tengo una molestia
-        </button>
       )}
 
       {hechas.length > 0 && (

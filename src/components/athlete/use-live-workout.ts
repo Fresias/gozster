@@ -765,6 +765,112 @@ export function useLiveWorkout() {
     handleRegistrarSerie(confirmarAtipica, res.payload);
   };
 
+  // Registro unilateral en un paso (mismo peso ambos lados o D/I separados en la misma serie)
+  const handleRegistrarParUnilateral = (
+    par: { D: UniEntry; I: UniEntry },
+    confirmarAtipica = false,
+  ) => {
+    if (!currentExercise || !currentSet || ejercicioEstaBloqueado) return;
+    setPlausibilityError(null);
+
+    const pesoRefMax = Math.max(par.D.kg, par.I.kg);
+    const repsRef = par.D.reps;
+    if (!checkPlausibilityBeforeRegister(pesoRefMax, repsRef, confirmarAtipica)) {
+      return;
+    }
+
+    const num = currentSet.numero_serie;
+    setUniLogs((prev) => ({
+      ...prev,
+      [`${currentExercise.id}-${num}`]: par,
+    }));
+    setUniPend({ D: null, I: null });
+    setUniSide("D");
+    handleRegistrarSerie(confirmarAtipica, { pesoKg: pesoRefMax, reps: repsRef });
+  };
+
+  // Registro unificado de una vuelta completa de Superserie (dispara un único descanso al final del ciclo)
+  const handleRegistrarVueltaSuperserie = (
+    grupoEjercicios: LiveWorkoutExercise[],
+    roundNumber: number,
+    entradas: Record<
+      string,
+      {
+        pesoKg: number;
+        reps: number;
+        parUni?: { D: UniEntry; I: UniEntry };
+      }
+    >,
+  ) => {
+    setPlausibilityError(null);
+    const pendientes = grupoEjercicios.filter((ex) => {
+      if (ejercicioBloqueado(ex.id, currentSession.molestias ?? [])) return false;
+      const st = ex.series.find((s) => s.numero_serie === roundNumber);
+      return Boolean(st && !st.completada);
+    });
+    if (pendientes.length === 0) return;
+
+    const nuevosUniLogs: Record<string, { D: UniEntry; I: UniEntry }> = {};
+    let huboRecord = false;
+    let primerRecordEx = "";
+
+    for (const ex of pendientes) {
+      const st = ex.series.find((s) => s.numero_serie === roundNumber);
+      if (!st) continue;
+      const ent = entradas[ex.id];
+      const peso = ent ? ent.pesoKg : st.peso_kg;
+      const reps = ent ? ent.reps : st.reps_hechas;
+      updateSetField(ex.id, roundNumber, "peso_kg", peso);
+      updateSetField(ex.id, roundNumber, "reps_hechas", reps);
+
+      if (ent?.parUni) {
+        nuevosUniLogs[`${ex.id}-${roundNumber}`] = ent.parUni;
+      }
+
+      const ejId = ex.ejercicio_id ?? ex.id;
+      const serieCandidata = { peso_kg: peso, reps_hechas: reps, set_type: st.set_type, atipica: false };
+      const resultado = esNuevoRecord(serieCandidata, marcas[ejId] ?? null);
+
+      completeSet(ex.id, roundNumber, false);
+      registrarSerieEnMarcas(ejId, serieCandidata);
+
+      if (resultado.esRecord) {
+        huboRecord = true;
+        if (!primerRecordEx) primerRecordEx = ex.nombre;
+        registrarRecordSesion(`${ex.id}-${roundNumber}`, {
+          exerciseName: ex.nombre,
+          peso_kg: peso,
+          reps_hechas: reps,
+          tipo: resultado.tipo,
+          epley_kg: resultado.epley_kg,
+          delta_epley_kg: resultado.delta_epley_kg,
+          numero_serie: roundNumber,
+        });
+      }
+    }
+
+    if (Object.keys(nuevosUniLogs).length > 0) {
+      setUniLogs((prev) => ({ ...prev, ...nuevosUniLogs }));
+    }
+
+    triggerHapticVibration(huboRecord ? [60, 40, 60] : 30);
+
+    const quedaAlgoEnSesion = useAthleteStore
+      .getState()
+      .currentSession.ejercicios.some((e) => e.series.some((s) => !s.completada));
+
+    if (!quedaAlgoEnSesion) {
+      void handleTerminarEntrenamiento();
+      return;
+    }
+
+    if (huboRecord) {
+      setToastSesion({ mensaje: `Nuevo récord en ${primerRecordEx}`, tipo: "rec" });
+    } else if (mostrarTimerDescanso === false) {
+      setToastSesion({ mensaje: `Vuelta ${roundNumber} guardada.`, tipo: "ok" });
+    }
+  };
+
   const handleAdjustPeso = (delta: number) => {
     if (!currentExercise || !currentSet) return;
     seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
@@ -1007,6 +1113,8 @@ export function useLiveWorkout() {
     ejecutarTransicionVisual,
     handleRegistrarSerie,
     handleRegistrarUnilateral,
+    handleRegistrarParUnilateral,
+    handleRegistrarVueltaSuperserie,
     handleAdjustPeso,
     handleAdjustReps,
     handleDirectUpdatePeso,
