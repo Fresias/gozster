@@ -86,6 +86,7 @@ type RawTables = GeneratedDatabase["public"]["Tables"];
 type RefinedTables = Omit<
   RawTables,
   | "perfiles"
+  | "ejercicios"
   | "planes_entrenamiento"
   | "ejercicios_en_rutina"
   | "registro_sesiones"
@@ -120,6 +121,12 @@ type RefinedTables = Omit<
       onboarding_completado?: boolean;
       profesor_apoyo_id?: string | null;
       apoyo_acceso_financiero?: boolean;
+    }
+  >;
+  ejercicios: RefineTable<
+    RawTables["ejercicios"],
+    {
+      usa_barra?: boolean;
     }
   >;
   planes_entrenamiento: RefineTable<
