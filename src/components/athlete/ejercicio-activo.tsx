@@ -710,6 +710,7 @@ export function EjercicioActivo() {
                           <button
                             type="button"
                             aria-pressed={!itemSplit}
+                            aria-label="Mismo peso en Derecha e Izquierda"
                             data-testid={`ss-uni-same-${item.id}`}
                             onClick={() => setSsSplitByEx((p) => ({ ...p, [item.id]: false }))}
                           >
@@ -718,6 +719,7 @@ export function EjercicioActivo() {
                           <button
                             type="button"
                             aria-pressed={itemSplit}
+                            aria-label="Separar Derecha e Izquierda"
                             data-testid={`ss-uni-split-${item.id}`}
                             onClick={() => {
                               setSsIzqByEx((prev) => ({
@@ -1057,6 +1059,7 @@ export function EjercicioActivo() {
                   <button
                     type="button"
                     aria-pressed={!uniSplit}
+                    aria-label="Mismo peso en Derecha e Izquierda"
                     data-testid="uni-mode-same"
                     onClick={() => setUniSplit(false)}
                   >
@@ -1065,6 +1068,7 @@ export function EjercicioActivo() {
                   <button
                     type="button"
                     aria-pressed={uniSplit}
+                    aria-label="Separar Derecha e Izquierda"
                     data-testid="uni-mode-split"
                     onClick={() => {
                       setUniIzqKg(serie.peso_kg);
