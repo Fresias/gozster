@@ -245,8 +245,8 @@ export interface RankingFuncionalFila {
   es_usuario_actual: boolean;
   nombre_corto: string;
   sexo: "M" | "F" | null;
-  peso_kg: number;
-  reps: number;
+  peso_kg: number | null; // NULL para terceros: la UI no lo muestra
+  reps: number | null;
   fecha: string;
   ratio: number | null;
   posicion: number | null;
@@ -276,16 +276,11 @@ export function agruparRankingPorEjercicio(filas: RankingFuncionalFila[]): Ranki
     if (!propia) continue;
     const categoria = propia.sexo;
     const orden = (a: RankingFuncionalFila, b: RankingFuncionalFila) =>
-      (a.posicion ?? Infinity) - (b.posicion ?? Infinity) || b.peso_kg - a.peso_kg;
+      (a.posicion ?? Infinity) - (b.posicion ?? Infinity) || (b.peso_kg ?? 0) - (a.peso_kg ?? 0);
     const misma = grupo.filter((f) => f.sexo === categoria).sort(orden);
     const top = misma.slice(0, TOP_RANKING);
     const filasVisibles = top.includes(propia) ? top : [...top, propia];
     res.push({ ejercicio_id, categoria, filas: filasVisibles, propia });
   }
   return res;
-}
-
-// "80 kg × 5"
-export function etiquetaMarca(f: Pick<RankingFuncionalFila, "peso_kg" | "reps">): string {
-  return `${kg.format(f.peso_kg)} kg × ${f.reps}`;
 }

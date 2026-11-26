@@ -1,17 +1,13 @@
 import * as React from "react";
-import {
-  agruparRankingPorEjercicio,
-  etiquetaMarca,
-  type RankingFuncionalFila,
-} from "@/lib/mi-progreso";
+import { agruparRankingPorEjercicio, type RankingFuncionalFila } from "@/lib/mi-progreso";
 
 export interface RankingFuncionalAlumnoProps {
   filas: RankingFuncionalFila[];
   nombres: Record<string, string>; // ejercicio_id → nombre del catálogo
 }
 
-// Ranking de Funcional (GOZS-849). Solo "Nombre + inicial", categoría, marca y ratio:
-// la RPC no devuelve peso corporal crudo ni datos de contacto de otros alumnos.
+// Ranking de Funcional (GOZS-849). Solo posición, "Nombre + inicial", categoría y ratio:
+// nunca se muestra peso (kg) en ninguna fila, ni peso corporal ni datos de contacto.
 export function RankingFuncionalAlumno({ filas, nombres }: RankingFuncionalAlumnoProps) {
   const ejercicios = React.useMemo(() => agruparRankingPorEjercicio(filas), [filas]);
   if (ejercicios.length === 0) return null;
@@ -30,7 +26,7 @@ export function RankingFuncionalAlumno({ filas, nombres }: RankingFuncionalAlumn
           <ol className="a-days" style={{ listStyle: "none", padding: 0, margin: 0 }}>
             {ej.filas.map((f) => (
               <li
-                key={`${f.nombre_corto}-${f.fecha}-${f.peso_kg}`}
+                key={`${f.nombre_corto}-${f.fecha}-${f.posicion}`}
                 className="a-row"
                 data-testid={f.es_usuario_actual ? "ranking-funcional-propia" : "ranking-funcional-fila"}
                 aria-current={f.es_usuario_actual ? "true" : undefined}
@@ -40,7 +36,6 @@ export function RankingFuncionalAlumno({ filas, nombres }: RankingFuncionalAlumn
                 </span>
                 <span className="a-rt">
                   <b className="a-t-bs">{f.es_usuario_actual ? `${f.nombre_corto} (vos)` : f.nombre_corto}</b>
-                  <small className="a-t-sec">{etiquetaMarca(f)}</small>
                 </span>
                 {f.ratio !== null && <span className="a-chip a-t-label">{`${f.ratio} x peso`}</span>}
               </li>
