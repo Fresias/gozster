@@ -24,6 +24,8 @@ interface OfflineQueueState {
   setOnlineStatus: (isOnline: boolean) => void;
   enqueueEvent: (event: Omit<OfflineSyncEvent, "createdAt">) => void;
   removeEvent: (id: string) => void;
+  /** Quita varios eventos en un único `set()` (0 escrituras si ninguno existe). */
+  removeEvents: (ids: string[]) => void;
   clearQueue: () => void;
   /**
    * Envía la cola a Supabase de forma silenciosa al recuperar la señal. Solo
@@ -35,7 +37,7 @@ interface OfflineQueueState {
   clearSyncError: () => void;
 }
 
-const SET_ACTIONS = ["WORKOUT_SET_COMPLETED", "WORKOUT_SET_UPDATED"];
+export const SET_ACTIONS = ["WORKOUT_SET_COMPLETED", "WORKOUT_SET_UPDATED"];
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type SendResult = "ok" | "retry" | "rejected";
@@ -201,7 +203,7 @@ async function sendLogroRachaEvent(ev: OfflineSyncEvent): Promise<SendResult> {
 export const SYNC_REINTENTOS_AGOTADOS_MSG =
   "No pudimos sincronizar tus datos. Quedan guardados en este teléfono y lo volvemos a intentar.";
 
-const haySenal = () =>
+export const haySenal = () =>
   useOfflineQueueStore.getState().isOnline &&
   (typeof navigator === "undefined" || navigator.onLine !== false);
 
@@ -316,6 +318,13 @@ export const useOfflineQueueStore = create<OfflineQueueState>()(
         set((state) => ({
           pendingEvents: state.pendingEvents.filter((item) => item.id !== id),
         })),
+      removeEvents: (ids) => {
+        if (ids.length === 0) return;
+        const quitar = new Set(ids);
+        const actuales = get().pendingEvents;
+        if (!actuales.some((ev) => quitar.has(ev.id))) return;
+        set({ pendingEvents: actuales.filter((ev) => !quitar.has(ev.id)) });
+      },
       clearQueue: () => {
         backoffCola.reset();
         set({ pendingEvents: [] });
