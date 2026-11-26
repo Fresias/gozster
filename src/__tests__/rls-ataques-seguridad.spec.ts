@@ -972,4 +972,168 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
       expect((await obtenerPerfil(A1))?.profesor_asignado_id).toBe(C1);
     });
   });
+
+  describe("6. RPCs de marcas y ranking de Funcional (20261125140000)", () => {
+    const COACH_AJENO = "00000000-0000-0000-0000-00000000c0a1";
+    const A3 = "00000000-0000-0000-0000-0000000000a3";
+    const FIRMA_REGISTRAR =
+      "public.registrar_marca_funcional(uuid,uuid,numeric,integer,date,uuid,numeric,text)";
+    const FIRMA_RANKING = "public.obtener_ranking_funcional_alumno(uuid)";
+    const CLASE_NO_FUNCIONAL_ID = "88888888-8888-4888-8888-888888888899";
+
+    const registrar = (
+      rol: Rol,
+      sub: string | null,
+      alumno: string,
+      extra: { peso?: number; reps?: number; fecha?: string; clase?: string | null; pc?: number | null; sexo?: string | null } = {},
+    ) =>
+      como(
+        rol,
+        sub,
+        `SELECT public.registrar_marca_funcional($1, $2, $3, $4, ${extra.fecha ?? "CURRENT_DATE"}, $5, $6, $7)`,
+        [alumno, EJERCICIO_1, extra.peso ?? 80, extra.reps ?? 5, extra.clase ?? null, extra.pc ?? null, extra.sexo ?? null],
+      );
+
+    beforeAll(async () => {
+      await db.exec(`
+        INSERT INTO auth.users (id, email, raw_app_meta_data) VALUES
+          ('${COACH_AJENO}', 'ajeno@test.local', '{"rol":"ENTRENADOR"}'),
+          ('${A3}', 'tercero.privado@test.local', '{"rol":"ALUMNO"}');
+        INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia) VALUES
+          ('${COACH_AJENO}', 'ajeno@test.local', 'Coach Ajeno', 'ENTRENADOR', 'ACTIVA'),
+          ('${A3}', 'tercero.privado@test.local', 'Tercero Largo Apellido', 'ALUMNO', 'ACTIVA')
+        ON CONFLICT (id) DO UPDATE SET rol = EXCLUDED.rol, nombre_completo = EXCLUDED.nombre_completo;
+        INSERT INTO public.alumno_actividades (alumno_id, actividad, pase_libre) VALUES
+          ('${A1}', 'FUNCIONAL', true),
+          ('${A3}', 'FUNCIONAL', true)
+        ON CONFLICT DO NOTHING;
+        INSERT INTO public.clases (id, actividad, inicio, duracion_minutos, capacidad, estado)
+        VALUES ('${CLASE_NO_FUNCIONAL_ID}', 'BOXEO', now() - interval '1 day', 60, 10, 'PROGRAMADA');
+      `);
+      // Datos de ranking: marca de A3 con peso corporal, cargada por admin.
+      await registrar("authenticated", ADMIN, A3, { peso: 100, reps: 3, pc: 70, sexo: "M" });
+    });
+
+    it("catálogo: SECURITY DEFINER, search_path fijo y EXECUTE revocado a PUBLIC/anon", async () => {
+      for (const firma of [FIRMA_REGISTRAR, FIRMA_RANKING]) {
+        const res = await db.query<{
+          secdef: boolean;
+          cfg: string[] | null;
+          anon: boolean;
+          authenticated: boolean;
+          publico: boolean;
+        }>(
+          `SELECT p.prosecdef AS secdef, p.proconfig AS cfg,
+                  has_function_privilege('anon', p.oid, 'EXECUTE') AS anon,
+                  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated,
+                  (p.proacl IS NULL OR EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee = 0)) AS publico
+           FROM pg_proc p WHERE p.oid = to_regprocedure($1)`,
+          [firma],
+        );
+        const fila = res.rows[0]!;
+        expect(fila.secdef).toBe(true);
+        expect(fila.cfg).toContain("search_path=public, pg_temp");
+        expect(fila.anon).toBe(false);
+        expect(fila.publico).toBe(false);
+        expect(fila.authenticated).toBe(true);
+      }
+    });
+
+    describe("registrar_marca_funcional: autorización", () => {
+      it("anon es rechazado (42501)", async () => {
+        await expect(registrar("anon", null, A1)).rejects.toMatchObject({ code: "42501" });
+      });
+
+      it("alumno no puede registrar sobre sí mismo ni sobre otro alumno (42501)", async () => {
+        await expect(registrar("authenticated", A1, A1)).rejects.toMatchObject({ code: "42501" });
+        await expect(registrar("authenticated", A1, A2)).rejects.toMatchObject({ code: "42501" });
+      });
+
+      it("coach sin vínculo con el alumno es rechazado (42501)", async () => {
+        await expect(registrar("authenticated", COACH_AJENO, A1)).rejects.toMatchObject({ code: "42501" });
+      });
+
+      it("coach asignado sí puede, pero no sobre un alumno ajeno (42501)", async () => {
+        const ok = await registrar("authenticated", C1, A1);
+        expect(ok.rows).toHaveLength(1);
+        await expect(registrar("authenticated", C1, A2)).rejects.toMatchObject({ code: "42501" });
+      });
+
+      it("entrenador de apoyo (profesor_apoyo_id) está autorizado por es_entrenador_de y puede registrar", async () => {
+        // Comportamiento vigente: es_entrenador_de incluye al apoyo; la marca no es dato financiero.
+        const res = await registrar("authenticated", C2_APOYO, A1, { peso: 82 });
+        expect(res.rows).toHaveLength(1);
+      });
+    });
+
+    describe("registrar_marca_funcional: validaciones de integridad (22023)", () => {
+      it("alumno sin actividad FUNCIONAL", async () => {
+        await expect(registrar("authenticated", ADMIN, A2)).rejects.toMatchObject({ code: "22023" });
+      });
+
+      it("peso_kg fuera de (0, 1000]", async () => {
+        for (const peso of [0, -5, 1001]) {
+          await expect(registrar("authenticated", C1, A1, { peso })).rejects.toMatchObject({ code: "22023" });
+        }
+      });
+
+      it("reps fuera de [1, 100]", async () => {
+        for (const reps of [0, 101]) {
+          await expect(registrar("authenticated", C1, A1, { reps })).rejects.toMatchObject({ code: "22023" });
+        }
+      });
+
+      it("fecha futura", async () => {
+        await expect(
+          registrar("authenticated", C1, A1, { fecha: "CURRENT_DATE + 1" }),
+        ).rejects.toMatchObject({ code: "22023" });
+      });
+
+      it("peso_corporal_kg fuera de [20, 500]", async () => {
+        for (const pc of [19, 501]) {
+          await expect(registrar("authenticated", C1, A1, { pc })).rejects.toMatchObject({ code: "22023" });
+        }
+      });
+
+      it("sexo distinto de M/F", async () => {
+        await expect(registrar("authenticated", C1, A1, { sexo: "X" })).rejects.toMatchObject({ code: "22023" });
+      });
+
+      it("clase inexistente o no-FUNCIONAL", async () => {
+        for (const clase of ["99999999-9999-4999-8999-999999999999", CLASE_NO_FUNCIONAL_ID]) {
+          await expect(registrar("authenticated", C1, A1, { clase })).rejects.toMatchObject({ code: "22023" });
+        }
+      });
+    });
+
+    describe("obtener_ranking_funcional_alumno", () => {
+      const ranking = (rol: Rol, sub: string | null) =>
+        como<Record<string, unknown>>(rol, sub, `SELECT * FROM public.obtener_ranking_funcional_alumno(NULL)`);
+
+      it("anon es rechazado (42501)", async () => {
+        await expect(ranking("anon", null)).rejects.toMatchObject({ code: "42501" });
+      });
+
+      it("alumno sin actividad FUNCIONAL es rechazado (42501)", async () => {
+        await expect(ranking("authenticated", A2)).rejects.toMatchObject({ code: "42501" });
+      });
+
+      it("alumno con FUNCIONAL solo recibe columnas públicas, sin PII ni peso corporal crudo", async () => {
+        const res = await ranking("authenticated", A1);
+        expect(res.rows.length).toBeGreaterThan(0);
+        const columnas = [
+          "ejercicio_id", "es_usuario_actual", "nombre_corto", "sexo", "peso_kg", "reps", "fecha", "ratio", "posicion",
+        ];
+        for (const fila of res.rows) {
+          expect(Object.keys(fila).sort()).toEqual([...columnas].sort());
+        }
+        const ajena = res.rows.find((f) => f.es_usuario_actual === false);
+        expect(ajena?.nombre_corto).toBe("Tercero A.");
+        const serializado = JSON.stringify(res.rows);
+        for (const privado of ["tercero.privado", "@test.local", "Apellido", "peso_corporal"]) {
+          expect(serializado).not.toContain(privado);
+        }
+      });
+    });
+  });
 });
