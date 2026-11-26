@@ -3504,3 +3504,65 @@ body:has(.theme-athlete[data-v7]) {
     animation: none !important;
   }
 }
+
+/* ===== GOZS-826 F2a: Inicio compacto, RachaFlama mayor, pliegues técnicos, Cierre ===== */
+.theme-athlete[data-v7] .a-racha-btn {
+  min-height: 40px;
+  padding: 6px 12px;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.theme-athlete[data-v7] .a-racha-btn .a-i {
+  width: 26px;
+  height: 26px;
+}
+
+.theme-athlete[data-v7] .a-hero {
+  gap: 8px;
+  padding: 16px;
+}
+
+.theme-athlete[data-v7] .a-hero .a-hbtn,
+.theme-athlete[data-v7] .a-hero .a-btn {
+  min-height: 44px;
+}
+
+.theme-athlete[data-v7] .a-fold > .a-fold-sum {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  list-style: none;
+}
+
+.theme-athlete[data-v7] .a-fold > .a-fold-sum::-webkit-details-marker {
+  display: none;
+}
+
+.theme-athlete[data-v7] .a-fold > .a-fold-sum::after {
+  content: "+";
+  font-weight: 800;
+}
+
+.theme-athlete[data-v7] .a-fold[open] > .a-fold-sum::after {
+  content: "−";
+}
+
+.theme-athlete[data-v7] .a-fold:not([open]) {
+  padding-block: 0;
+}
+
+.theme-athlete[data-v7] .a-fold-sub {
+  display: grid;
+  gap: 10px;
+}
+
+.theme-athlete[data-v7] [data-testid="cierre-dia-titulo"] {
+  font-size: clamp(1.5rem, 8vw, 2rem);
+  overflow-wrap: break-word;
+  hyphens: auto;
+  word-break: normal;
+  max-width: 100%;
+}
