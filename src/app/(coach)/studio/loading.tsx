@@ -3,11 +3,14 @@ import * as React from "react";
 export default function StudioLoading() {
   return (
     <div
+      role="status"
       data-testid="studio-loading-skeleton"
       className="space-y-6 animate-pulse"
       aria-busy="true"
       aria-label="Cargando Coach Studio"
     >
+      <span className="sr-only">Cargando Coach Studio</span>
+
       {/* Header skeleton */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-2">

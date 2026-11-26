@@ -920,6 +920,20 @@ function fusionarSesionesSemanaDesdeServidor(
   return resultado;
 }
 
+// GOZS-878: al retomar una sesión en curso se conserva el progreso y solo se refresca
+// `usa_barra` desde el catálogo vigente (match por id de rutina, luego por ejercicio_id).
+function sincronizarUsaBarra(
+  enCurso: LiveWorkoutExercise[],
+  frescos: LiveWorkoutExercise[],
+): LiveWorkoutExercise[] {
+  return enCurso.map((ej) => {
+    const fresco =
+      frescos.find((f) => f.id === ej.id) ??
+      frescos.find((f) => f.ejercicio_id === ej.ejercicio_id);
+    return fresco ? { ...ej, usa_barra: fresco.usa_barra } : ej;
+  });
+}
+
 export const useAthleteStore = create<AthleteStoreState>()(
   persist(
     (set, get) => ({
@@ -3023,7 +3037,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
           id: esMismaSesionEnCurso ? prev.id : nuevoUuid(),
           nombre_rutina: `${student.nombre_completo}: ${selectedDia.nombre}`,
           fecha: new Date().toISOString().split("T")[0] || "2026-10-16",
-          ejercicios: hasCompletedSets ? prev.ejercicios : sortedExercises,
+          ejercicios: hasCompletedSets
+            ? sincronizarUsaBarra(prev.ejercicios, sortedExercises)
+            : sortedExercises,
           studentName: student.nombre_completo,
           studentId: student.id,
           dia_id: selectedDia.id,
