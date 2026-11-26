@@ -9,6 +9,7 @@ import {
   type RegistroSeriePartialUpdateRow,
 } from "@/lib/athlete/registro-series-mapper";
 import { crearBackoff } from "@/lib/sync-backoff";
+import type { AlumnoCuestionarioInicial, EstadoConversacion } from "@/types/database.types";
 
 export interface OfflineSyncEvent {
   id: string;
@@ -419,6 +420,83 @@ async function sendLogroRachaEvent(ev: OfflineSyncEvent): Promise<SendResult> {
   return toResult(res.error);
 }
 
+const esUuidTxt = (v: unknown): v is string => typeof v === "string" && UUID_REGEX.test(v);
+
+async function sendCuestionarioInicialEvent(ev: OfflineSyncEvent): Promise<SendResult> {
+  if (!supabase) return "retry";
+  const p = ev.payload as Partial<AlumnoCuestionarioInicial>;
+  if (!esUuidTxt(p.alumno_id)) return "rejected";
+  const res = await supabase.from("alumno_cuestionario_inicial").upsert(
+    {
+      alumno_id: p.alumno_id,
+      objetivo_principal: p.objetivo_principal ?? null,
+      experiencia_previa: p.experiencia_previa ?? null,
+      dias_disponibles_semana: p.dias_disponibles_semana ?? null,
+      molestias_o_lesiones_previas: p.molestias_o_lesiones_previas ?? null,
+      equipamiento_disponible: p.equipamiento_disponible ?? null,
+      respuestas_extra: p.respuestas_extra ?? {},
+      completado_at: p.completado_at ?? undefined,
+      updated_at: p.updated_at ?? new Date().toISOString(),
+    },
+    { onConflict: "alumno_id" },
+  );
+  return toResult(res.error);
+}
+
+async function sendTransferirConversacionEvent(ev: OfflineSyncEvent): Promise<SendResult> {
+  if (!supabase) return "retry";
+  const p = ev.payload as { conversacion_id?: unknown; nuevo_responsable_id?: unknown; motivo?: unknown };
+  if (!esUuidTxt(p.conversacion_id) || !esUuidTxt(p.nuevo_responsable_id)) return "rejected";
+  const res = await supabase.rpc("transferir_conversacion_gozs", {
+    p_conversacion_id: p.conversacion_id,
+    p_nuevo_responsable_id: p.nuevo_responsable_id,
+    p_motivo: typeof p.motivo === "string" && p.motivo ? p.motivo : null,
+  });
+  return toResult(res.error);
+}
+
+async function sendCambiarEstadoConversacionEvent(ev: OfflineSyncEvent): Promise<SendResult> {
+  if (!supabase) return "retry";
+  const p = ev.payload as { conversacion_id?: unknown; estado?: EstadoConversacion };
+  if (!esUuidTxt(p.conversacion_id) || typeof p.estado !== "string" || !p.estado) return "rejected";
+  const res = await supabase
+    .from("conversaciones")
+    .update({ estado: p.estado, updated_at: new Date().toISOString() })
+    .eq("id", p.conversacion_id);
+  return toResult(res.error);
+}
+
+async function sendUpdateNivelVistaEvent(ev: OfflineSyncEvent): Promise<SendResult> {
+  if (!supabase) return "retry";
+  const p = ev.payload as { alumnoId?: unknown; nivel?: unknown };
+  if (!esUuidTxt(p.alumnoId) || (p.nivel !== "SIMPLE" && p.nivel !== "TECNICA")) return "rejected";
+  const res = await supabase
+    .from("perfiles")
+    .update({ nivel_vista_alumno: p.nivel })
+    .eq("id", p.alumnoId);
+  return toResult(res.error);
+}
+
+/** Acciones secundarias con destino real en Supabase (GOZS-885). */
+const SENDERS: Record<string, (ev: OfflineSyncEvent) => Promise<SendResult>> = {
+  ENVIAR_MENSAJE_CHAT: sendChatEvent,
+  FEEDBACK_CLASE: sendFeedbackClaseEvent,
+  REGISTRAR_LOGRO_RACHA: sendLogroRachaEvent,
+  UPSERT_CUESTIONARIO_INICIAL: sendCuestionarioInicialEvent,
+  TRANSFERIR_CONVERSACION_GOZS: sendTransferirConversacionEvent,
+  CAMBIAR_ESTADO_CONVERSACION: sendCambiarEstadoConversacionEvent,
+  UPDATE_ALUMNO_NIVEL_VISTA: sendUpdateNivelVistaEvent,
+};
+
+const RECHAZO_MSG: Record<string, string | null> = {
+  FEEDBACK_CLASE: "No pudimos guardar tu devolución de la clase.",
+  REGISTRAR_LOGRO_RACHA: null,
+  UPSERT_CUESTIONARIO_INICIAL: "No pudimos guardar tu cuestionario inicial.",
+  TRANSFERIR_CONVERSACION_GOZS: "No pudimos transferir la conversación.",
+  CAMBIAR_ESTADO_CONVERSACION: "No pudimos actualizar el estado de la conversación.",
+  UPDATE_ALUMNO_NIVEL_VISTA: "No pudimos guardar el nivel de vista del alumno.",
+};
+
 export const SYNC_REINTENTOS_AGOTADOS_MSG =
   "No pudimos sincronizar tus datos. Quedan guardados en este teléfono y lo volvemos a intentar.";
 
@@ -517,22 +595,12 @@ async function recorrerCola(snapshot: OfflineSyncEvent[]): Promise<void> {
       continue;
     }
 
+    // Acción sin destino en el servidor (desconocida o solo local): no bloquea la cola.
+    const sender = SENDERS[ev.action];
     let result: SendResult = "ok";
-    if (ev.action === "ENVIAR_MENSAJE_CHAT") {
+    if (sender) {
       try {
-        result = await sendChatEvent(ev);
-      } catch {
-        result = "retry";
-      }
-    } else if (ev.action === "FEEDBACK_CLASE") {
-      try {
-        result = await sendFeedbackClaseEvent(ev);
-      } catch {
-        result = "retry";
-      }
-    } else if (ev.action === "REGISTRAR_LOGRO_RACHA") {
-      try {
-        result = await sendLogroRachaEvent(ev);
+        result = await sender(ev);
       } catch {
         result = "retry";
       }
@@ -543,13 +611,9 @@ async function recorrerCola(snapshot: OfflineSyncEvent[]): Promise<void> {
       return;
     }
     // Rechazo permanente: se descarta ese evento para no bloquear la cola.
-    if (result === "rejected" && ev.action !== "REGISTRAR_LOGRO_RACHA") {
-      set({
-        syncError:
-          ev.action === "FEEDBACK_CLASE"
-            ? "No pudimos guardar tu devolución de la clase."
-            : SERIE_RECHAZADA_MSG,
-      });
+    if (result === "rejected") {
+      const msg = ev.action in RECHAZO_MSG ? RECHAZO_MSG[ev.action] : SERIE_RECHAZADA_MSG;
+      if (msg) set({ syncError: msg });
     }
     get().removeEvent(ev.id);
   }

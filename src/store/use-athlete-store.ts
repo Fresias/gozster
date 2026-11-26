@@ -1459,14 +1459,16 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
         set({ cuestionarioInicial: fullRecord });
 
+        const cuestEventId = `cuest-${Date.now()}`;
         useOfflineQueueStore.getState().enqueueEvent({
-          id: `cuest-${Date.now()}`,
+          id: cuestEventId,
           action: "UPSERT_CUESTIONARIO_INICIAL",
           payload: fullRecord,
         });
 
         try {
-          if (supabase) {
+          // Sin señal no se llama a la red: el evento queda en cola para flushQueue().
+          if (supabase && useOfflineQueueStore.getState().isOnline) {
             const { error } = await supabase
               .from("alumno_cuestionario_inicial")
               .upsert(
@@ -1485,6 +1487,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
               );
             if (error) {
               console.warn("Aviso guardando cuestionario inicial en Supabase:", error.message);
+            } else {
+              // Confirmado por el servidor: no se reenvía en el próximo flushQueue().
+              useOfflineQueueStore.getState().removeEvent(cuestEventId);
             }
           }
         } catch (err: any) {
