@@ -826,7 +826,10 @@ export function EjercicioActivo() {
           )}
 
           {!isSimpleView && !esTiempo && (
-            <div className="a-tec" data-testid="vista-tecnica">
+            <details className="a-tec a-fold" data-testid="vista-tecnica">
+              <summary className="a-fold-sum a-t-label" data-testid="vista-tecnica-resumen">
+                Vista técnica
+              </summary>
               <div className="a-kv">
                 <span className="a-t-label a-muted">Tipo de serie</span>
                 <span
@@ -879,6 +882,8 @@ export function EjercicioActivo() {
                   </button>
                 ))}
               </div>
+              <details className="a-fold a-fold-sub" data-testid="calculadora-barra">
+              <summary className="a-fold-sum a-t-label">Calculadora de barra y discos</summary>
               <span className="a-t-label a-muted">Barra</span>
               <div className="a-seg a-stack" role="group" aria-label="Tipo de barra">
                 {BARRAS.map((b) => (
@@ -936,7 +941,8 @@ export function EjercicioActivo() {
                   )}
                 </div>
               )}
-            </div>
+              </details>
+            </details>
           )}
 
           <button
