@@ -172,8 +172,16 @@ describe("GOZS-857: Deep-link /athlete/progreso hidrata planAlumno cuando falta"
     mockState.clases.actividadesHabilitadas = [];
   });
 
-  it("con isOnline=true y planAlumno=null invoca cargarPlanAlumno() al montar", () => {
+  it("con isOnline=true y planAlumno=null invoca cargarPlanAlumno() al montar y no repite otros fetches al hidratarse", () => {
     const mounted = montarConHooks(AthleteProgresoPage);
+    mounted.render();
+
+    expect(mockState.athlete.cargarPlanAlumno).toHaveBeenCalledTimes(1);
+    expect(mockState.athlete.cargarMiProgreso).toHaveBeenCalledTimes(1);
+    expect(mockState.clases.cargarClasesAlumno).toHaveBeenCalledTimes(1);
+    expect(mockState.athlete.cargarLogrosRacha).toHaveBeenCalledTimes(1);
+
+    mockState.athlete.planAlumno = PLAN_ALUMNO_HIDRATADO;
     mounted.render();
 
     expect(mockState.athlete.cargarPlanAlumno).toHaveBeenCalledTimes(1);
@@ -204,7 +212,7 @@ describe("GOZS-857: Deep-link /athlete/progreso hidrata planAlumno cuando falta"
     expect(element.props.cumplimientoPct).not.toBeNull();
   });
 
-  it("al volver online con planAlumno=null llama cargarPlanAlumno() una vez y no lo repite tras hidratarse", () => {
+  it("al volver online con planAlumno=null llama cargarPlanAlumno() una vez y no repite fetches tras hidratarse", () => {
     mockState.offline.isOnline = false;
     const mounted = montarConHooks(AthleteProgresoPage);
     mounted.render();
@@ -213,9 +221,15 @@ describe("GOZS-857: Deep-link /athlete/progreso hidrata planAlumno cuando falta"
     mockState.offline.isOnline = true;
     mounted.render();
     expect(mockState.athlete.cargarPlanAlumno).toHaveBeenCalledTimes(1);
+    expect(mockState.athlete.cargarMiProgreso).toHaveBeenCalledTimes(1);
+    expect(mockState.clases.cargarClasesAlumno).toHaveBeenCalledTimes(1);
+    expect(mockState.athlete.cargarLogrosRacha).toHaveBeenCalledTimes(1);
 
     mockState.athlete.planAlumno = PLAN_ALUMNO_HIDRATADO;
     mounted.render();
     expect(mockState.athlete.cargarPlanAlumno).toHaveBeenCalledTimes(1);
+    expect(mockState.athlete.cargarMiProgreso).toHaveBeenCalledTimes(1);
+    expect(mockState.clases.cargarClasesAlumno).toHaveBeenCalledTimes(1);
+    expect(mockState.athlete.cargarLogrosRacha).toHaveBeenCalledTimes(1);
   });
 });

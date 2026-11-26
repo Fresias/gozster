@@ -42,9 +42,12 @@ export default function AthleteProgresoPage() {
       void cargarMiProgreso();
       void cargarClasesAlumno();
       void cargarLogrosRacha();
-      if (!planAlumno) void cargarPlanAlumno();
     }
-  }, [isOnline, planAlumno, cargarMiProgreso, cargarClasesAlumno, cargarLogrosRacha, cargarPlanAlumno]);
+  }, [isOnline, cargarMiProgreso, cargarClasesAlumno, cargarLogrosRacha]);
+
+  React.useEffect(() => {
+    if (isOnline && !planAlumno) void cargarPlanAlumno();
+  }, [isOnline, planAlumno, cargarPlanAlumno]);
 
   const actividades = React.useMemo(
     () =>
