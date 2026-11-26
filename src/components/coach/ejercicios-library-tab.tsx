@@ -29,6 +29,7 @@ import {
   Video,
   Play,
   AlertTriangle,
+  Loader2,
 } from "@/components/ui/icons";
 import type { Ejercicio, EjercicioEnRutina } from "@/types/database.types";
 
@@ -41,6 +42,8 @@ export interface EjerciciosLibraryTabProps {
   onEjercicioUpdated?: (actualizado: Ejercicio) => void;
   onEjercicioDeleted?: (id: string) => void;
   onRecargar?: () => Promise<any>;
+  /** Fallo al leer public.ejercicios: se muestra aviso con reintento en vez del empty state. */
+  ejerciciosError?: string | null;
 }
 
 function parseMusculosInput(input: string): string[] {
@@ -60,7 +63,18 @@ export function EjerciciosLibraryTab({
   onEjercicioUpdated,
   onEjercicioDeleted,
   onRecargar,
+  ejerciciosError,
 }: EjerciciosLibraryTabProps) {
+  const [reintentando, setReintentando] = React.useState(false);
+  const handleReintentar = async () => {
+    if (!onRecargar || reintentando) return;
+    setReintentando(true);
+    try {
+      await onRecargar();
+    } finally {
+      setReintentando(false);
+    }
+  };
   const [busqueda, setBusqueda] = React.useState("");
   const [grupoMuscular, setGrupoMuscular] = React.useState("Todos");
   const [soloBarra, setSoloBarra] = React.useState(false);
@@ -384,7 +398,38 @@ export function EjerciciosLibraryTab({
       </div>
 
       {/* Listado de Ejercicios */}
-      {filteredEjercicios.length === 0 ? (
+      {ejerciciosError && ejercicios.length === 0 ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-8 text-center"
+          data-testid="ejercicios-load-error"
+        >
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/15 text-rose-300">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
+          <h3 className="text-base font-semibold text-foreground">
+            No se pudo cargar la biblioteca de ejercicios
+          </h3>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+            {ejerciciosError} Revisá tu conexión e intentá de nuevo.
+          </p>
+          {onRecargar && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void handleReintentar()}
+                disabled={reintentando}
+                aria-busy={reintentando}
+                data-testid="btn-reintentar-carga-ejercicios"
+              >
+                {reintentando && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                {reintentando ? "Reintentando…" : "Reintentar"}
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : filteredEjercicios.length === 0 ? (
         <div
           className="rounded-xl border border-dashed border-border p-8 text-center"
           data-testid="empty-state-ejercicios"
