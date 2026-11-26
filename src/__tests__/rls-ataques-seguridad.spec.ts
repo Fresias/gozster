@@ -1107,8 +1107,32 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
     });
 
     describe("obtener_ranking_funcional_alumno", () => {
-      const ranking = (rol: Rol, sub: string | null) =>
-        como<Record<string, unknown>>(rol, sub, `SELECT * FROM public.obtener_ranking_funcional_alumno(NULL)`);
+      const EJERCICIO_2 = "11111111-1111-4111-8111-111111111102";
+
+      const ranking = (rol: Rol, sub: string | null, ejercicioId: string | null = null) =>
+        como<Record<string, unknown>>(
+          rol,
+          sub,
+          `SELECT * FROM public.obtener_ranking_funcional_alumno($1::uuid)`,
+          [ejercicioId],
+        );
+
+      beforeAll(async () => {
+        await db.exec(`
+          INSERT INTO public.ejercicios (id, nombre) VALUES
+            ('${EJERCICIO_2}', 'Peso Muerto Test')
+          ON CONFLICT (id) DO NOTHING;
+        `);
+        // Marca propia de A1 en EJERCICIO_1 con peso corporal/sexo (ratio 84/80 = 1.05, detrás de A3 100/70 = 1.43).
+        await registrar("authenticated", C1, A1, { peso: 84, reps: 5, pc: 80, sexo: "M" });
+        // Segunda marca de A3 en EJERCICIO_2 para verificar el filtro por p_ejercicio_id.
+        await como(
+          "authenticated",
+          ADMIN,
+          `SELECT public.registrar_marca_funcional($1, $2, $3, $4, CURRENT_DATE, NULL, NULL, NULL)`,
+          [A3, EJERCICIO_2, 120, 2],
+        );
+      });
 
       it("anon es rechazado (42501)", async () => {
         await expect(ranking("anon", null)).rejects.toMatchObject({ code: "42501" });
@@ -1132,6 +1156,99 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
         const serializado = JSON.stringify(res.rows);
         for (const privado of ["tercero.privado", "@test.local", "Apellido", "peso_corporal"]) {
           expect(serializado).not.toContain(privado);
+        }
+      });
+
+      it("enmascara peso_kg y reps en filas ajenas, preserva la fila propia y respeta filtro por p_ejercicio_id", async () => {
+        const todas = await ranking("authenticated", A1, null);
+        const filtradasEj1 = await ranking("authenticated", A1, EJERCICIO_1);
+        const filtradasEj2 = await ranking("authenticated", A1, EJERCICIO_2);
+
+        expect(todas.rows).toHaveLength(3);
+        expect(new Set(todas.rows.map((f) => f.ejercicio_id))).toEqual(new Set([EJERCICIO_1, EJERCICIO_2]));
+
+        expect(filtradasEj1.rows).toHaveLength(2);
+        expect(filtradasEj1.rows.every((f) => f.ejercicio_id === EJERCICIO_1)).toBe(true);
+
+        for (const rows of [todas.rows, filtradasEj1.rows]) {
+          const ajenas = rows.filter((f) => f.es_usuario_actual === false);
+          expect(ajenas.length).toBeGreaterThan(0);
+          for (const fila of ajenas) {
+            expect(fila.peso_kg).toBeNull();
+            expect(fila.reps).toBeNull();
+            expect(fila.nombre_corto).toBe("Tercero A.");
+            expect(fila.sexo).toBe("M");
+            expect(Number(fila.ratio)).toBeGreaterThan(0);
+            expect(Number(fila.posicion)).toBe(1);
+          }
+
+          const propia = rows.find((f) => f.es_usuario_actual === true);
+          expect(propia).toBeDefined();
+          expect(propia!.ejercicio_id).toBe(EJERCICIO_1);
+          expect(propia!.peso_kg).not.toBeNull();
+          expect(Number(propia!.peso_kg)).toBe(84);
+          expect(propia!.reps).toBe(5);
+          expect(propia!.nombre_corto).toBe("Alumno U.");
+          expect(propia!.sexo).toBe("M");
+          expect(Number(propia!.ratio)).toBe(1.05);
+          expect(Number(propia!.posicion)).toBe(2);
+
+          const ej1 = rows.filter((f) => f.ejercicio_id === EJERCICIO_1);
+          expect(ej1).toHaveLength(2);
+          expect(ej1[0]).toMatchObject({ es_usuario_actual: false, nombre_corto: "Tercero A.", sexo: "M", peso_kg: null, reps: null });
+          expect(Number(ej1[0]!.ratio)).toBe(1.43);
+          expect(Number(ej1[0]!.posicion)).toBe(1);
+          expect(ej1[1]).toMatchObject({ es_usuario_actual: true, nombre_corto: "Alumno U.", sexo: "M", reps: 5 });
+          expect(Number(ej1[1]!.peso_kg)).toBe(84);
+          expect(Number(ej1[1]!.ratio)).toBe(1.05);
+          expect(Number(ej1[1]!.posicion)).toBe(2);
+          expect(Number(ej1[0]!.posicion)).toBeLessThan(Number(ej1[1]!.posicion));
+          expect(Number(ej1[0]!.ratio)).toBeGreaterThan(Number(ej1[1]!.ratio));
+        }
+
+        expect(filtradasEj2.rows).toHaveLength(1);
+        expect(filtradasEj2.rows[0]).toMatchObject({
+          ejercicio_id: EJERCICIO_2,
+          es_usuario_actual: false,
+          nombre_corto: "Tercero A.",
+          sexo: "M",
+          peso_kg: null,
+          reps: null,
+        });
+        expect(Number(filtradasEj2.rows[0]!.ratio)).toBe(1.71);
+        expect(Number(filtradasEj2.rows[0]!.posicion)).toBe(1);
+      });
+
+      it("ENTRENADOR y ADMIN acceden al ranking sin error, sin exponer peso_kg/reps ni PII y manteniendo el orden", async () => {
+        for (const actor of [C1, ADMIN]) {
+          const res = await ranking("authenticated", actor, null);
+          expect(res.rows).toHaveLength(3);
+
+          for (const fila of res.rows) {
+            expect(fila.es_usuario_actual).toBe(false);
+            expect(fila.peso_kg).toBeNull();
+            expect(fila.reps).toBeNull();
+            expect(fila.nombre_corto).toBeTruthy();
+            expect(fila.sexo).toBe("M");
+            expect(Number(fila.ratio)).toBeGreaterThan(0);
+            expect(Number(fila.posicion)).toBeGreaterThanOrEqual(1);
+          }
+
+          const ej1 = res.rows.filter((f) => f.ejercicio_id === EJERCICIO_1);
+          expect(ej1).toHaveLength(2);
+          expect(ej1[0]!.nombre_corto).toBe("Tercero A.");
+          expect(Number(ej1[0]!.posicion)).toBe(1);
+          expect(Number(ej1[0]!.ratio)).toBe(1.43);
+          expect(ej1[1]!.nombre_corto).toBe("Alumno U.");
+          expect(Number(ej1[1]!.posicion)).toBe(2);
+          expect(Number(ej1[1]!.ratio)).toBe(1.05);
+          expect(Number(ej1[0]!.posicion)).toBeLessThan(Number(ej1[1]!.posicion));
+          expect(Number(ej1[0]!.ratio)).toBeGreaterThan(Number(ej1[1]!.ratio));
+
+          const serializado = JSON.stringify(res.rows);
+          for (const privado of ["tercero.privado", "alumno1@test.local", "@test.local", "Apellido", "Uno", "peso_corporal"]) {
+            expect(serializado).not.toContain(privado);
+          }
         }
       });
     });
