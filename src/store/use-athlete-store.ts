@@ -5,7 +5,7 @@ import { calculateEpley1RM, calculateEffectiveVolume } from "@/lib/strength-metr
 import { isWarmup, isDropset, isWorkingSet, normalizeSerieTipo } from "@/lib/serie-tipo";
 import { parseDefaultReps, sortExercisesWithWarmupFirst } from "@/lib/routine-helpers";
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
-import { useOfflineQueueStore } from "./use-offline-queue";
+import { haySenal, SET_ACTIONS, useOfflineQueueStore } from "./use-offline-queue";
 import { supabase } from "@/lib/supabase/client";
 import { crearBackoff } from "@/lib/sync-backoff";
 import {
@@ -217,7 +217,7 @@ interface AthleteStoreState {
   sincronizarNombrePreferidoPendiente: () => Promise<boolean>;
   cargarUltimaVez: () => Promise<void>;
   // Descarga y agrega "Mi progreso" del alumno (§4.3); offline mantiene lo persistido.
-  cargarMiProgreso: () => Promise<void>;
+  cargarMiProgreso: (opts?: { forceRefresh?: boolean }) => Promise<void>;
   cargarHistorialSesiones: () => Promise<void>;
   actualizarSerieHistorial: (
     sesionId: string,
@@ -624,6 +624,29 @@ async function enviarMolestiaRpc(
 }
 
 let activeSyncSessionPromise: Promise<{ success: boolean; error?: string }> | null = null;
+// Una sola corrida de cargarMiProgreso a la vez (+ 1 refresco secuencial si se pidió forceRefresh).
+let activeMiProgresoPromise: Promise<void> | null = null;
+let miProgresoPendienteRefetch = false;
+
+const SYNC_SESION_TIMEOUT_MS = 6_000;
+const SYNC_SIN_CONEXION_MSG = "Sin conexión; entrenamiento guardado en el dispositivo.";
+const SYNC_TIMEOUT_MSG =
+  "La conexión tardó demasiado; el entrenamiento quedó guardado en el dispositivo.";
+
+/**
+ * Espera una consulta de Supabase con el timeout compartido. Si el builder soporta
+ * `.abortSignal()` se le pasa la señal para cancelar la petición HTTP; los mocks que
+ * devuelven una `Promise` plana siguen funcionando igual.
+ */
+function esperarConAbort<T>(
+  query: PromiseLike<T> & { abortSignal?: (signal: AbortSignal) => PromiseLike<T> },
+  controller: AbortController,
+  vencido: Promise<never>,
+): Promise<T> {
+  const conSenal =
+    typeof query?.abortSignal === "function" ? query.abortSignal(controller.signal) : query;
+  return Promise.race([conSenal, vencido]);
+}
 let activeFlushMolestiasPromise: Promise<void> | null = null;
 // GOZS-695: una molestia que falla de forma transitoria se reintenta con backoff;
 // al agotar los intentos el alumno ve el aviso y la molestia sigue guardada.
@@ -1156,10 +1179,33 @@ export const useAthleteStore = create<AthleteStoreState>()(
           set({ toastSesion: { mensaje: SIN_ALUMNO_ID_MSG, tipo: "neutral" } });
           return;
         }
-        const duracionMinutos = calcularDuracionMinutos(
-          currentState.sessionStartedAt,
-          currentState.currentSession,
-        );
+        const sesionActual = currentState.currentSession;
+        const existingHist = sesionActual?.id
+          ? currentState.historialSesiones.find((h) => h.sesion.id === sesionActual.id)
+          : undefined;
+        if (existingHist) {
+          // Idempotencia (auto-finalización): 2ª llamada sin cambios = no-op.
+          const completadas = (sesionActual.ejercicios || []).flatMap((e) =>
+            e.series.filter((s) => s.completada),
+          );
+          const volActual = completadas.reduce((acc, s) => acc + s.peso_kg * s.reps_hechas, 0);
+          if (
+            existingHist.sesion.dia_id === diaId &&
+            existingHist.series.length === completadas.length &&
+            existingHist.sesion.volumen_total_kg === volActual &&
+            currentState.sesionesCompletadas.some(
+              (s) => s.id === sesionActual.id && s.dia_id === diaId,
+            ) &&
+            (sesionActual.molestias?.length ?? 0) === 0
+          ) {
+            return;
+          }
+        }
+        // Sin hora de inicio (ya se finalizó antes) se conserva la duración registrada.
+        const duracionMinutos =
+          currentState.sessionStartedAt === null && existingHist?.sesion.duracion_minutos != null
+            ? existingHist.sesion.duracion_minutos
+            : calcularDuracionMinutos(currentState.sessionStartedAt, sesionActual);
 
         set((state) => {
           const session = state.currentSession;
@@ -2280,89 +2326,107 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
       // §0.3 y §4.3: descarga el historial del alumno y lo agrega con las funciones puras
       // (mismo patrón que cargarUltimaVez). Sin red no consulta: queda lo persistido.
-      cargarMiProgreso: async () => {
-        if (!useOfflineQueueStore.getState().isOnline) return;
+      cargarMiProgreso: (opts) => {
+        const cargarMiProgresoUnaVez = async () => {
+          if (!useOfflineQueueStore.getState().isOnline) return;
 
-        let alumnoId: string | null = null;
+          let alumnoId: string | null = null;
 
-        // 1. Intentar resolver usuario autenticado de la sesión Supabase
-        try {
-          const { data: authData } = await supabase.auth.getUser();
-          if (authData?.user?.id && esUuid(authData.user.id)) {
-            alumnoId = authData.user.id;
-          }
-        } catch (err) {
-          console.warn("Aviso al obtener usuario autenticado para MiProgreso:", err);
-        }
-
-        // 2. Si no hay auth, resolver desde el perfil de plan persistido
-        if (!alumnoId) {
-          const planStudentId = get().planAlumno?.alumnos?.[0]?.id;
-          if (planStudentId && esUuid(planStudentId)) {
-            alumnoId = planStudentId;
-          }
-        }
-
-        // 3. Si no, resolver desde la sesión actual o cerrada si tiene studentId válido
-        if (!alumnoId) {
-          const session = get().currentSession;
-          if (session?.studentId && esUuid(session.studentId)) {
-            alumnoId = session.studentId;
-          }
-        }
-
-        // 4. Fallback al atleta por defecto para entornos demo y testing
-        if (!alumnoId && DEFAULT_ATHLETE_ID && esUuid(DEFAULT_ATHLETE_ID)) {
-          alumnoId = DEFAULT_ATHLETE_ID;
-        }
-
-        if (!alumnoId) return;
-
-        set({ cargandoMiProgreso: true });
-        try {
-          const [{ data: filasSeries }, { data: filasSesiones }] = await Promise.all([
-            supabase
-              .from("registro_series")
-              .select(
-                "ejercicio_id, sesion_id, numero_serie, peso_kg, reps_hechas, rpe_real, completada, set_type, registro_sesiones!inner(fecha, alumno_id)",
-              )
-              .eq("completada", true)
-              .gte("reps_hechas", 1)
-              .or("set_type.is.null,set_type.neq.WARMUP")
-              .eq("registro_sesiones.alumno_id", alumnoId)
-              .order("registro_sesiones(fecha)", { ascending: false })
-              .limit(1000),
-            supabase
-              .from("registro_sesiones")
-              .select("id, fecha, effective_volume_kg")
-              .eq("alumno_id", alumnoId)
-              .order("fecha", { ascending: false })
-              .limit(400),
-          ]);
-
-          const series: SerieHistorica[] = (filasSeries ?? []).map(({ registro_sesiones, ...s }) => ({
-            ...s,
-            fecha: (registro_sesiones as unknown as { fecha: string }).fecha,
-          }));
-          const sesiones: SesionHistorica[] = (filasSesiones ?? []) as unknown as SesionHistorica[];
-
-          // Nombres del catálogo para los ejercicios presentes (ADR-005: sin datos reales en código).
-          const ids = [...new Set(series.map((s) => s.ejercicio_id))];
-          let nombres: Record<string, string> = {};
-          if (ids.length > 0) {
-            const { data: cat } = await supabase.from("ejercicios").select("id, nombre").in("id", ids);
-            nombres = Object.fromEntries((cat ?? []).map((e) => [e.id as string, e.nombre as string]));
+          // 1. Intentar resolver usuario autenticado de la sesión Supabase
+          try {
+            const { data: authData } = await supabase.auth.getUser();
+            if (authData?.user?.id && esUuid(authData.user.id)) {
+              alumnoId = authData.user.id;
+            }
+          } catch (err) {
+            console.warn("Aviso al obtener usuario autenticado para MiProgreso:", err);
           }
 
-          set({
-            miProgreso: agregarMiProgreso(series, sesiones, nombres),
-            miProgresoFecha: new Date().toISOString(),
-          });
-        } catch (e) {
-          console.warn("No se pudo descargar «Mi progreso»:", e);
-        } finally {
-          set({ cargandoMiProgreso: false });
+          // 2. Si no hay auth, resolver desde el perfil de plan persistido
+          if (!alumnoId) {
+            const planStudentId = get().planAlumno?.alumnos?.[0]?.id;
+            if (planStudentId && esUuid(planStudentId)) {
+              alumnoId = planStudentId;
+            }
+          }
+
+          // 3. Si no, resolver desde la sesión actual o cerrada si tiene studentId válido
+          if (!alumnoId) {
+            const session = get().currentSession;
+            if (session?.studentId && esUuid(session.studentId)) {
+              alumnoId = session.studentId;
+            }
+          }
+
+          // 4. Fallback al atleta por defecto para entornos demo y testing
+          if (!alumnoId && DEFAULT_ATHLETE_ID && esUuid(DEFAULT_ATHLETE_ID)) {
+            alumnoId = DEFAULT_ATHLETE_ID;
+          }
+
+          if (!alumnoId) return;
+
+          set({ cargandoMiProgreso: true });
+          try {
+            const [{ data: filasSeries }, { data: filasSesiones }] = await Promise.all([
+              supabase
+                .from("registro_series")
+                .select(
+                  "ejercicio_id, sesion_id, numero_serie, peso_kg, reps_hechas, rpe_real, completada, set_type, registro_sesiones!inner(fecha, alumno_id)",
+                )
+                .eq("completada", true)
+                .gte("reps_hechas", 1)
+                .or("set_type.is.null,set_type.neq.WARMUP")
+                .eq("registro_sesiones.alumno_id", alumnoId)
+                .order("registro_sesiones(fecha)", { ascending: false })
+                .limit(1000),
+              supabase
+                .from("registro_sesiones")
+                .select("id, fecha, effective_volume_kg")
+                .eq("alumno_id", alumnoId)
+                .order("fecha", { ascending: false })
+                .limit(400),
+            ]);
+
+            const series: SerieHistorica[] = (filasSeries ?? []).map(({ registro_sesiones, ...s }) => ({
+              ...s,
+              fecha: (registro_sesiones as unknown as { fecha: string }).fecha,
+            }));
+            const sesiones: SesionHistorica[] = (filasSesiones ?? []) as unknown as SesionHistorica[];
+
+            // Nombres del catálogo para los ejercicios presentes (ADR-005: sin datos reales en código).
+            const ids = [...new Set(series.map((s) => s.ejercicio_id))];
+            let nombres: Record<string, string> = {};
+            if (ids.length > 0) {
+              const { data: cat } = await supabase.from("ejercicios").select("id, nombre").in("id", ids);
+              nombres = Object.fromEntries((cat ?? []).map((e) => [e.id as string, e.nombre as string]));
+            }
+
+            set({
+              miProgreso: agregarMiProgreso(series, sesiones, nombres),
+              miProgresoFecha: new Date().toISOString(),
+            });
+          } catch (e) {
+            console.warn("No se pudo descargar «Mi progreso»:", e);
+          } finally {
+            set({ cargandoMiProgreso: false });
+          }
+        };
+        // Una sola corrida a la vez; un forceRefresh en vuelo agenda 1 refresco secuencial.
+        if (activeMiProgresoPromise) {
+          if (opts?.forceRefresh) miProgresoPendienteRefetch = true;
+          return activeMiProgresoPromise;
         }
+        activeMiProgresoPromise = (async () => {
+          try {
+            do {
+              miProgresoPendienteRefetch = false;
+              await cargarMiProgresoUnaVez();
+            } while (miProgresoPendienteRefetch);
+          } finally {
+            activeMiProgresoPromise = null;
+          }
+        })();
+        return activeMiProgresoPromise;
       },
 
       // §3.3: tras registrar una serie, se suma a la frontera en memoria (fecha de la sesión de hoy).
@@ -2524,21 +2588,42 @@ export const useAthleteStore = create<AthleteStoreState>()(
           return activeSyncSessionPromise;
         }
 
-        activeSyncSessionPromise = (async () => {
-          const state = get();
-          const session = state.currentSession;
-          const studentId = resolverAlumnoIdParaEscritura(state, session);
-          if (!studentId) {
-            useOfflineQueueStore.getState().setSyncError(SIN_ALUMNO_ID_MSG);
-            set({ toastSesion: { mensaje: SIN_ALUMNO_ID_MSG, tipo: "neutral" } });
-            activeSyncSessionPromise = null;
-            return { success: false, error: SIN_ALUMNO_ID_MSG };
-          }
+        // Guardas síncronas fuera de la promesa compartida: así un rechazo temprano no
+        // queda cacheado en activeSyncSessionPromise para las llamadas siguientes.
+        const state = get();
+        const session = state.currentSession;
+        const studentId = resolverAlumnoIdParaEscritura(state, session);
+        if (!studentId) {
+          useOfflineQueueStore.getState().setSyncError(SIN_ALUMNO_ID_MSG);
+          set({ toastSesion: { mensaje: SIN_ALUMNO_ID_MSG, tipo: "neutral" } });
+          return { success: false, error: SIN_ALUMNO_ID_MSG };
+        }
 
-          const duracionMinutos =
-            calcularDuracionMinutos(state.sessionStartedAt, session) ??
+        // Sin señal no se gasta red: la sesión queda en el dispositivo y la cola intacta.
+        if (!haySenal()) {
+          return { success: false, error: SYNC_SIN_CONEXION_MSG };
+        }
+
+        activeSyncSessionPromise = (async () => {
+
+          // Snapshot pre-flight: solo se podan los eventos de serie de esta sesión que
+          // existían antes de enviar (los que entren en vuelo, p. ej. un video, se conservan).
+          const snapshotSetEventIds = useOfflineQueueStore
+            .getState()
+            .pendingEvents.filter(
+              (ev) =>
+                SET_ACTIONS.includes(ev.action) &&
+                (ev.payload as { sessionId?: string } | undefined)?.sessionId === session.id,
+            )
+            .map((ev) => ev.id);
+
+          const duracionPrevia =
             state.historialSesiones.find((h) => h.sesion.id === session.id)?.sesion.duracion_minutos ??
             null;
+          const duracionMinutos =
+            state.sessionStartedAt === null && duracionPrevia !== null
+              ? duracionPrevia
+              : (calcularDuracionMinutos(state.sessionStartedAt, session) ?? duracionPrevia);
 
           // Aplanar todas las series respetando el tipo_serie del plan si la serie no lo trae
           const allSets = session.ejercicios.flatMap((e) =>
@@ -2549,9 +2634,20 @@ export const useAthleteStore = create<AthleteStoreState>()(
             }))
           );
 
+          // Timeout compartido para toda la escritura: una red colgada no bloquea el final.
+          const controller = new AbortController();
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          const vencido = new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+              controller.abort();
+              reject(new Error(SYNC_TIMEOUT_MSG));
+            }, SYNC_SESION_TIMEOUT_MS);
+          });
+          vencido.catch(() => undefined);
+
           try {
             // Guardar registro_sesiones en Supabase
-            const { error: sesErr } = await supabase.from("registro_sesiones").upsert(
+            const { error: sesErr } = await esperarConAbort(supabase.from("registro_sesiones").upsert(
               {
                 id: session.id,
                 alumno_id: studentId,
@@ -2562,10 +2658,11 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 // volumen_total_kg / effective_volume_kg los calcula la base desde registro_series (GOZS-701).
               },
               { onConflict: "id" }
-            );
+            ), controller, vencido);
 
             if (sesErr) {
               console.warn("Aviso guardando sesion en Supabase:", sesErr.message);
+              return { success: false, error: sesErr.message };
             }
 
             // Guardar todas las series completadas en un solo upsert en lote (deduplicadas por clave)
@@ -2608,27 +2705,35 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
             const seriesRows = Array.from(seriesPorClave.values());
             if (seriesRows.length > 0) {
-              const { error: serErr } = await supabase
-                .from("registro_series")
-                .upsert(seriesRows, { onConflict: "sesion_id, ejercicio_id, numero_serie" });
+              const { error: serErr } = await esperarConAbort(
+                supabase
+                  .from("registro_series")
+                  .upsert(seriesRows, { onConflict: "sesion_id,ejercicio_id,numero_serie" }),
+                controller,
+                vencido,
+              );
               if (serErr) {
                 console.warn("Aviso guardando series en Supabase:", serErr.message);
+                return { success: false, error: serErr.message };
               }
             }
 
-            // Vaciar la cola offline confirmada por el servidor si hay conexión
-            if (useOfflineQueueStore.getState().isOnline) {
-              await useOfflineQueueStore.getState().flushQueue();
+            // Confirmado por el servidor: se podan solo los eventos del snapshot (1 set()).
+            useOfflineQueueStore.getState().removeEvents(snapshotSetEventIds);
+            // El resto de la cola (chat, eventos en vuelo) se envía en segundo plano.
+            if (useOfflineQueueStore.getState().pendingEvents.length > 0 && haySenal()) {
+              void useOfflineQueueStore.getState().flushQueue();
             }
 
-            // Invalidar y recargar automáticamente miProgreso tras guardar sesión
-            void get().cargarMiProgreso();
+            // Invalidar y recargar miProgreso tras guardar sesión (deduplicado)
+            void get().cargarMiProgreso({ forceRefresh: true });
 
             return { success: true };
           } catch (e: any) {
             console.error("Error sincronizando sesion con Supabase:", e);
             return { success: false, error: e?.message || "Error al sincronizar con Supabase" };
           } finally {
+            clearTimeout(timer);
             activeSyncSessionPromise = null;
           }
         })();
@@ -2656,6 +2761,27 @@ export const useAthleteStore = create<AthleteStoreState>()(
             }),
           },
         }));
+        // Anti-zombi: una serie desmarcada no debe subirse luego desde la cola.
+        const ses = get().currentSession;
+        const catalogEjercicioId =
+          ses.ejercicios.find((e) => e.id === exerciseId)?.ejercicio_id ?? exerciseId;
+        const cola = useOfflineQueueStore.getState();
+        cola.removeEvents(
+          cola.pendingEvents
+            .filter((ev) => {
+              if (!SET_ACTIONS.includes(ev.action)) return false;
+              const p = ev.payload as {
+                sessionId?: string;
+                setNumber?: number;
+                exerciseId?: string;
+                ejercicioId?: string;
+              };
+              if (p.sessionId !== ses.id || p.setNumber !== setNumber) return false;
+              if (p.exerciseId != null) return p.exerciseId === exerciseId;
+              return p.ejercicioId === catalogEjercicioId || p.ejercicioId === exerciseId;
+            })
+            .map((ev) => ev.id),
+        );
       },
 
       startRestTimer: (seconds, exerciseName, setNumber) => {
@@ -3085,6 +3211,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
 
       resetSessionToDefaults: () => {
+        miProgresoPendienteRefetch = false;
         const eleccionAlumno = get().vistaElegidaPorAlumno;
         set((prev) => ({
           molestiasPendientesFueraDeSesion: fusionarPendientesFueraDeSesion(

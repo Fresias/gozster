@@ -338,6 +338,7 @@ export function useLiveWorkout() {
 
   // Estado para terminar entrenamiento
   const [isFinishing, setIsFinishing] = React.useState(false);
+  const finishingRef = React.useRef(false);
   const [workoutFinished, setWorkoutFinished] = React.useState(false);
 
   // Guardas de plausibilidad (GOZS-200)
@@ -1038,14 +1039,20 @@ export function useLiveWorkout() {
   };
 
   const handleTerminarEntrenamiento = async () => {
+    // Guard síncrono: un doble toque o la auto-finalización no abren otra corrida.
+    if (finishingRef.current) return;
+    finishingRef.current = true;
     setIsFinishing(true);
-    await syncSessionToSupabase();
-    if (diaActivoId) {
-      marcarDiaCompletado(diaActivoId);
+    try {
+      // syncSessionToSupabase y marcarDiaCompletado ya recargan miProgreso (deduplicado).
+      await syncSessionToSupabase();
+      if (diaActivoId) {
+        marcarDiaCompletado(diaActivoId);
+      }
+    } finally {
+      finishingRef.current = false;
+      setIsFinishing(false);
     }
-    // Invalidar/recargar miProgreso inmediatamente tras finalizar
-    void cargarMiProgreso();
-    setIsFinishing(false);
     setWorkoutFinished(true);
     setShowCelebrationModal(true);
   };
