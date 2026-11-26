@@ -3562,7 +3562,14 @@ body:has(.theme-athlete[data-v7]) {
 .theme-athlete[data-v7] [data-testid="cierre-dia-titulo"] {
   font-size: clamp(1.5rem, 8vw, 2rem);
   overflow-wrap: break-word;
-  hyphens: auto;
+  hyphens: none;
   word-break: normal;
   max-width: 100%;
+}
+
+/* GOZS-850: "Tus días" compacto (targets >= 44px, gap 12px entre tarjetas) */
+.theme-athlete[data-v7] .a-days .a-row {
+  min-height: 52px;
+  padding: 6px 12px;
+  gap: 10px;
 }
