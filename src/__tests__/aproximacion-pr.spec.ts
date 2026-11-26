@@ -9,6 +9,7 @@ import {
   esEjercicioAislamiento,
   esRepsTrabajoLigero,
   redondearA2_5,
+  redondearCargaBarra,
   MENSAJE_SIN_DATOS,
   MENSAJE_UNA_SESION,
   MENSAJE_ANTIGUEDAD_8_SEMANAS,
@@ -211,6 +212,21 @@ describe("Cálculo de series de aproximación según último PR (GOZS-236, GOZS-
       expect(series).toHaveLength(1);
       expect(series[0]!.peso_kg).toBe(20);
       expect(series[0]!.setNumber).toBe(1);
+    });
+
+    it("GOZS-873: cargas sobre barra en múltiplos de 5 kg (discos 2,5/5 kg por lado), nunca 27,5 kg", () => {
+      expect(redondearCargaBarra(27.5)).toBe(30);
+      expect(redondearCargaBarra(38.5)).toBe(40);
+      expect(redondearCargaBarra(46.75)).toBe(45);
+      expect(redondearCargaBarra(12)).toBe(20);
+      const series = calcularSeriesAproximacion(55);
+      expect(series.map((s) => [s.peso_kg, s.reps])).toEqual([
+        [20, 8],
+        [30, 5],
+        [40, 3],
+        [45, 2],
+      ]);
+      for (const s of series) expect((s.peso_kg - 20) % 5).toBe(0);
     });
   });
 

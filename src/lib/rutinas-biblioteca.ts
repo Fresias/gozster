@@ -366,14 +366,17 @@ export function filtrarEjerciciosPorBusqueda(
 }
 
 /**
- * Filtro reactivo combinado para la biblioteca de ejercicios (músculo y búsqueda).
+ * Filtro reactivo combinado para la biblioteca de ejercicios (músculo, búsqueda y, opcionalmente,
+ * solo ejercicios con barra libre — GOZS-873).
  */
 export function filtrarEjercicios(
   ejercicios: Ejercicio[],
   musculo?: string | null,
   busqueda: string = "",
+  soloBarra: boolean = false,
 ): Ejercicio[] {
-  const porMusculo = filtrarEjerciciosPorMusculo(ejercicios, musculo);
+  const base = soloBarra ? ejercicios.filter((ej) => ej.usa_barra === true) : ejercicios;
+  const porMusculo = filtrarEjerciciosPorMusculo(base, musculo);
   return filtrarEjerciciosPorBusqueda(porMusculo, busqueda);
 }
 

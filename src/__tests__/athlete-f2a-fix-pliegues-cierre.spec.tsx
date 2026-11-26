@@ -49,6 +49,7 @@ const SESION: LiveWorkoutSession = {
       ejercicio_id: "cat-sq",
       nombre: "Sentadilla con barra",
       musculos_principales: ["Piernas"],
+      usa_barra: true,
       descanso_segundos: 150,
       rpe_objetivo: 8,
       repeticiones_objetivo: "6-8",

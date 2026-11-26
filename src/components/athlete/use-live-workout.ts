@@ -6,6 +6,7 @@ import {
   useAthleteStore,
   type LiveWorkoutExercise,
   type LiveWorkoutSession,
+  type LiveWorkoutSet,
 } from "@/store/use-athlete-store";
 import { getStorageUser } from "@/lib/user-storage";
 import { calculateEffectiveVolume } from "@/lib/strength-metrics";
@@ -19,6 +20,7 @@ import { serieDeReferencia } from "@/lib/historial-ejercicio";
 import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
 import { parseRepRange, parseTargetRpe } from "@/lib/routine-helpers";
+import { isWarmup } from "@/lib/serie-tipo";
 
 /** "Biserie A1" (2 ejercicios) o "Circuito A1 · 3 ejercicios" (3 o más). */
 export function etiquetaGrupoSuperserie(
@@ -168,6 +170,26 @@ export function findNextExerciseInWorkout(
   }
 
   return { nextExerciseId: null, shouldTransition: false };
+}
+
+/**
+ * Precarga de peso/reps para la serie visible (GOZS-873). Al completar la serie N, la N+1 hereda su
+ * peso y reps; sin serie efectiva previa hoy, usa la última vez del ejercicio. Las series de
+ * aproximación (W) nunca se precargan (conservan su peso de calentamiento) ni sirven de referencia.
+ */
+export function resolverPrecargaSerie(
+  series: ReadonlyArray<LiveWorkoutSet>,
+  serie: LiveWorkoutSet,
+  refUltimaActual: { peso_kg: number; reps_hechas: number } | null | undefined,
+): { peso_kg: number; reps_hechas: number } | null {
+  if (serie.completada || isWarmup(serie.set_type)) return null;
+  const serieAnteriorHoy = [...series]
+    .reverse()
+    .find((s) => s.completada && !isWarmup(s.set_type) && s.numero_serie < serie.numero_serie);
+  const pesoPrecarga = serieAnteriorHoy?.peso_kg ?? refUltimaActual?.peso_kg;
+  const repsPrecarga = serieAnteriorHoy?.reps_hechas ?? refUltimaActual?.reps_hechas;
+  if (pesoPrecarga === undefined || repsPrecarga === undefined) return null;
+  return { peso_kg: pesoPrecarga, reps_hechas: repsPrecarga };
 }
 
 export function useLiveWorkout() {
@@ -493,14 +515,10 @@ export function useLiveWorkout() {
     : null;
   const refUltimaActual =
     ultimaVezActual && serie ? serieDeReferencia(ultimaVezActual, serie.numero_serie) : null;
-  // Al completar la serie N, la N+1 hereda su peso y reps (copia automática); sin serie previa hoy,
-  // usa la última vez del ejercicio.
-  const serieAnteriorHoy =
-    currentExercise && serie
-      ? [...currentExercise.series].reverse().find((s) => s.completada && s.numero_serie < serie.numero_serie)
-      : undefined;
-  const pesoPrecarga = serieAnteriorHoy?.peso_kg ?? refUltimaActual?.peso_kg;
-  const repsPrecarga = serieAnteriorHoy?.reps_hechas ?? refUltimaActual?.reps_hechas;
+  const precarga =
+    currentExercise && serie ? resolverPrecargaSerie(currentExercise.series, serie, refUltimaActual) : null;
+  const pesoPrecarga = precarga?.peso_kg;
+  const repsPrecarga = precarga?.reps_hechas;
   React.useEffect(() => {
     if (!claveSerie || !currentExercise || !serie || serie.completada) return;
     if (pesoPrecarga === undefined || repsPrecarga === undefined) return;

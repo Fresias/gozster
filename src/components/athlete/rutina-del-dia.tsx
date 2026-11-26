@@ -14,6 +14,7 @@ import { AnilloProgreso } from "@/components/athlete/anillo-progreso";
 import { useAtraparFocoEnHoja } from "@/components/athlete/athlete-sheet";
 import { CierreDiaModal } from "@/components/athlete/cierre-dia-modal";
 import { CuestionarioInicial } from "@/components/athlete/cuestionario-inicial";
+import { calcularProgresoVueltasSuperserie } from "@/lib/superserie-vueltas";
 import {
   ArrowRight,
   Check,
@@ -374,10 +375,7 @@ export function RutinaDelDia() {
         const groupExercises = currentSession.ejercicios.filter(
           (x) => x.es_superserie && (x.grupo_superserie || 1) === grupo,
         );
-        const roundsDone = Math.min(
-          ...groupExercises.map((x) => x.series.filter((s) => s.completada).length),
-        );
-        const totalRounds = groupExercises[0]?.series.length ?? 0;
+        const { hechas: roundsDone, total: totalRounds } = calcularProgresoVueltasSuperserie(groupExercises);
         const label = etiquetaGrupoSuperserie(currentSession.ejercicios, ej);
         const tipOpen = ssTooltipGrupo === grupo;
 

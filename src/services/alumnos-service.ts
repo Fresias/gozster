@@ -52,7 +52,7 @@ const EJERCICIOS_EN_RUTINA_DATASET_COLUMNS =
   "id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie, tempo, force_rpe_required, tempo_activo, tipo_serie, tipo_medicion, tiempo_objetivo_segundos, es_unilateral";
 
 const EJERCICIOS_DATASET_COLUMNS =
-  "id, nombre, comentario, url_video, musculos_principales, musculos_secundarios";
+  "id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, usa_barra";
 
 const ALUMNO_ACTIVIDADES_DATASET_COLUMNS =
   "id, alumno_id, actividad, veces_por_semana, pase_libre";

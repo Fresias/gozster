@@ -52,6 +52,7 @@ const SESION_BASE: LiveWorkoutSession = {
       ejercicio_id: "cat-sq",
       nombre: "Sentadilla con barra",
       musculos_principales: ["Piernas"],
+      usa_barra: true,
       descanso_segundos: 150,
       rpe_objetivo: 8,
       repeticiones_objetivo: "6-8",
@@ -122,7 +123,7 @@ describe("Athlete v7 · FE-05 Pantalla del ejercicio", () => {
     expect(discosPorLado(70, 20)).toEqual({ perSide: 25, discos: [25], resto: 0 });
   });
 
-  it("CP4: ejercicio unilateral muestra selector Igual D/I | Separar D/I y botón 'Registrar serie 1'", () => {
+  it("CP4: ejercicio unilateral muestra selector compacto = D/I | D/I y botón 'Registrar serie 1'", () => {
     useAthleteStore.setState({ ejercicioAbiertoId: "ej-zb" });
     const html = renderToStaticMarkup(<EjercicioActivo />);
 
@@ -131,8 +132,10 @@ describe("Athlete v7 · FE-05 Pantalla del ejercicio", () => {
     expect(html).toContain('data-testid="unilateral-indicator"');
     expect(html).toContain('data-testid="uni-mode-same"');
     expect(html).toContain('data-testid="uni-mode-split"');
-    expect(html).toContain("Igual D/I");
-    expect(html).toContain("Separar D/I");
+    expect(html).toMatch(/aria-label="Mismo peso en Derecha e Izquierda"[^>]*>= D\/I</);
+    expect(html).toMatch(/aria-label="Separar Derecha e Izquierda"[^>]*>D\/I</);
+    expect(html).not.toContain("Igual D/I");
+    expect(html).not.toContain("Separar D/I");
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain("Registrar serie 1");
   });
