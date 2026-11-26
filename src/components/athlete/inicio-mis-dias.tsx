@@ -2,7 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { DEFAULT_ATHLETE_ID, useAthleteStore } from "@/store/use-athlete-store";
+import {
+  DEFAULT_ATHLETE_ID,
+  PLAN_REVALIDATE_COOLDOWN_MS,
+  useAthleteStore,
+} from "@/store/use-athlete-store";
 import { useChatStore } from "@/store/use-chat-store";
 import { useClasesStore } from "@/store/use-clases-store";
 import { getStorageUser } from "@/lib/user-storage";
@@ -267,8 +271,9 @@ export function InicioMisDias() {
 
   const [mostrarCargando, setMostrarCargando] = React.useState(false);
 
+  // Al volver al inicio no se repiten las 12 consultas del plan si se cargó hace < 30 s.
   React.useEffect(() => {
-    void cargarPlanAlumno();
+    void cargarPlanAlumno({ cooldownMs: PLAN_REVALIDATE_COOLDOWN_MS });
   }, [cargarPlanAlumno]);
 
   React.useEffect(() => {

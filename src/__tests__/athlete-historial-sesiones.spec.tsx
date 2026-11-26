@@ -136,6 +136,98 @@ describe("HistorialSesiones Componente y Flujo de Usuario (GH #181, GOZS-175)", 
     });
   });
 
+  describe("GOZS-884 · Ola B: merge seguro con sesiones que todavía suben", () => {
+    const ALUMNO = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const SES_SUBIENDO = "11111111-1111-4111-8111-111111111111";
+    const SES_REMOTA = "22222222-2222-4222-8222-222222222222";
+    const local = (id: string, nSeries: number) =>
+      ({
+        sesion: { id, alumno_id: ALUMNO, fecha: "2026-11-26T18:00:00.000Z", duracion_minutos: 47 },
+        series: Array.from({ length: nSeries }, (_, i) => ({ id: `ser-${id}-${i}`, sesion_id: id, numero_serie: i + 1 })),
+      }) as any;
+
+    const mockSupabaseHistorial = async () => {
+      const { supabase } = await import("@/lib/supabase/client");
+      const respuestas: Record<string, unknown[]> = {
+        // Lectura parcial: la cabecera ya llegó pero solo 1 de sus 5 series.
+        registro_sesiones: [
+          { id: SES_SUBIENDO, alumno_id: ALUMNO, fecha: "2026-11-26T18:00:00.000Z", duracion_minutos: null },
+          { id: SES_REMOTA, alumno_id: ALUMNO, fecha: "2026-11-20T18:00:00.000Z", duracion_minutos: 30 },
+        ],
+        registro_series: [{ id: "r1", sesion_id: SES_SUBIENDO, numero_serie: 1, ejercicios: { nombre: "Sentadilla" } }],
+      };
+      return vi.spyOn(supabase, "from").mockImplementation(((table: string) => {
+        const chain: any = {
+          select: () => chain,
+          eq: () => chain,
+          in: () => chain,
+          order: () => chain,
+          limit: () => chain,
+          then: (resolve: (v: unknown) => unknown) => resolve({ data: respuestas[table] ?? [], error: null }),
+        };
+        return chain;
+      }) as any);
+    };
+
+    afterEach(() => vi.restoreAllMocks());
+
+    it("GIVEN la sesión recién finalizada sigue en la cola WHEN cargarHistorialSesiones recibe datos parciales THEN conserva la entrada local completa", async () => {
+      await mockSupabaseHistorial();
+      useAthleteStore.setState((s) => ({
+        currentSession: { ...s.currentSession, studentId: ALUMNO },
+        historialSesiones: [local(SES_SUBIENDO, 5)],
+        syncingSessionId: null,
+      }));
+      useOfflineQueueStore.setState({
+        pendingEvents: [
+          { id: "e1", action: "WORKOUT_SESSION_COMPLETED", payload: { sessionId: SES_SUBIENDO }, createdAt: "" },
+        ],
+      });
+
+      await useAthleteStore.getState().cargarHistorialSesiones();
+
+      const hist = useAthleteStore.getState().historialSesiones;
+      const subiendo = hist.find((h) => h.sesion.id === SES_SUBIENDO)!;
+      expect(subiendo.series).toHaveLength(5);
+      expect(subiendo.sesion.duracion_minutos).toBe(47);
+      // Las demás sesiones remotas sí se incorporan.
+      expect(hist.some((h) => h.sesion.id === SES_REMOTA)).toBe(true);
+    });
+
+    it("también protege la sesión en vuelo (syncingSessionId) aunque la cola ya esté vacía", async () => {
+      await mockSupabaseHistorial();
+      useAthleteStore.setState((s) => ({
+        currentSession: { ...s.currentSession, studentId: ALUMNO },
+        historialSesiones: [local(SES_SUBIENDO, 5)],
+        syncingSessionId: SES_SUBIENDO,
+      }));
+      useOfflineQueueStore.setState({ pendingEvents: [] });
+
+      await useAthleteStore.getState().cargarHistorialSesiones();
+
+      expect(
+        useAthleteStore.getState().historialSesiones.find((h) => h.sesion.id === SES_SUBIENDO)!.series,
+      ).toHaveLength(5);
+      useAthleteStore.setState({ syncingSessionId: null });
+    });
+
+    it("sin eventos pendientes ni subida en curso, la versión remota reemplaza a la local", async () => {
+      await mockSupabaseHistorial();
+      useAthleteStore.setState((s) => ({
+        currentSession: { ...s.currentSession, studentId: ALUMNO },
+        historialSesiones: [local(SES_SUBIENDO, 5)],
+        syncingSessionId: null,
+      }));
+      useOfflineQueueStore.setState({ pendingEvents: [] });
+
+      await useAthleteStore.getState().cargarHistorialSesiones();
+
+      expect(
+        useAthleteStore.getState().historialSesiones.find((h) => h.sesion.id === SES_SUBIENDO)!.series,
+      ).toHaveLength(1);
+    });
+  });
+
   describe("3. Criterio de Aceptación: Base Estructurada para Mini-Dashboard", () => {
     it("los registros alimentan el mini-dashboard de progresión por ejercicio", () => {
       const store = useAthleteStore.getState();

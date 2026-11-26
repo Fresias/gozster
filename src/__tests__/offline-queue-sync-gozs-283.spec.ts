@@ -9,9 +9,10 @@ vi.mock("@/lib/supabase/client", () => ({
   supabase: {
     auth: { getUser: async () => ({ data: { user: authUserId ? { id: authUserId } : null } }) },
     from: (table: string) => ({
-      upsert: async (row: Record<string, unknown>) => {
+      // GOZS-884: acepta fila o lote (array); cada fila queda registrada por separado.
+      upsert: async (rowOrRows: Record<string, unknown> | Record<string, unknown>[]) => {
         if (fail) return { error: { message: "rls", code: failCode } };
-        upserts.push({ table, row });
+        for (const row of [rowOrRows].flat()) upserts.push({ table, row });
         return { error: null };
       },
     }),

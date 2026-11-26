@@ -300,6 +300,118 @@ describe("Athlete v7 · FE-11 Onboarding de 4 pasos y cierre", () => {
       expect(html).toContain("Completaste DÍA 1 · 3 series se envían cuando vuelva la señal");
     });
 
+    describe("GOZS-884 · Ola B: 3 estados excluyentes del chip al finalizar entrenamiento", () => {
+      const props = {
+        isOpen: true,
+        onClose: () => {},
+        tonelajeKg: 1200,
+        seriesCompletadas: 13,
+        totalSeries: 13,
+        duracionMinutos: 54,
+        studentName: "Lucía Fernández",
+        diaNombre: "DÍA 1",
+      };
+
+      it("online subiendo en segundo plano: chip 'Sincronizando…' y 'enviando N series…'", () => {
+        const html = renderToStaticMarkup(
+          <CierreDiaModal {...props} isOffline={false} isSyncing={true} seriesPendientes={4} />,
+        );
+        expect(html).toContain("Sincronizando…");
+        expect(html).toContain('data-estado="sincronizando"');
+        expect(html).toContain("Completaste DÍA 1 · enviando 4 series…");
+        expect(html).not.toContain("Guardada en el teléfono");
+        expect(html).not.toContain("Guardada y sincronizada");
+      });
+
+      it("online sincronizando sin series pendientes: ' · terminando de sincronizar…'", () => {
+        const html = renderToStaticMarkup(
+          <CierreDiaModal {...props} isOffline={false} isSyncing={true} seriesPendientes={0} />,
+        );
+        expect(html).toContain("Sincronizando…");
+        expect(html).toContain("Completaste DÍA 1 · terminando de sincronizar…");
+      });
+
+      it("offline gana sobre sincronizando: 'Guardada en el teléfono'", () => {
+        const html = renderToStaticMarkup(
+          <CierreDiaModal {...props} isOffline={true} isSyncing={true} seriesPendientes={2} />,
+        );
+        expect(html).toContain("Guardada en el teléfono");
+        expect(html).toContain('data-estado="offline"');
+        expect(html).not.toContain("Sincronizando…");
+      });
+
+      it("lee el estado de los stores: cambia solo a 'Guardada y sincronizada' al terminar la subida", () => {
+        useAthleteStore.setState({ syncingSessionId: "ses-en-vuelo" });
+        const ui = render(<CierreDiaModal {...props} />);
+        expect(ui.getByTestId("cierre-dia-estado-chip").textContent).toContain("Sincronizando…");
+        useAthleteStore.setState({ syncingSessionId: null });
+        ui.rerender(<CierreDiaModal {...props} />);
+        expect(ui.getByTestId("cierre-dia-estado-chip").textContent).toContain("Guardada y sincronizada");
+        expect(ui.container.textContent).toContain("Completaste DÍA 1");
+      });
+
+      it("el chip anuncia el cambio a lectores de pantalla (role=status, aria-live=polite)", () => {
+        const html = renderToStaticMarkup(<CierreDiaModal {...props} isOffline={false} isSyncing={true} />);
+        expect(html).toContain('role="status"');
+        expect(html).toContain('aria-live="polite"');
+      });
+    });
+
+    describe("GOZS-884 · Ola B: soft-timeout de 1.200 ms (1,2 s) al terminar entrenamiento", () => {
+      const hookCode = fs.readFileSync(
+        path.resolve(__dirname, "../components/athlete/use-live-workout.ts"),
+        "utf8",
+      );
+
+      it("SOFT_TIMEOUT_CIERRE_MS es 1.200 ms (1,2 s)", async () => {
+        const { SOFT_TIMEOUT_CIERRE_MS } = await import("@/lib/athlete/soft-timeout");
+        expect(SOFT_TIMEOUT_CIERRE_MS).toBe(1200);
+      });
+
+      it("GIVEN Supabase tarda 4.000 ms (4 s) THEN la UI deja de esperar a los 1.200 ms (1,2 s) y el guardado sigue en segundo plano", async () => {
+        vi.useFakeTimers();
+        try {
+          const { esperarConTope } = await import("@/lib/athlete/soft-timeout");
+          let guardado = false;
+          const sync = new Promise<void>((resolve) =>
+            setTimeout(() => {
+              guardado = true;
+              resolve();
+            }, 4000),
+          );
+          let resultado: boolean | null = null;
+          void esperarConTope(sync, 1200).then((r) => (resultado = r));
+          await vi.advanceTimersByTimeAsync(1199);
+          expect(resultado).toBeNull();
+          await vi.advanceTimersByTimeAsync(1);
+          expect(resultado).toBe(false);
+          expect(guardado).toBe(false);
+          await vi.advanceTimersByTimeAsync(2800);
+          expect(guardado).toBe(true);
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it("si la red responde antes del tope devuelve true sin esperar y nunca rechaza", async () => {
+        const { esperarConTope } = await import("@/lib/athlete/soft-timeout");
+        await expect(esperarConTope(Promise.resolve(), 1200)).resolves.toBe(true);
+        await expect(esperarConTope(Promise.reject(new Error("x")), 1200)).resolves.toBe(true);
+      });
+
+      it("marca el día (con omitirRecargaProgreso: haySenal()) ANTES de esperar la red y solo espera con señal", () => {
+        const idxMarcar = hookCode.indexOf("marcarDiaCompletado(diaActivoId, { omitirRecargaProgreso: conSenal })");
+        const idxSync = hookCode.indexOf("syncSessionToSupabase().then(");
+        const idxEspera = hookCode.indexOf("if (conSenal) await esperarConTope(syncPromise, SOFT_TIMEOUT_CIERRE_MS)");
+        expect(hookCode).toContain("const conSenal = haySenal();");
+        expect(idxMarcar).toBeGreaterThan(-1);
+        expect(idxSync).toBeGreaterThan(idxMarcar);
+        expect(idxEspera).toBeGreaterThan(idxSync);
+        // El overlay de guardado se mantiene mientras se espera (receta E2E "cierre").
+        expect(hookCode).toContain("setIsFinishing(true);");
+      });
+    });
+
     it("oculta 1RM en vista Simple y lo muestra en vista Técnica dentro de tarjetas PR doradas (.a-prc)", () => {
       const prs = [
         {

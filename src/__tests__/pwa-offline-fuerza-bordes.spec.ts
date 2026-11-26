@@ -10,12 +10,13 @@ vi.mock("@/lib/supabase/client", () => ({
   supabase: {
     auth: { getUser: async () => ({ data: { user: { id: "u-auth" } } }) },
     from: (table: string) => ({
-      upsert: async (row: Record<string, unknown>) => {
+      // GOZS-884: acepta fila o lote (array); cada fila queda registrada por separado.
+      upsert: async (rowOrRows: Record<string, unknown> | Record<string, unknown>[]) => {
         if (failNext > 0) {
           failNext--;
           return { error: { message: "network" } };
         }
-        upserts.push({ table, row });
+        for (const row of [rowOrRows].flat()) upserts.push({ table, row });
         return { error: null };
       },
     }),

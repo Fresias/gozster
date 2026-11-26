@@ -12,7 +12,8 @@ import { getStorageUser } from "@/lib/user-storage";
 import { calculateEffectiveVolume } from "@/lib/strength-metrics";
 import { avisoMolestiaPara, ejercicioBloqueado } from "@/lib/athlete/molestias";
 import type { RecordSesionItem } from "@/components/athlete/cierre-dia-modal";
-import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { haySenal, useOfflineQueueStore } from "@/store/use-offline-queue";
+import { esperarConTope, SOFT_TIMEOUT_CIERRE_MS } from "@/lib/athlete/soft-timeout";
 import { useChatStore } from "@/store/use-chat-store";
 import { sugerirCarga } from "@/lib/sugerencia-carga";
 import { esNuevoRecord, type ResultadoRecord } from "@/lib/record-ejercicio";
@@ -1044,11 +1045,22 @@ export function useLiveWorkout() {
     finishingRef.current = true;
     setIsFinishing(true);
     try {
-      // syncSessionToSupabase y marcarDiaCompletado ya recargan miProgreso (deduplicado).
-      await syncSessionToSupabase();
+      const conSenal = haySenal();
+      // Primero se guarda local (y se encola la cabecera duradera). Con señal no se
+      // recarga miProgreso acá: lo hace syncSessionToSupabase al confirmar el guardado.
       if (diaActivoId) {
-        marcarDiaCompletado(diaActivoId);
+        marcarDiaCompletado(diaActivoId, { omitirRecargaProgreso: conSenal });
       }
+      const syncPromise = syncSessionToSupabase().then(
+        (res) => {
+          // Fallo de red/timeout con señal: la cola reintenta con backoff en segundo plano.
+          if (!res.success && haySenal()) void useOfflineQueueStore.getState().flushQueue();
+        },
+        () => undefined,
+      );
+      // Sin señal el cierre se abre al instante (0 ms). Con señal se espera como máximo
+      // 1.200 ms (1,2 s); si la red tarda más, el guardado sigue en segundo plano.
+      if (conSenal) await esperarConTope(syncPromise, SOFT_TIMEOUT_CIERRE_MS);
     } finally {
       finishingRef.current = false;
       setIsFinishing(false);

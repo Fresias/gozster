@@ -2,7 +2,12 @@ import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 import { userScopedStorage } from "@/lib/user-storage";
 import { supabase } from "@/lib/supabase/client";
-import { normalizeSerieTipo } from "@/lib/serie-tipo";
+import {
+  toRegistroSerieRow,
+  toRegistroSeriePartialUpdateRow,
+  type RegistroSerieRow,
+  type RegistroSeriePartialUpdateRow,
+} from "@/lib/athlete/registro-series-mapper";
 import { crearBackoff } from "@/lib/sync-backoff";
 
 export interface OfflineSyncEvent {
@@ -21,6 +26,10 @@ interface OfflineQueueState {
    * discreto y no bloqueante. Nunca exponemos el contador de la cola.
    */
   syncError: string | null;
+  /** Efímero (no se persiste): hay una corrida de la cola en curso. */
+  isFlushing: boolean;
+  /** Efímero: series que viajan en la corrida actual (indicador "Enviando N series…"). */
+  syncingSeriesCount: number;
   setOnlineStatus: (isOnline: boolean) => void;
   enqueueEvent: (event: Omit<OfflineSyncEvent, "createdAt">) => void;
   removeEvent: (id: string) => void;
@@ -40,7 +49,7 @@ interface OfflineQueueState {
 export const SET_ACTIONS = ["WORKOUT_SET_COMPLETED", "WORKOUT_SET_UPDATED"];
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-type SendResult = "ok" | "retry" | "rejected";
+export type SendResult = "ok" | "retry" | "rejected";
 
 // Errores permanentes de Postgres: CHECK (23514), FK (23503) y RLS (42501).
 // Reintentarlos no sirve y bloquearía la cola; los de red no traen código.
@@ -48,65 +57,275 @@ const PERMANENT_CODES = ["23514", "23503", "42501"];
 const toResult = (error: { code?: string } | null): SendResult =>
   !error ? "ok" : PERMANENT_CODES.includes(error.code ?? "") ? "rejected" : "retry";
 
+/** Acciones de entrenamiento que se agrupan por `sessionId` en un único envío. */
+export const SESSION_COMPLETED_ACTION = "WORKOUT_SESSION_COMPLETED";
+export const CAMBIO_DIA_ACTION = "CAMBIO_DIA_REGISTRADO";
+export const HISTORIAL_SERIE_ACTION = "HISTORIAL_SERIE_UPDATED";
+export const SESSION_ACTIONS = [...SET_ACTIONS, SESSION_COMPLETED_ACTION, CAMBIO_DIA_ACTION];
+
+const ON_CONFLICT_SERIE = "sesion_id,ejercicio_id,numero_serie";
+const SERIE_RECHAZADA_MSG = "No pudimos guardar una serie. Avisá a tu coach.";
+
+function sessionIdDe(ev: OfflineSyncEvent): string | undefined {
+  const p = ev.payload as { sessionId?: unknown; sesionId?: unknown } | undefined;
+  const sid = p?.sessionId ?? p?.sesionId;
+  return typeof sid === "string" && sid.length > 0 ? sid : undefined;
+}
+
+/** Ids de sesión con algún evento todavía en la cola (no se deben pisar ni podar). */
+export function sesionesConPendientes(
+  events: readonly OfflineSyncEvent[] | undefined,
+): Set<string> {
+  const ids = new Set<string>();
+  for (const ev of events ?? []) {
+    const sid = sessionIdDe(ev);
+    if (sid) ids.add(sid);
+  }
+  return ids;
+}
+
+/** `auth.getUser()` una sola vez por corrida de la cola, y solo si hace falta. */
+function crearAuthPerezoso(): () => Promise<string | null> {
+  let pendiente: Promise<string | null> | null = null;
+  return () =>
+    (pendiente ??= supabase
+      ? supabase.auth.getUser().then(
+          (r) => r.data.user?.id ?? null,
+          () => null,
+        )
+      : Promise.resolve(null));
+}
+
+type SetPayload = {
+  alumnoId?: string;
+  diaId?: string;
+  ejercicioId?: string;
+  setNumber: number;
+  pesoKg?: number;
+  reps?: number;
+  rpe?: number | null;
+  setType?: string;
+  painReported?: boolean;
+  painNotes?: string | null;
+  videoUrl?: string | null;
+};
+
+type FilaConEventos<Row> = { row: Row; ids: string[] };
+type ResultadoGrupo = { removeIds: string[]; retry: boolean; rejected: boolean };
+
 /**
- * Envía un evento de serie. Idempotente: la sesión se upsertea por id y la
- * serie por (sesion_id, ejercicio_id, numero_serie), así un reintento no duplica.
+ * Upsert en lote de filas de serie. Si el lote choca con un error permanente se
+ * reintenta fila a fila para guardar las válidas y descartar solo las inválidas.
  */
-async function sendSetEvent(ev: OfflineSyncEvent): Promise<SendResult> {
-  const p = ev.payload as {
-    sessionId?: string;
-    alumnoId?: string;
-    diaId?: string;
-    ejercicioId?: string;
-    setNumber: number;
-    pesoKg?: number;
-    reps?: number;
-    rpe?: number | null;
-    setType?: string;
-    painReported?: boolean;
-    painNotes?: string | null;
-    videoUrl?: string | null;
+async function upsertSeries<Row extends object>(
+  filas: FilaConEventos<Row>[],
+): Promise<{ okIds: string[]; rechazadasIds: string[]; retry: boolean }> {
+  const res = { okIds: [] as string[], rechazadasIds: [] as string[], retry: false };
+  if (filas.length === 0 || !supabase) return res;
+  const lote = await supabase
+    .from("registro_series")
+    .upsert(filas.map((f) => f.row) as any, { onConflict: ON_CONFLICT_SERIE });
+  const resultadoLote = toResult(lote.error);
+  if (resultadoLote === "ok") {
+    res.okIds = filas.flatMap((f) => f.ids);
+    return res;
+  }
+  if (resultadoLote === "retry") {
+    res.retry = true;
+    return res;
+  }
+  if (filas.length === 1) {
+    res.rechazadasIds = filas[0]!.ids;
+    return res;
+  }
+  for (const fila of filas) {
+    let r: SendResult;
+    try {
+      const una = await supabase
+        .from("registro_series")
+        .upsert(fila.row as any, { onConflict: ON_CONFLICT_SERIE });
+      r = toResult(una.error);
+    } catch {
+      r = "retry";
+    }
+    if (r === "ok") res.okIds.push(...fila.ids);
+    else if (r === "rejected") res.rechazadasIds.push(...fila.ids);
+    else res.retry = true;
+  }
+  return res;
+}
+
+/**
+ * Envía todos los eventos de una sesión de entrenamiento en 2 RTTs: 1 upsert de
+ * `registro_sesiones` (cabecera fusionada) + 1 upsert en lote de `registro_series`
+ * (con merge semántico de ediciones). Idempotente: sesión por id y serie por
+ * (sesion_id, ejercicio_id, numero_serie), así un reintento no duplica.
+ */
+async function sendSessionGroup(
+  sessionId: string,
+  eventos: OfflineSyncEvent[],
+  authUid: () => Promise<string | null>,
+): Promise<ResultadoGrupo> {
+  const out: ResultadoGrupo = { removeIds: [], retry: false, rejected: false };
+  if (!supabase) return { ...out, retry: true };
+
+  // Sin ejercicio no se puede atribuir la serie: reintentar no lo arregla.
+  const validos: OfflineSyncEvent[] = [];
+  for (const ev of eventos) {
+    if (SET_ACTIONS.includes(ev.action) && !(ev.payload as SetPayload).ejercicioId) {
+      out.removeIds.push(ev.id);
+      out.rejected = true;
+    } else {
+      validos.push(ev);
+    }
+  }
+  if (validos.length === 0) return out;
+
+  // La serie es del alumno del evento; si no viene, del usuario autenticado (RLS exige
+  // lo mismo). Sin ninguno se conserva en cola: es dato del alumno, no se descarta.
+  const alumnoDe = (ev: OfflineSyncEvent) => {
+    const a = (ev.payload as { alumnoId?: unknown }).alumnoId;
+    return typeof a === "string" && a.length > 0 ? a : undefined;
   };
-  if (!supabase) return "retry";
-  // Sin sesión o ejercicio no se puede atribuir la serie: reintentar no lo arregla.
-  if (!p.sessionId || !p.ejercicioId) return "rejected";
-  // Sin alumno en el evento, la serie es del usuario autenticado (RLS exige lo mismo).
-  // Sin sesión de auth se conserva en cola: es dato del alumno, no se descarta.
-  const alumnoId = p.alumnoId ?? (await supabase.auth.getUser()).data.user?.id;
-  if (!alumnoId) return "retry";
+  const alumnoId =
+    alumnoDe(validos[0]!) ?? (await authUid()) ?? validos.map(alumnoDe).find(Boolean);
+  if (!alumnoId) return { ...out, retry: true };
+
+  // Cabecera fusionada en orden cronológico, sin enviar `undefined`.
+  const sesionRow: Record<string, unknown> = { id: sessionId, alumno_id: alumnoId };
+  const asignar = (col: string, valor: unknown) => {
+    if (valor !== undefined) sesionRow[col] = valor;
+  };
+  const full = new Map<string, FilaConEventos<RegistroSerieRow>>();
+  const partial = new Map<string, FilaConEventos<RegistroSeriePartialUpdateRow>>();
+  const cabeceraIds: string[] = [];
+
+  for (const ev of validos) {
+    const p = ev.payload as Record<string, unknown>;
+    if (ev.action === CAMBIO_DIA_ACTION) {
+      asignar("dia_id", p.diaElegidoId);
+      asignar("dia_sugerido_id", p.diaSugeridoId);
+      asignar("motivo_cambio_dia", p.motivoCambioDia);
+      cabeceraIds.push(ev.id);
+      continue;
+    }
+    if (ev.action === SESSION_COMPLETED_ACTION) {
+      asignar("dia_id", p.diaId);
+      asignar("dia_sugerido_id", p.diaSugeridoId);
+      asignar("motivo_cambio_dia", p.motivoCambioDia);
+      asignar("duracion_minutos", p.duracionMinutos);
+      asignar("estado", p.estado);
+      asignar("finalizada_at", p.finalizadaAt);
+      cabeceraIds.push(ev.id);
+      continue;
+    }
+    const s = p as unknown as SetPayload;
+    asignar("dia_id", s.diaId);
+    const clave = `${s.ejercicioId}:${s.setNumber}`;
+    if (ev.action === "WORKOUT_SET_COMPLETED") {
+      const previos = [...(full.get(clave)?.ids ?? []), ...(partial.get(clave)?.ids ?? [])];
+      partial.delete(clave);
+      full.set(clave, {
+        row: toRegistroSerieRow({
+          sesionId: sessionId,
+          ejercicioId: s.ejercicioId!,
+          numeroSerie: s.setNumber,
+          pesoKg: s.pesoKg,
+          reps: s.reps,
+          rpe: s.rpe,
+          setType: s.setType,
+          painReported: s.painReported,
+          painNotes: s.painNotes,
+          videoUrl: s.videoUrl,
+        }),
+        ids: [...previos, ev.id],
+      });
+      continue;
+    }
+    // WORKOUT_SET_UPDATED: peso/reps nuevos, preservando rpe/tipo/dolor/video del registro.
+    const registrada = full.get(clave);
+    if (registrada) {
+      if (s.pesoKg !== undefined) registrada.row.peso_kg = s.pesoKg;
+      if (s.reps !== undefined) registrada.row.reps_hechas = s.reps;
+      registrada.ids.push(ev.id);
+      continue;
+    }
+    const previa = partial.get(clave);
+    partial.set(clave, {
+      row: toRegistroSeriePartialUpdateRow({
+        sesionId: sessionId,
+        ejercicioId: s.ejercicioId!,
+        numeroSerie: s.setNumber,
+        pesoKg: s.pesoKg ?? previa?.row.peso_kg,
+        reps: s.reps ?? previa?.row.reps_hechas,
+      }),
+      ids: [...(previa?.ids ?? []), ev.id],
+    });
+  }
+
   const sesion = await supabase
     .from("registro_sesiones")
-    .upsert(
-      { id: p.sessionId, alumno_id: alumnoId, ...(p.diaId ? { dia_id: p.diaId } : {}) },
-      { onConflict: "id" },
-    );
-  if (sesion.error) return toResult(sesion.error);
-  const completed = ev.action === "WORKOUT_SET_COMPLETED";
-  const rpeVal =
-    typeof p.rpe === "number" && Number.isFinite(p.rpe) && p.rpe >= 1 && p.rpe <= 10
-      ? p.rpe
-      : null;
-  const serie = await supabase.from("registro_series").upsert(
-    {
-      sesion_id: p.sessionId,
-      ejercicio_id: p.ejercicioId,
-      numero_serie: p.setNumber,
-      peso_kg: p.pesoKg,
-      reps_hechas: p.reps,
-      ...(completed
-        ? {
-            rpe_real: rpeVal,
-            completada: true,
-            set_type: normalizeSerieTipo(p.setType),
-            pain_reported: p.painReported ?? false,
-            pain_notes: p.painNotes ?? null,
-            video_url: p.videoUrl ?? null,
-          }
-        : {}),
-    },
-    { onConflict: "sesion_id,ejercicio_id,numero_serie" },
-  );
-  return toResult(serie.error);
+    .upsert(sesionRow as any, { onConflict: "id" });
+  const resultadoSesion = toResult(sesion.error);
+  if (resultadoSesion === "retry") return { ...out, retry: true };
+  if (resultadoSesion === "rejected") {
+    out.removeIds.push(...validos.map((ev) => ev.id));
+    out.rejected = true;
+    return out;
+  }
+  out.removeIds.push(...cabeceraIds);
+
+  const lotes: FilaConEventos<object>[][] = [[...full.values()], [...partial.values()]];
+  for (const filas of lotes) {
+    const r = await upsertSeries(filas);
+    out.removeIds.push(...r.okIds, ...r.rechazadasIds);
+    if (r.rechazadasIds.length > 0) out.rejected = true;
+    if (r.retry) {
+      out.retry = true;
+      break;
+    }
+  }
+  return out;
+}
+
+const SERIE_SINTETICA_REGEX =
+  /^ser-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-(.+)-(\d+)$/i;
+
+/** Clave compuesta de una serie con id sintético local `ser-<sesion>-<ejercicio>-<n>`. */
+export function claveSerieSintetica(
+  serieId: string,
+): { sesionId: string; ejercicioId: string; numeroSerie: number } | null {
+  const m = SERIE_SINTETICA_REGEX.exec(serieId);
+  if (!m || !UUID_REGEX.test(m[2]!)) return null;
+  return { sesionId: m[1]!, ejercicioId: m[2]!, numeroSerie: Number(m[3]) };
+}
+
+/**
+ * Envía la edición de una serie del historial. Soporta id real (UUID) y el id
+ * sintético local (`ser-...`) resolviendo la fila por su clave compuesta.
+ */
+export async function enviarEdicionSerieHistorial(p: Record<string, unknown>): Promise<SendResult> {
+  if (!supabase) return "retry";
+  const serieId = p.serieId;
+  if (typeof serieId !== "string") return "rejected";
+  const cambios = {
+    peso_kg: p.pesoKg,
+    reps_hechas: p.repsHechas,
+    updated_at: new Date().toISOString(),
+  } as any;
+  if (UUID_REGEX.test(serieId)) {
+    const { error } = await supabase.from("registro_series").update(cambios).eq("id", serieId);
+    return toResult(error);
+  }
+  const clave = claveSerieSintetica(serieId);
+  if (!clave) return "rejected";
+  const { error } = await supabase
+    .from("registro_series")
+    .update(cambios)
+    .eq("sesion_id", clave.sesionId)
+    .eq("ejercicio_id", clave.ejercicioId)
+    .eq("numero_serie", clave.numeroSerie);
+  return toResult(error);
 }
 
 async function sendChatEvent(ev: OfflineSyncEvent): Promise<SendResult> {
@@ -225,16 +444,81 @@ let activeFlushPromise: Promise<void> | null = null;
 
 async function flushUnaVez(): Promise<void> {
   const { getState: get, setState: set } = useOfflineQueueStore;
-  set({ syncError: null });
-  for (const ev of get().pendingEvents) {
-    let result: SendResult = "ok";
-    if (SET_ACTIONS.includes(ev.action)) {
+  const snapshot = get().pendingEvents;
+  set({
+    syncError: null,
+    isFlushing: true,
+    syncingSeriesCount: snapshot.filter((ev) => SET_ACTIONS.includes(ev.action)).length,
+  });
+  try {
+    await recorrerCola(snapshot);
+  } finally {
+    set({ isFlushing: false, syncingSeriesCount: 0 });
+  }
+}
+
+async function recorrerCola(snapshot: OfflineSyncEvent[]): Promise<void> {
+  const { getState: get, setState: set } = useOfflineQueueStore;
+  const authUid = crearAuthPerezoso();
+  const atendidos = new Set<string>();
+  for (const ev of snapshot) {
+    if (atendidos.has(ev.id)) continue;
+    atendidos.add(ev.id);
+
+    // Entrenamiento: los eventos de una sesión viajan juntos (2 RTTs, 1 removeEvents).
+    if (SESSION_ACTIONS.includes(ev.action)) {
+      const sid = sessionIdDe(ev);
+      if (!sid) {
+        // Sin sesión no se puede atribuir: reintentar no lo arregla.
+        if (SET_ACTIONS.includes(ev.action)) set({ syncError: SERIE_RECHAZADA_MSG });
+        get().removeEvent(ev.id);
+        continue;
+      }
+      const grupo = snapshot.filter(
+        (e) => SESSION_ACTIONS.includes(e.action) && sessionIdDe(e) === sid,
+      );
+      for (const e of grupo) atendidos.add(e.id);
+      let r: ResultadoGrupo;
       try {
-        result = await sendSetEvent(ev);
+        r = await sendSessionGroup(sid, grupo, authUid);
+      } catch {
+        r = { removeIds: [], retry: true, rejected: false };
+      }
+      get().removeEvents(r.removeIds);
+      if (r.rejected) set({ syncError: SERIE_RECHAZADA_MSG });
+      if (r.retry) {
+        backoffCola.programar();
+        return;
+      }
+      continue;
+    }
+
+    // Ediciones del historial: se compactan por serie y viaja solo la última.
+    if (ev.action === HISTORIAL_SERIE_ACTION) {
+      const serieId = (ev.payload as { serieId?: unknown }).serieId;
+      const grupo = snapshot.filter(
+        (e) =>
+          e.action === HISTORIAL_SERIE_ACTION &&
+          (e.payload as { serieId?: unknown }).serieId === serieId,
+      );
+      for (const e of grupo) atendidos.add(e.id);
+      let result: SendResult;
+      try {
+        result = await enviarEdicionSerieHistorial(grupo[grupo.length - 1]!.payload);
       } catch {
         result = "retry";
       }
-    } else if (ev.action === "ENVIAR_MENSAJE_CHAT") {
+      if (result === "retry") {
+        backoffCola.programar();
+        return;
+      }
+      if (result === "rejected") set({ syncError: SERIE_RECHAZADA_MSG });
+      get().removeEvents(grupo.map((e) => e.id));
+      continue;
+    }
+
+    let result: SendResult = "ok";
+    if (ev.action === "ENVIAR_MENSAJE_CHAT") {
       try {
         result = await sendChatEvent(ev);
       } catch {
@@ -264,7 +548,7 @@ async function flushUnaVez(): Promise<void> {
         syncError:
           ev.action === "FEEDBACK_CLASE"
             ? "No pudimos guardar tu devolución de la clase."
-            : "No pudimos guardar una serie. Avisá a tu coach.",
+            : SERIE_RECHAZADA_MSG,
       });
     }
     get().removeEvent(ev.id);
@@ -303,6 +587,8 @@ export const useOfflineQueueStore = create<OfflineQueueState>()(
       isOnline: true,
       pendingEvents: [],
       syncError: null,
+      isFlushing: false,
+      syncingSeriesCount: 0,
       setOnlineStatus: (isOnline) => {
         if (!isOnline) backoffCola.reset();
         set({ isOnline });

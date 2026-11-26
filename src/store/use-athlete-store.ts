@@ -5,7 +5,16 @@ import { calculateEpley1RM, calculateEffectiveVolume } from "@/lib/strength-metr
 import { isWarmup, isDropset, isWorkingSet, normalizeSerieTipo } from "@/lib/serie-tipo";
 import { parseDefaultReps, sortExercisesWithWarmupFirst } from "@/lib/routine-helpers";
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
-import { haySenal, SET_ACTIONS, useOfflineQueueStore } from "./use-offline-queue";
+import {
+  CAMBIO_DIA_ACTION,
+  enviarEdicionSerieHistorial,
+  haySenal,
+  sesionesConPendientes,
+  SESSION_COMPLETED_ACTION,
+  SET_ACTIONS,
+  useOfflineQueueStore,
+} from "./use-offline-queue";
+import { normalizarRpeReal, toRegistroSerieRow, type RegistroSerieRow } from "@/lib/athlete/registro-series-mapper";
 import { supabase } from "@/lib/supabase/client";
 import { crearBackoff } from "@/lib/sync-backoff";
 import {
@@ -206,6 +215,8 @@ interface AthleteStoreState {
   colapsarRutina: boolean;
   historialSesiones: HistoricalLoadEntry[];
   cargandoHistorial: boolean;
+  /** Efímero (no se persiste): sesión que se está subiendo al finalizar entrenamiento. */
+  syncingSessionId: string | null;
   // Nombre preferido (BE-01 / D-53). nombrePreferidoPendiente === undefined => sin pendiente.
   nombrePreferido: string | null;
   nombrePreferidoPendiente: string | null | undefined;
@@ -244,7 +255,7 @@ interface AthleteStoreState {
     diaSugeridoId?: string | null,
   ) => void;
   deshacerCambioDia: () => void;
-  marcarDiaCompletado: (diaId: string) => void;
+  marcarDiaCompletado: (diaId: string, opts?: { omitirRecargaProgreso?: boolean }) => void;
   setMembershipStatus: (status: AthleteMembershipStatus) => void;
   setPasoIncrementoPeso: (paso: number) => void;
   setColapsarRutina: (colapsar: boolean) => void;
@@ -329,7 +340,7 @@ interface AthleteStoreState {
   planAlumno: LiveSupabaseDataset | null;
   cargandoPlan: boolean;
   errorPlan: boolean;
-  cargarPlanAlumno: () => Promise<void>;
+  cargarPlanAlumno: (opts?: { cooldownMs?: number }) => Promise<void>;
   setSession: (session: LiveWorkoutSession) => void;
   loadStudentSession: (
     studentId?: string,
@@ -629,6 +640,54 @@ let activeMiProgresoPromise: Promise<void> | null = null;
 let miProgresoPendienteRefetch = false;
 
 const SYNC_SESION_TIMEOUT_MS = 6_000;
+// Eventos de la sesión que el upsert de finalizar entrenamiento deja confirmados.
+const SNAPSHOT_SESION_ACTIONS = [...SET_ACTIONS, SESSION_COMPLETED_ACTION, CAMBIO_DIA_ACTION];
+// Sesiones persistidas en localStorage (en RAM se conservan hasta 100).
+export const MAX_HISTORIAL_PERSISTIDO = 20;
+// Revalidación del plan al volver a InicioMisDias: 30.000 ms (30 s), opt-in vía cargarPlanAlumno({ cooldownMs }).
+export const PLAN_REVALIDATE_COOLDOWN_MS = 30_000;
+let activeLoadPlanPromise: Promise<void> | null = null;
+let lastPlanLoaded: { at: number; user: string | null } | null = null;
+
+/**
+ * Sesiones que todavía suben (eventos en cola o en vuelo). Guard defensivo: puede
+ * correr durante la rehidratación, antes de que la cola esté inicializada.
+ */
+function sesionesProtegidas(syncingSessionId: string | null | undefined): Set<string> {
+  const ids = sesionesConPendientes(useOfflineQueueStore?.getState?.()?.pendingEvents ?? []);
+  if (syncingSessionId) ids.add(syncingSessionId);
+  return ids;
+}
+
+/** Acota el historial persistido conservando siempre las sesiones protegidas. */
+export function acotarHistorialPersistido(
+  historial: HistoricalLoadEntry[],
+  protegidas: Set<string>,
+): HistoricalLoadEntry[] {
+  if (historial.length <= MAX_HISTORIAL_PERSISTIDO) return historial;
+  let cupo = Math.max(
+    0,
+    MAX_HISTORIAL_PERSISTIDO - historial.filter((h) => protegidas.has(h.sesion.id)).length,
+  );
+  return historial.filter((h) => protegidas.has(h.sesion.id) || cupo-- > 0);
+}
+
+/** Encola (o reemplaza) el evento persistente de entrenamiento finalizado. */
+function encolarSesionCompletada(payload: {
+  sessionId: string;
+  alumnoId: string;
+  diaId: string;
+  diaSugeridoId: string | null;
+  motivoCambioDia: string | null;
+  duracionMinutos: number | null | undefined;
+  estado: "COMPLETADA";
+  finalizadaAt: string;
+}): void {
+  const id = "session-completed-" + payload.sessionId;
+  const cola = useOfflineQueueStore.getState();
+  if (cola.pendingEvents.some((ev) => ev.id === id)) cola.removeEvent(id);
+  cola.enqueueEvent({ id, action: SESSION_COMPLETED_ACTION, payload });
+}
 const SYNC_SIN_CONEXION_MSG = "Sin conexión; entrenamiento guardado en el dispositivo.";
 const SYNC_TIMEOUT_MSG =
   "La conexión tardó demasiado; el entrenamiento quedó guardado en el dispositivo.";
@@ -786,13 +845,6 @@ function reencolarSerieCompletadaConVideo(
 
 const SIN_ALUMNO_ID_MSG =
   "No pudimos identificar tu perfil de alumno para guardar los datos. Volvé a iniciar sesión.";
-
-function normalizarRpeReal(rpe: number | null | undefined): number | null {
-  if (typeof rpe !== "number" || !Number.isFinite(rpe) || rpe < 1 || rpe > 10) {
-    return null;
-  }
-  return rpe;
-}
 
 function resolverAlumnoIdParaEscritura(
   state: AthleteStoreState,
@@ -995,6 +1047,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       cargandoMiProgreso: false,
       historialSesiones: [],
       cargandoHistorial: false,
+      syncingSessionId: null,
       pasoIncrementoPeso: 2.5,
       colapsarRutina: false,
       nombrePreferido: null,
@@ -1090,9 +1143,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
         // Si hubo cambio de día (dia sugerido distinto o motivo asignado), encolar evento offline
         if (diaSugeridoId && diaSugeridoId !== diaId) {
+          const cambioEventId = `cambio-dia-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
           useOfflineQueueStore.getState().enqueueEvent({
-            id: `cambio-dia-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            action: "CAMBIO_DIA_REGISTRADO",
+            id: cambioEventId,
+            action: CAMBIO_DIA_ACTION,
             payload: {
               sessionId: get().currentSession.id,
               alumnoId: studentId,
@@ -1121,7 +1175,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 ({ error }) => {
                   if (error) {
                     console.warn("Aviso guardando motivo de cambio en Supabase:", error.message);
+                    return;
                   }
+                  // Confirmado por el servidor: el evento ya no hace falta en la cola.
+                  useOfflineQueueStore.getState().removeEvent(cambioEventId);
                 },
                 () => {
                   // Silencioso en modo offline
@@ -1171,7 +1228,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
           motivoCambioDia: null,
           diaSugeridoId: null,
         }),
-      marcarDiaCompletado: (diaId) => {
+      marcarDiaCompletado: (diaId, opts) => {
         const currentState = get();
         const studentId = resolverAlumnoIdParaEscritura(currentState, currentState.currentSession);
         if (!studentId) {
@@ -1286,10 +1343,25 @@ export const useAthleteStore = create<AthleteStoreState>()(
             diaSugeridoId: state.diaElegidoHoyId === diaId ? null : state.diaSugeridoId,
             sessionStartedAt: null,
           };
-          // Invalidar y recargar automáticamente miProgreso tras finalizar o marcar día
-          setTimeout(() => {
-            void get().cargarMiProgreso();
-          }, 0);
+          // Durabilidad: si la PWA se cierra antes de subir, la cabecera completa
+          // (duración, cambio de día, 0 series) sigue en la cola. Idempotente por sesión.
+          encolarSesionCompletada({
+            sessionId,
+            alumnoId: studentId,
+            diaId,
+            diaSugeridoId: nuevaEntradaHistorial.sesion.dia_sugerido_id ?? null,
+            motivoCambioDia: nuevaEntradaHistorial.sesion.motivo_cambio_dia ?? null,
+            duracionMinutos,
+            estado: "COMPLETADA",
+            finalizadaAt: fechaIso,
+          });
+          // Con señal, syncSessionToSupabase recarga miProgreso al confirmar el guardado:
+          // recargar acá leería la base antes de que termine de escribir.
+          if (!opts?.omitirRecargaProgreso) {
+            setTimeout(() => {
+              void get().cargarMiProgreso();
+            }, 0);
+          }
           return res;
         });
       },
@@ -2207,10 +2279,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
           get().stopTimer();
           // Auto-finalización y sincronización automática al completar la última serie de la sesión
           const currentStore = get();
-          void currentStore.syncSessionToSupabase();
           if (currentStore.diaActivoId) {
-            currentStore.marcarDiaCompletado(currentStore.diaActivoId);
+            currentStore.marcarDiaCompletado(currentStore.diaActivoId, {
+              omitirRecargaProgreso: haySenal(),
+            });
           }
+          void get().syncSessionToSupabase();
         }
       },
 
@@ -2500,10 +2574,17 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
           set((state) => {
             const existentes = state.historialSesiones;
-            const idsRemotos = new Set(remotas.map((r) => r.sesion.id));
+            // Una sesión que todavía sube (cola o en vuelo) conserva la versión local
+            // completa: la lectura remota puede traerla a medias.
+            const protegidas = sesionesProtegidas(state.syncingSessionId);
+            const idsLocalesProtegidos = new Set(
+              existentes.filter((e) => protegidas.has(e.sesion.id)).map((e) => e.sesion.id),
+            );
+            const remotasVigentes = remotas.filter((r) => !idsLocalesProtegidos.has(r.sesion.id));
+            const idsRemotos = new Set(remotasVigentes.map((r) => r.sesion.id));
             const localesSinRemoto = existentes.filter((e) => !idsRemotos.has(e.sesion.id));
             return {
-              historialSesiones: [...localesSinRemoto, ...remotas].sort(
+              historialSesiones: [...localesSinRemoto, ...remotasVigentes].sort(
                 (a, b) => new Date(b.sesion.fecha).getTime() - new Date(a.sesion.fecha).getTime()
               ),
             };
@@ -2551,31 +2632,26 @@ export const useAthleteStore = create<AthleteStoreState>()(
         });
 
         // 2. Acumular evento en cola offline silenciosa
+        const editEventId = "edit-serie-" + serieId + "-" + Date.now();
+        const payload = {
+          sesionId,
+          serieId,
+          pesoKg: pesoValido,
+          repsHechas: repsValidas,
+          updatedAt: new Date().toISOString(),
+          ...(atipica !== undefined ? { atipica } : {}),
+        };
         useOfflineQueueStore.getState().enqueueEvent({
-          id: "edit-serie-" + serieId + "-" + Date.now(),
+          id: editEventId,
           action: "HISTORIAL_SERIE_UPDATED",
-          payload: {
-            sesionId,
-            serieId,
-            pesoKg: pesoValido,
-            repsHechas: repsValidas,
-            updatedAt: new Date().toISOString(),
-            ...(atipica !== undefined ? { atipica } : {}),
-          },
+          payload,
         });
 
-        // 3. Sincronizar en Supabase si estamos online
+        // 3. Sincronizar en Supabase si estamos online (UUID o id sintético `ser-...`)
         if (useOfflineQueueStore.getState().isOnline) {
           try {
-            if (esUuid(serieId)) {
-              await supabase
-                .from("registro_series")
-                .update({
-                  peso_kg: pesoValido,
-                  reps_hechas: repsValidas,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", serieId);
+            if ((await enviarEdicionSerieHistorial(payload)) === "ok") {
+              useOfflineQueueStore.getState().removeEvent(editEventId);
             }
           } catch (err) {
             console.warn("Aviso al sincronizar edición de serie con Supabase:", err);
@@ -2606,16 +2682,21 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
         activeSyncSessionPromise = (async () => {
 
-          // Snapshot pre-flight: solo se podan los eventos de serie de esta sesión que
-          // existían antes de enviar (los que entren en vuelo, p. ej. un video, se conservan).
-          const snapshotSetEventIds = useOfflineQueueStore
+          // Snapshot pre-flight por id exacto de evento (nunca por fecha): solo se podan los
+          // eventos de esta sesión que existían antes de enviar; los que entren en vuelo
+          // (p. ej. un video) se conservan.
+          const eventosSesion = useOfflineQueueStore
             .getState()
             .pendingEvents.filter(
               (ev) =>
-                SET_ACTIONS.includes(ev.action) &&
+                SNAPSHOT_SESION_ACTIONS.includes(ev.action) &&
                 (ev.payload as { sessionId?: string } | undefined)?.sessionId === session.id,
-            )
-            .map((ev) => ev.id);
+            );
+          const snapshotSetEventIds = eventosSesion.map((ev) => ev.id);
+          const finalizadaAt =
+            (eventosSesion.find((ev) => ev.action === SESSION_COMPLETED_ACTION)?.payload
+              .finalizadaAt as string | undefined) ?? new Date().toISOString();
+          set({ syncingSessionId: session.id });
 
           const duracionPrevia =
             state.historialSesiones.find((h) => h.sesion.id === session.id)?.sesion.duracion_minutos ??
@@ -2655,6 +2736,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 dia_sugerido_id: session.dia_sugerido_id || null,
                 motivo_cambio_dia: session.motivo_cambio_dia || null,
                 duracion_minutos: duracionMinutos,
+                estado: "COMPLETADA",
+                finalizada_at: finalizadaAt,
                 // volumen_total_kg / effective_volume_kg los calcula la base desde registro_series (GOZS-701).
               },
               { onConflict: "id" }
@@ -2666,41 +2749,27 @@ export const useAthleteStore = create<AthleteStoreState>()(
             }
 
             // Guardar todas las series completadas en un solo upsert en lote (deduplicadas por clave)
-            const seriesPorClave = new Map<
-              string,
-              {
-                sesion_id: string;
-                ejercicio_id: string;
-                numero_serie: number;
-                peso_kg: number;
-                reps_hechas: number;
-                rpe_real: number | null;
-                completada: boolean;
-                set_type: "NORMAL" | "WARMUP" | "DROPSET" | "FAILURE";
-                pain_reported: boolean;
-                pain_notes: string | null;
-                video_url: string | null;
-              }
-            >();
+            const seriesPorClave = new Map<string, RegistroSerieRow>();
             for (const s of allSets) {
               if (!s.completada) continue;
-              const mappedType = normalizeSerieTipo(s.set_type);
               // Resolver ejercicio_id válido para FK de Supabase
               const resolvedEjId = s.exerciseId.length === 36 ? s.exerciseId : "55ddab2b-3449-41af-a04d-1f5ce33ad7d6";
               const clave = `${session.id}:${resolvedEjId}:${s.numero_serie}`;
-              seriesPorClave.set(clave, {
-                sesion_id: session.id,
-                ejercicio_id: resolvedEjId,
-                numero_serie: s.numero_serie,
-                peso_kg: s.peso_kg,
-                reps_hechas: s.reps_hechas,
-                rpe_real: normalizarRpeReal(s.rpe_real),
-                completada: true,
-                set_type: mappedType,
-                pain_reported: s.pain_reported || false,
-                pain_notes: s.pain_notes || null,
-                video_url: s.video_url || null,
-              });
+              seriesPorClave.set(
+                clave,
+                toRegistroSerieRow({
+                  sesionId: session.id,
+                  ejercicioId: resolvedEjId,
+                  numeroSerie: s.numero_serie,
+                  pesoKg: s.peso_kg,
+                  reps: s.reps_hechas,
+                  rpe: s.rpe_real,
+                  setType: s.set_type,
+                  painReported: s.pain_reported,
+                  painNotes: s.pain_notes,
+                  videoUrl: s.video_url,
+                }),
+              );
             }
 
             const seriesRows = Array.from(seriesPorClave.values());
@@ -2735,6 +2804,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
           } finally {
             clearTimeout(timer);
             activeSyncSessionPromise = null;
+            set({ syncingSessionId: null });
           }
         })();
 
@@ -2969,108 +3039,125 @@ export const useAthleteStore = create<AthleteStoreState>()(
         }
       },
 
-      cargarPlanAlumno: async () => {
-        set({ cargandoPlan: true, errorPlan: false });
-        try {
-          const plan = await fetchPlanAlumno();
-          if (!plan) {
+      cargarPlanAlumno: (opts) => {
+        const cooldownMs = opts?.cooldownMs ?? 0;
+        if (
+          cooldownMs > 0 &&
+          get().planAlumno &&
+          lastPlanLoaded &&
+          lastPlanLoaded.user === getStorageUser() &&
+          Date.now() - lastPlanLoaded.at < cooldownMs
+        ) {
+          return Promise.resolve();
+        }
+        if (activeLoadPlanPromise) return activeLoadPlanPromise;
+        activeLoadPlanPromise = (async () => {
+          set({ cargandoPlan: true, errorPlan: false });
+          try {
+            const plan = await fetchPlanAlumno();
+            if (!plan) {
+              if (!get().planAlumno) {
+                set({ errorPlan: true });
+              }
+              return;
+            }
+            const pendiente = get().nombrePreferidoPendiente;
+            const onboardingPendiente = get().onboardingCompletadoPendiente;
+            const perfilAlumno = plan.alumnos[0] as PerfilConNombrePreferido | undefined;
+            const planNormalizado = actualizarPrimerAlumnoEnPlan(plan, {
+              ...(pendiente !== undefined ? { nombre_preferido: pendiente } : {}),
+              ...(onboardingPendiente ? { onboarding_completado: true } : {}),
+            });
+
+            lastPlanLoaded = { at: Date.now(), user: getStorageUser() };
+            const onboardingServidor = perfilAlumno?.onboarding_completado;
+            set({
+              planAlumno: planNormalizado,
+              ...(pendiente === undefined
+                ? { nombrePreferido: perfilAlumno?.nombre_preferido ?? null }
+                : {}),
+              ...(onboardingPendiente
+                ? { onboardingCompletado: true }
+                : typeof onboardingServidor === "boolean"
+                  ? { onboardingCompletado: onboardingServidor }
+                  : {}),
+            });
+
+            const prev = get().currentSession;
+            const studentId = plan.alumnos[0]?.id;
+            const diaEnCurso =
+              studentId &&
+              prev.studentId === studentId &&
+              esUuid(prev.id) &&
+              !get().sesionesCompletadas.some((s) => s.id === prev.id) &&
+              plan.dias.some((d) => d.id === prev.dia_id)
+                ? prev.dia_id
+                : undefined;
+            const cargaOk = get().loadStudentSession(studentId, diaEnCurso);
+            if (!cargaOk && plan.alumnos[0]) {
+              const alumnoReal = plan.alumnos[0];
+              const coachRecomendada =
+                (alumnoReal.nivel_vista_alumno as NivelVistaAlumno) || "SIMPLE";
+              const eleccionAlumno = get().vistaElegidaPorAlumno;
+              set((state) => ({
+                vistaRecomendadaCoach: coachRecomendada,
+                nivelVistaAlumno: eleccionAlumno ?? coachRecomendada,
+                ...(state.currentSession.studentId !== alumnoReal.id ||
+                state.currentSession.id === defaultSession.id
+                  ? {
+                      currentSession: {
+                        id: nuevoUuid(),
+                        nombre_rutina: "",
+                        fecha: new Date().toISOString().split("T")[0] || "2026-10-16",
+                        ejercicios: [],
+                        studentName: alumnoReal.nombre_completo || "",
+                        studentId: alumnoReal.id,
+                        dia_id: "",
+                        molestias: [],
+                      },
+                      diaActivoId: null,
+                    }
+                  : {}),
+              }));
+            }
+            void get().cargarMolestiasDeSesion(get().currentSession.id);
+            if (pendiente !== undefined) {
+              void get().sincronizarNombrePreferidoPendiente();
+            }
+            if (onboardingPendiente) {
+              void get().sincronizarOnboardingPendiente();
+            }
+            if (
+              studentId &&
+              useOfflineQueueStore.getState().isOnline &&
+              typeof fetchSesionesRecientesAlumno === "function"
+            ) {
+              const sesionesRemotas = await fetchSesionesRecientesAlumno(studentId);
+              if (sesionesRemotas !== null) {
+                set((state) => ({
+                  fechasSesionesServidor: sesionesRemotas.map((s) => s.fecha),
+                  sesionesCompletadas: fusionarSesionesSemanaDesdeServidor(
+                    state.sesionesCompletadas,
+                    sesionesRemotas,
+                  ),
+                }));
+              }
+            }
+            if (studentId && useOfflineQueueStore.getState().isOnline) {
+              void get().cargarLogrosRacha(studentId);
+            }
+          } catch (err) {
+            console.warn("No se pudo cargar el plan del alumno (se conserva el cacheado):", err);
             if (!get().planAlumno) {
               set({ errorPlan: true });
             }
-            return;
+          } finally {
+            set({ cargandoPlan: false });
           }
-          const pendiente = get().nombrePreferidoPendiente;
-          const onboardingPendiente = get().onboardingCompletadoPendiente;
-          const perfilAlumno = plan.alumnos[0] as PerfilConNombrePreferido | undefined;
-          const planNormalizado = actualizarPrimerAlumnoEnPlan(plan, {
-            ...(pendiente !== undefined ? { nombre_preferido: pendiente } : {}),
-            ...(onboardingPendiente ? { onboarding_completado: true } : {}),
-          });
-
-          const onboardingServidor = perfilAlumno?.onboarding_completado;
-          set({
-            planAlumno: planNormalizado,
-            ...(pendiente === undefined
-              ? { nombrePreferido: perfilAlumno?.nombre_preferido ?? null }
-              : {}),
-            ...(onboardingPendiente
-              ? { onboardingCompletado: true }
-              : typeof onboardingServidor === "boolean"
-                ? { onboardingCompletado: onboardingServidor }
-                : {}),
-          });
-
-          const prev = get().currentSession;
-          const studentId = plan.alumnos[0]?.id;
-          const diaEnCurso =
-            studentId &&
-            prev.studentId === studentId &&
-            esUuid(prev.id) &&
-            !get().sesionesCompletadas.some((s) => s.id === prev.id) &&
-            plan.dias.some((d) => d.id === prev.dia_id)
-              ? prev.dia_id
-              : undefined;
-          const cargaOk = get().loadStudentSession(studentId, diaEnCurso);
-          if (!cargaOk && plan.alumnos[0]) {
-            const alumnoReal = plan.alumnos[0];
-            const coachRecomendada =
-              (alumnoReal.nivel_vista_alumno as NivelVistaAlumno) || "SIMPLE";
-            const eleccionAlumno = get().vistaElegidaPorAlumno;
-            set((state) => ({
-              vistaRecomendadaCoach: coachRecomendada,
-              nivelVistaAlumno: eleccionAlumno ?? coachRecomendada,
-              ...(state.currentSession.studentId !== alumnoReal.id ||
-              state.currentSession.id === defaultSession.id
-                ? {
-                    currentSession: {
-                      id: nuevoUuid(),
-                      nombre_rutina: "",
-                      fecha: new Date().toISOString().split("T")[0] || "2026-10-16",
-                      ejercicios: [],
-                      studentName: alumnoReal.nombre_completo || "",
-                      studentId: alumnoReal.id,
-                      dia_id: "",
-                      molestias: [],
-                    },
-                    diaActivoId: null,
-                  }
-                : {}),
-            }));
-          }
-          void get().cargarMolestiasDeSesion(get().currentSession.id);
-          if (pendiente !== undefined) {
-            void get().sincronizarNombrePreferidoPendiente();
-          }
-          if (onboardingPendiente) {
-            void get().sincronizarOnboardingPendiente();
-          }
-          if (
-            studentId &&
-            useOfflineQueueStore.getState().isOnline &&
-            typeof fetchSesionesRecientesAlumno === "function"
-          ) {
-            const sesionesRemotas = await fetchSesionesRecientesAlumno(studentId);
-            if (sesionesRemotas !== null) {
-              set((state) => ({
-                fechasSesionesServidor: sesionesRemotas.map((s) => s.fecha),
-                sesionesCompletadas: fusionarSesionesSemanaDesdeServidor(
-                  state.sesionesCompletadas,
-                  sesionesRemotas,
-                ),
-              }));
-            }
-          }
-          if (studentId && useOfflineQueueStore.getState().isOnline) {
-            void get().cargarLogrosRacha(studentId);
-          }
-        } catch (err) {
-          console.warn("No se pudo cargar el plan del alumno (se conserva el cacheado):", err);
-          if (!get().planAlumno) {
-            set({ errorPlan: true });
-          }
-        } finally {
-          set({ cargandoPlan: false });
-        }
+        })().finally(() => {
+          activeLoadPlanPromise = null;
+        });
+        return activeLoadPlanPromise;
       },
 
       loadStudentSession: (_studentId, diaId, motivo = null, diaSugeridoId = null) => {
@@ -3294,7 +3381,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
         diaElegidoHoyId: state.diaElegidoHoyId,
         diaSugeridoId: state.diaSugeridoId,
         motivoCambioDia: state.motivoCambioDia,
-        historialSesiones: state.historialSesiones,
+        historialSesiones: acotarHistorialPersistido(
+          state.historialSesiones,
+          sesionesProtegidas(state.syncingSessionId),
+        ),
         molestiasPendientesFueraDeSesion: state.molestiasPendientesFueraDeSesion,
         nombrePreferido: state.nombrePreferido,
         nombrePreferidoPendiente: state.nombrePreferidoPendiente,
@@ -3306,6 +3396,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
 /**
  * Repara al iniciar la app los ids de sesión heredados que no son UUID (`session-<alumno>-<día>`):
  * asigna un UUID nuevo por cada id viejo distinto preservando agrupación y orden en `WORKOUT_SET_*`,
+ * `WORKOUT_SESSION_COMPLETED` y `CAMBIO_DIA_REGISTRADO`,
  * corrige `currentSession.id` y `sesionesCompletadas[].id`, y dispara `flushQueue()` si reparó eventos.
  */
 export function repararSesionesNoUuid(): void {
@@ -3321,7 +3412,7 @@ export function repararSesionesNoUuid(): void {
   const queueState = useOfflineQueueStore.getState();
   let repararonEventos = false;
   const eventosActualizados = queueState.pendingEvents.map((ev) => {
-    if (!ev.action.startsWith("WORKOUT_SET_")) return ev;
+    if (!SNAPSHOT_SESION_ACTIONS.includes(ev.action)) return ev;
     const sid = ev.payload?.sessionId;
     if (typeof sid !== "string" || sid.length === 0 || esUuid(sid)) return ev;
     repararonEventos = true;
