@@ -19,6 +19,7 @@ export default function AthleteProgresoPage() {
   const diamantesRacha = useAthleteStore((s) => s.diamantesRacha);
   const cargarLogrosRacha = useAthleteStore((s) => s.cargarLogrosRacha);
   const planAlumno = useAthleteStore((s) => s.planAlumno);
+  const cargarPlanAlumno = useAthleteStore((s) => s.cargarPlanAlumno);
   const fechasSesionesServidor = useAthleteStore((s) => s.fechasSesionesServidor);
   const sesionesCompletadas = useAthleteStore((s) => s.sesionesCompletadas);
   const historialSesiones = useAthleteStore((s) => s.historialSesiones);
@@ -41,8 +42,9 @@ export default function AthleteProgresoPage() {
       void cargarMiProgreso();
       void cargarClasesAlumno();
       void cargarLogrosRacha();
+      if (!planAlumno) void cargarPlanAlumno();
     }
-  }, [isOnline, cargarMiProgreso, cargarClasesAlumno, cargarLogrosRacha]);
+  }, [isOnline, planAlumno, cargarMiProgreso, cargarClasesAlumno, cargarLogrosRacha, cargarPlanAlumno]);
 
   const actividades = React.useMemo(
     () =>
