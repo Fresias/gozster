@@ -467,7 +467,63 @@ export function fetchPrFiles(runGh, prNumber, changedFiles) {
   return files;
 }
 
-const VALUE_FLAGS = new Set(["--pr-json", "--lesson-file", "--base-lesson-file", "--events-file", "--event-action", "--probes-dir", "--probes-file"]);
+const VALUE_FLAGS = new Set(["--pr-json", "--lesson-file", "--base-lesson-file", "--events-file", "--event-action", "--probes-dir", "--probes-file", "--base"]);
+
+function readFlagValue(argv, flag) {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === flag) return argv[i + 1] ?? "";
+    if (argv[i].startsWith(`${flag}=`)) return argv[i].slice(flag.length + 1);
+  }
+  return "";
+}
+
+/** Allowed base refs for `--local` diff evaluation (defense in depth against arbitrary `--base HEAD`). */
+export function allowedLocalBaseRefs(project) {
+  const names = new Set(["main", "develop"]);
+  const cfg = typeof project?.default_base_branch === "string" ? project.default_base_branch.trim() : "";
+  if (/^[A-Za-z0-9._/-]+$/.test(cfg) && !cfg.includes("..") && !cfg.startsWith("/") && !cfg.endsWith("/") && cfg !== "HEAD") {
+    names.add(cfg);
+  }
+  const refs = new Set();
+  for (const name of names) {
+    refs.add(`origin/${name}`);
+    refs.add(name);
+  }
+  return refs;
+}
+
+/** Resolves and validates the base ref for `--local` checks. Fails closed on disallowed or missing explicit `--base`. */
+export function resolveLocalBaseRef(root, project, requestedBase = "", hasExplicitBase = Boolean(requestedBase)) {
+  const allowed = allowedLocalBaseRefs(project);
+  const verifyRef = (ref) => {
+    try {
+      execFileSync("git", ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], { cwd: root, stdio: "ignore" });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  if (hasExplicitBase) {
+    const ref = String(requestedBase || "").trim();
+    if (!ref || !allowed.has(ref)) {
+      return { ok: false, error: `invalid --base ref "${ref}": allowed base refs are ${[...allowed].join(", ")}` };
+    }
+    if (!verifyRef(ref)) {
+      return { ok: false, error: `base ref "${ref}" does not exist in git repository` };
+    }
+    return { ok: true, baseRef: ref };
+  }
+  const defaultBranch = typeof project?.default_base_branch === "string" ? project.default_base_branch.trim() : "";
+  const candidates = [];
+  if (defaultBranch && allowed.has(defaultBranch)) {
+    candidates.push(`origin/${defaultBranch}`, defaultBranch);
+  }
+  candidates.push("origin/main", "main");
+  for (const candidate of new Set(candidates)) {
+    if (verifyRef(candidate)) return { ok: true, baseRef: candidate };
+  }
+  return { ok: true, baseRef: "main" };
+}
 
 function readBaseLessonFromGit(root, baseRef, issue) {
   if (!issue) return null;
@@ -558,12 +614,14 @@ export function main(argv, deps = {}) {
     } catch {}
     const issue = issueFromBranch(branch, project.issue_prefix);
 
-    let baseRef = "origin/main";
-    try {
-      execFileSync("git", ["rev-parse", "--verify", baseRef], { cwd: root, stdio: "ignore" });
-    } catch {
-      baseRef = "main";
+    const hasExplicitBase = argv.some((a) => a === "--base" || a.startsWith("--base="));
+    const requestedBase = readFlagValue(argv, "--base");
+    const resolvedBase = resolveLocalBaseRef(root, project, requestedBase, hasExplicitBase);
+    if (!resolvedBase.ok) {
+      process.stderr.write(`[harness-gate error] ${resolvedBase.error}\n`);
+      process.exit(1);
     }
+    const baseRef = resolvedBase.baseRef;
 
     let diffFiles = [];
     try {
