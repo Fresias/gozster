@@ -311,7 +311,14 @@ export function AthleteClasses() {
       <div className="a-legend a-t-sec">
         <span><i className="a-lg-dot" />hay clases</span>
         <span><Check width={12} height={12} className="a-i" /> reservada</span>
-        <span><i className="a-lg-today" />seleccionado</span>
+        <span><i className="a-lg-today" />hoy</span>
+        <span>
+          <i
+            className="a-lg-today"
+            style={{ background: "transparent", outline: "2px solid var(--a-fg)", outlineOffset: 1 }}
+          />
+          día elegido
+        </span>
       </div>
 
       {(error || aviso) && (

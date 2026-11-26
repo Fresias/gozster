@@ -30,6 +30,14 @@ describe("HistorialSesiones Componente y Flujo de Usuario (GH #181, GOZS-175)", 
 
   const renderComponent = () => renderToStaticMarkup(<HistorialSesiones />);
 
+  // GOZS-848: las sesiones arrancan colapsadas; se despliegan con un toque.
+  const expandirPrimeraSesion = (ui: ReturnType<typeof render>) => {
+    const btn = Array.from(ui.container.querySelectorAll<HTMLElement>("button")).find((b) =>
+      b.getAttribute("data-testid")?.startsWith("btn-expand-sesion-"),
+    )!;
+    fireEvent.click(btn);
+  };
+
   describe("1. Criterio de Aceptación: Visualización de Sesiones Cronológicas", () => {
     it("GIVEN un atleta con entrenamientos completados WHEN ingresa a la sección THEN visualiza el contenedor y el título de Historial", () => {
       const html = renderComponent();
@@ -53,13 +61,21 @@ describe("HistorialSesiones Componente y Flujo de Usuario (GH #181, GOZS-175)", 
       expect(html).not.toContain("Volumen Total");
     });
 
-    it("AND al expandir una sesión se visualiza el detalle con ejercicios y series (kg × reps y tipo)", () => {
+    it("GOZS-848: todas las sesiones arrancan colapsadas (sin detalle ni botones de edición)", () => {
       const html = renderComponent();
-      // La primera sesión viene expandida por defecto
+      expect(html).toContain('aria-expanded="false"');
+      expect(html).not.toContain('aria-expanded="true"');
+      expect(html).not.toContain("detalle-sesion-");
+      expect(html).not.toContain("btn-editar-serie-");
+    });
+
+    it("AND al expandir una sesión (1 toque) se visualiza el detalle con ejercicios y series (kg × reps y tipo)", () => {
+      const ui = render(<HistorialSesiones />);
+      expandirPrimeraSesion(ui);
+      const html = ui.container.innerHTML;
       expect(html).toContain("series");
       expect(html).toContain("kg");
       expect(html).toContain("reps");
-      // Contiene botón de edición por serie
       expect(html).toContain("btn-editar-serie-");
     });
   });
@@ -141,7 +157,9 @@ describe("HistorialSesiones Componente y Flujo de Usuario (GH #181, GOZS-175)", 
     });
 
     it("usa los controles v7 con botón de corrección de 36 px y etiqueta accesible (a-ed)", () => {
-      const html = renderComponent();
+      const ui = render(<HistorialSesiones />);
+      expandirPrimeraSesion(ui);
+      const html = ui.container.innerHTML;
       expect(html).toContain('class="a-ed"');
       expect(html).toMatch(/aria-label="Corregir serie \d+ de /);
     });
@@ -207,6 +225,7 @@ describe("HistorialSesiones Componente y Flujo de Usuario (GH #181, GOZS-175)", 
     it("atrapa Tab y Shift+Tab dentro de .a-sheet y cierra con Escape en window devolviendo el foco", () => {
       const { mockDoc, mockWin } = instalarDomTeclado();
       const ui = render(<HistorialSesiones />);
+      expandirPrimeraSesion(ui);
 
       const disparador =
         Array.from(ui.container.querySelectorAll<HTMLElement>(".a-ed")).find((b) =>
@@ -256,6 +275,7 @@ describe("HistorialSesiones Componente y Flujo de Usuario (GH #181, GOZS-175)", 
     it("no cierra la hoja con Escape en window mientras el diálogo de carga atípica está abierto", () => {
       const { mockWin } = instalarDomTeclado();
       const ui = render(<HistorialSesiones />);
+      expandirPrimeraSesion(ui);
 
       const disparador = Array.from(ui.container.querySelectorAll<HTMLElement>(".a-ed")).find((b) =>
         b.getAttribute("data-testid")?.startsWith("btn-editar-serie-"),
