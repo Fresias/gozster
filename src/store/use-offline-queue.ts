@@ -9,6 +9,7 @@ import {
   type RegistroSeriePartialUpdateRow,
 } from "@/lib/athlete/registro-series-mapper";
 import { crearBackoff } from "@/lib/sync-backoff";
+import type { AlumnoCuestionarioInicial, EstadoConversacion } from "@/types/database.types";
 
 export interface OfflineSyncEvent {
   id: string;
@@ -423,7 +424,7 @@ const esUuidTxt = (v: unknown): v is string => typeof v === "string" && UUID_REG
 
 async function sendCuestionarioInicialEvent(ev: OfflineSyncEvent): Promise<SendResult> {
   if (!supabase) return "retry";
-  const p = ev.payload as Record<string, unknown>;
+  const p = ev.payload as Partial<AlumnoCuestionarioInicial>;
   if (!esUuidTxt(p.alumno_id)) return "rejected";
   const res = await supabase.from("alumno_cuestionario_inicial").upsert(
     {
@@ -434,9 +435,9 @@ async function sendCuestionarioInicialEvent(ev: OfflineSyncEvent): Promise<SendR
       molestias_o_lesiones_previas: p.molestias_o_lesiones_previas ?? null,
       equipamiento_disponible: p.equipamiento_disponible ?? null,
       respuestas_extra: p.respuestas_extra ?? {},
-      completado_at: p.completado_at ?? null,
+      completado_at: p.completado_at ?? undefined,
       updated_at: p.updated_at ?? new Date().toISOString(),
-    } as never,
+    },
     { onConflict: "alumno_id" },
   );
   return toResult(res.error);
@@ -450,17 +451,17 @@ async function sendTransferirConversacionEvent(ev: OfflineSyncEvent): Promise<Se
     p_conversacion_id: p.conversacion_id,
     p_nuevo_responsable_id: p.nuevo_responsable_id,
     p_motivo: typeof p.motivo === "string" && p.motivo ? p.motivo : null,
-  } as never);
+  });
   return toResult(res.error);
 }
 
 async function sendCambiarEstadoConversacionEvent(ev: OfflineSyncEvent): Promise<SendResult> {
   if (!supabase) return "retry";
-  const p = ev.payload as { conversacion_id?: unknown; estado?: unknown };
+  const p = ev.payload as { conversacion_id?: unknown; estado?: EstadoConversacion };
   if (!esUuidTxt(p.conversacion_id) || typeof p.estado !== "string" || !p.estado) return "rejected";
   const res = await supabase
     .from("conversaciones")
-    .update({ estado: p.estado, updated_at: new Date().toISOString() } as never)
+    .update({ estado: p.estado, updated_at: new Date().toISOString() })
     .eq("id", p.conversacion_id);
   return toResult(res.error);
 }
@@ -471,7 +472,7 @@ async function sendUpdateNivelVistaEvent(ev: OfflineSyncEvent): Promise<SendResu
   if (!esUuidTxt(p.alumnoId) || (p.nivel !== "SIMPLE" && p.nivel !== "TECNICA")) return "rejected";
   const res = await supabase
     .from("perfiles")
-    .update({ nivel_vista_alumno: p.nivel } as never)
+    .update({ nivel_vista_alumno: p.nivel })
     .eq("id", p.alumnoId);
   return toResult(res.error);
 }

@@ -6,6 +6,7 @@ import { esUuid } from "@/lib/athlete/uuid";
 import { prsDeClasesDesdeVista } from "@/lib/ranking-prs";
 import type { RankingFuncionalFila } from "@/lib/mi-progreso";
 import type { Perfil, PrView, RankingPR, Reserva } from "@/types/database.types";
+import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
 export interface RankingCalculadoItem {
   alumno_id: string;
@@ -61,6 +62,32 @@ async function enviarMarca(m: MarcaPendiente): Promise<{ ok: boolean; error?: st
   }
 }
 
+export type EstadoSincronizacionRanking =
+  | { tipo: "sin-conexion"; ultimaSincronizacionAt: string | null }
+  | { tipo: "sincronizando" }
+  | { tipo: "error"; mensaje: string }
+  | { tipo: "al-dia"; ultimaSincronizacionAt: string | null };
+
+export const RANKING_SYNC_ERROR_MSG = "No se pudo actualizar el ranking";
+
+/**
+ * Señal de frescura del ranking (GOZS-885). Pura: la reutilizan Coach Studio y
+ * la vista de ranking del alumno. Prioridad: sin señal > error > sincronizando.
+ */
+export function resolverEstadoSincronizacionRanking(p: {
+  isOnline: boolean;
+  isFlushing: boolean;
+  hasPendingSeries: boolean;
+  syncingSessionId: string | null;
+  syncError: string | null;
+  ultimaSincronizacionAt: string | null;
+}): EstadoSincronizacionRanking {
+  if (!p.isOnline) return { tipo: "sin-conexion", ultimaSincronizacionAt: p.ultimaSincronizacionAt };
+  if (p.syncError) return { tipo: "error", mensaje: p.syncError };
+  if (p.isFlushing || p.hasPendingSeries || p.syncingSessionId) return { tipo: "sincronizando" };
+  return { tipo: "al-dia", ultimaSincronizacionAt: p.ultimaSincronizacionAt };
+}
+
 export interface RankingState {
   claseIdSeleccionada: string | null;
   ejercicioIdSeleccionado: string | null;
@@ -74,6 +101,10 @@ export interface RankingState {
   guardandoPrId: string | null;
   error: string | null;
   aviso: string | null;
+  /** Última carga online exitosa de `cargarPrsClase` (persistido). */
+  ultimaSincronizacionAt: string | null;
+  /** Efímero: la última carga online falló. */
+  syncError: string | null;
 
   setClaseId: (id: string | null) => void;
   setEjercicioId: (id: string | null) => void;
@@ -296,6 +327,8 @@ export const useRankingStore = create<RankingState>()(
       guardandoPrId: null,
       error: null,
       aviso: null,
+      ultimaSincronizacionAt: null,
+      syncError: null,
 
       setClaseId: (id) => set({ claseIdSeleccionada: id }),
       setEjercicioId: (id) => set({ ejercicioIdSeleccionado: id }),
@@ -318,6 +351,8 @@ export const useRankingStore = create<RankingState>()(
         if (!claseId || !esUuid(claseId) || typeof supabase?.from !== "function") {
           return;
         }
+        // Sin señal se conservan los datos previos y no se gasta red.
+        if (!useOfflineQueueStore.getState().isOnline) return;
         try {
           const authRes = await supabase.auth.getUser();
           if (!authRes.data?.user) return;
@@ -344,12 +379,17 @@ export const useRankingStore = create<RankingState>()(
                 ...reales,
               ],
               cargando: false,
+              ultimaSincronizacionAt: new Date().toISOString(),
+              syncError: null,
             }));
           } else {
-            set({ cargando: false });
+            set({ cargando: false, syncError: `${RANKING_SYNC_ERROR_MSG}: ${error?.message ?? "respuesta inválida del servidor"}.` });
           }
-        } catch {
-          set({ cargando: false });
+        } catch (e) {
+          set({
+            cargando: false,
+            syncError: `${RANKING_SYNC_ERROR_MSG}: ${e instanceof Error ? e.message : "error de red"}.`,
+          });
         }
       },
 
@@ -643,6 +683,7 @@ export const useRankingStore = create<RankingState>()(
         pendientesMarcas: state.pendientesMarcas,
         rankingAlumno: state.rankingAlumno,
         rankingAlumnoFecha: state.rankingAlumnoFecha,
+        ultimaSincronizacionAt: state.ultimaSincronizacionAt,
       }),
     },
   ),

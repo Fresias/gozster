@@ -9,9 +9,11 @@ import { cn } from "@/lib/utils";
 import { useClasesStore } from "@/store/use-clases-store";
 import {
   ResultadoRanking,
+  resolverEstadoSincronizacionRanking,
   useRankingStore,
 } from "@/store/use-ranking-store";
-import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { SESSION_ACTIONS, useOfflineQueueStore } from "@/store/use-offline-queue";
+import { useAthleteStore } from "@/store/use-athlete-store";
 import type { Clase, Ejercicio, Perfil, RankingPR } from "@/types/database.types";
 import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES, generarDemoReservasIniciales } from "@/services/coach-demo-dataset";
 import type { ReservaAgenda } from "@/store/use-clases-store";
@@ -104,7 +106,8 @@ export function RankingFuncional({
   prsIniciales,
   isLiveMode = false,
 }: RankingFuncionalProps) {
-  const { isOnline } = useOfflineQueueStore();
+  const { isOnline, isFlushing, pendingEvents } = useOfflineQueueStore();
+  const syncingSessionId = useAthleteStore((s) => s.syncingSessionId);
 
   const {
     clases,
@@ -128,7 +131,18 @@ export function RankingFuncional({
     actualizarPerfilAlumno,
     calcularRanking,
     limpiarAviso,
+    syncError,
+    ultimaSincronizacionAt,
   } = useRankingStore();
+
+  const estadoSync = resolverEstadoSincronizacionRanking({
+    isOnline,
+    isFlushing,
+    hasPendingSeries: pendingEvents.some((e) => SESSION_ACTIONS.includes(e.action)),
+    syncingSessionId,
+    syncError,
+    ultimaSincronizacionAt,
+  });
 
   // Alumnos y ejercicios combinados (props o fallback demo/real)
   const todosAlumnos: Perfil[] = React.useMemo(() => {
@@ -491,11 +505,44 @@ export function RankingFuncional({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {!isOnline && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="ranking-sync-estado"
+          data-estado={estadoSync.tipo}
+          className="flex flex-wrap items-center gap-2"
+        >
+          {estadoSync.tipo === "sin-conexion" && (
             <Badge variant="warning">
-              Sin conexión
+              Sin conexión · Ranking puede estar desactualizado
+              {estadoSync.ultimaSincronizacionAt
+                ? ` (actualizado ${horaLocal(estadoSync.ultimaSincronizacionAt)})`
+                : ""}
             </Badge>
+          )}
+          {estadoSync.tipo === "sincronizando" && (
+            <Badge variant="neutral">
+              Sincronizando… · El ranking aún no refleja los últimos registros
+            </Badge>
+          )}
+          {estadoSync.tipo === "error" && (
+            <>
+              <Badge variant="danger" title={estadoSync.mensaje}>
+                No se pudo actualizar el ranking
+              </Badge>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="min-h-11"
+                data-testid="ranking-sync-reintentar"
+                onClick={() => {
+                  if (activeClaseId) void cargarPrsClase(activeClaseId, activeEjercicioId ?? undefined);
+                }}
+              >
+                Reintentar
+              </Button>
+            </>
           )}
         </div>
       </div>
