@@ -989,6 +989,7 @@ export function RutinasLibrary({
         <TabsContent value="ejercicios" className="space-y-4 pt-3">
           <EjerciciosLibraryTab
             ejercicios={dataset.ejercicios}
+            ejerciciosError={dataset.ejerciciosError}
             ejerciciosEnRutina={dataset.ejerciciosEnRutina}
             isNuevoOpen={isNuevoEjercicioOpen}
             onOpenNuevoChange={setIsNuevoEjercicioOpen}

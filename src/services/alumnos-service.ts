@@ -36,6 +36,8 @@ export interface LiveSupabaseDataset {
   planesCompartidos?: PlanCompartido[];
   /** Listado mínimo de staff (id, nombre_completo) desde RPC listar_entrenadores_staff. */
   entrenadoresStaff?: EntrenadorStaff[];
+  /** Error al leer el catálogo public.ejercicios (null si cargó bien); distingue fallo de catálogo vacío. */
+  ejerciciosError?: string | null;
 }
 
 export type EstadoAlumno = Database["public"]["Views"]["v_estado_alumno"]["Row"];
@@ -239,6 +241,11 @@ export async function fetchLiveDatasetFromSupabase(
       .map((p) => p.id)
       .filter((id): id is string => typeof id === "string" && id.length > 0);
 
+    const ejerciciosFallo = ejerciciosRes?.error as { code?: string; message?: string } | null | undefined;
+    if (ejerciciosFallo) {
+      console.warn("Aviso cargando catálogo de ejercicios de Supabase:", ejerciciosFallo.code ?? "", ejerciciosFallo.message ?? "");
+    }
+
     let diasRes: { data: unknown; error: unknown };
     if (planIds.length === 0 && currentUserId) {
       diasRes = { data: [], error: null };
@@ -273,7 +280,8 @@ export async function fetchLiveDatasetFromSupabase(
       planes,
       dias,
       ejerciciosEnRutina: (ejRutinaRes.data as EjercicioEnRutina[]) || [],
-      ejercicios: (ejerciciosRes.data as Ejercicio[]) || [],
+      ejercicios: ejerciciosFallo ? [] : (ejerciciosRes.data as Ejercicio[]) || [],
+      ejerciciosError: ejerciciosFallo ? "No se pudo cargar la biblioteca de ejercicios." : null,
       alumnoActividades: !alumnoActividadesRes?.error
         ? ((alumnoActividadesRes?.data as AlumnoActividad[]) || [])
         : [],
@@ -301,7 +309,10 @@ export async function fetchLiveDatasetFromSupabase(
     };
   } catch (err: any) {
     console.warn("Excepción al conectar con Supabase (sin datos de respaldo):", err?.message || err);
-    return emptyDataset();
+    return {
+      ...emptyDataset(),
+      ejerciciosError: "No se pudo cargar la biblioteca de ejercicios: error de conexión.",
+    };
   }
 }
 
