@@ -1,0 +1,20 @@
+{
+  "candidate_id": "baseline",
+  "probe_branch": "probe/baseline-mwxfjr4r",
+  "probe_cmd": "node scripts/qa-harness-audit.mjs --debt-mode error",
+  "passed": false,
+  "exit_code": 1,
+  "duration_ms": 1093,
+  "tests": {},
+  "target_components": [],
+  "timestamp": "2026-11-26T10:49:07.111Z",
+  "stdout_preview": "=== [QA HARNESS AUDIT] Iniciando auditoría integral de Harness² ===\n1. Verificando los 8 componentes de Harness²...\n2. Auditando integridad de experience_library.jsonl...\n   -> OK: 320 lecciones registradas y verificadas.\n3. Auditando presupuesto duro de AGENTS.md...\n   -> OK: 86 líneas (<150), 5132 caracteres (<=8000).\n4. Verificando drift con harness-render.mjs --check...\n   -> OK: No drift detectado en runtime targets.\n5. Auditando deuda de lecciones del arnés...\n",
+  "stderr_preview": "\n❌ [QA HARNESS AUDIT FALLIDO] Se detectaron los siguientes errores:\n  - Deuda de lecciones de arnés excedida (>=15 sin procesar por harness-propose).\n",
+  "files_touched": [],
+  "in_scope_files": [],
+  "out_of_scope_files": [],
+  "strict_scope": false,
+  "strict_scope_violation": false,
+  "telemetry": null,
+  "branch_kept": false
+}
