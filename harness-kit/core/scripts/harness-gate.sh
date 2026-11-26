@@ -198,7 +198,11 @@ fi
 
 # 2c. Harness PPC verification: if branch touches harness, verify probe reports and PPC record
 if [ -f "$SCRIPT_DIR/harness-merge-check.mjs" ]; then
-  if ! node "$SCRIPT_DIR/harness-merge-check.mjs" --local; then
+  MERGE_CHECK_ARGS=(--local)
+  if [ -n "$RESOLVED_BASE" ] && { [ "$RESOLVED_BASE" != "HEAD~1" ] || [ "$BASE_REF" = "HEAD~1" ]; }; then
+    MERGE_CHECK_ARGS+=(--base "$RESOLVED_BASE")
+  fi
+  if ! node "$SCRIPT_DIR/harness-merge-check.mjs" "${MERGE_CHECK_ARGS[@]}"; then
     echo "ERROR: Harness PPC check failed before sealing." >&2
     exit 1
   fi

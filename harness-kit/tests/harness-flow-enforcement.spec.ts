@@ -9,7 +9,7 @@ import { evaluateRules } from "../core/guard/guard-core.mjs";
 // @ts-expect-error - mjs module
 import { normalize } from "../core/guard/normalize.mjs";
 // @ts-expect-error - mjs module
-import { evaluateAuthorization, evaluateMerge, fetchPrFiles, isHarnessPath, issueFromBranch, parseSealBlock } from "../core/scripts/harness-merge-check.mjs";
+import { allowedLocalBaseRefs, evaluateAuthorization, evaluateMerge, fetchPrFiles, isHarnessPath, issueFromBranch, parseSealBlock, resolveLocalBaseRef } from "../core/scripts/harness-merge-check.mjs";
 // @ts-expect-error - mjs module
 import { evaluateCandidates, hashReport, CONTRAST_VERSION } from "../core/scripts/harness-contrast.mjs";
 // @ts-expect-error - mjs module
@@ -2036,6 +2036,125 @@ process.stdout.write("");
     expect(isHarnessPath("src/harness/x.ts")).toBe(false);
     expect(issueFromBranch("fix/412-cta", "GOZS")).toBe("GOZS-412");
     expect(issueFromBranch("main", "GOZS")).toBe("");
+  });
+
+  describe("GOZS-875: --local respeta y valida --base contra lista blanca (develop adelantado a main)", () => {
+    const mergeCheckScript = path.join(scripts, "harness-merge-check.mjs");
+
+    function setupDevelopAheadRepo(prefix: string) {
+      const ws = temp(prefix);
+      execFileSync("git", ["init", "-b", "main", ws], { stdio: "ignore" });
+      execFileSync("git", ["config", "user.name", "Test"], { cwd: ws });
+      execFileSync("git", ["config", "user.email", "test@test.com"], { cwd: ws });
+
+      mkdirSync(path.join(ws, "harness", "experience"), { recursive: true });
+      writeFileSync(
+        path.join(ws, "harness", "project.json"),
+        JSON.stringify({ issue_prefix: "PROJ", default_base_branch: "develop", gate: "node -e \"process.exit(0)\"" })
+      );
+      writeFileSync(path.join(ws, "harness", "experience_library.jsonl"), "{\"id\":\"exp-0\"}\n");
+      writeFileSync(path.join(ws, "app.txt"), "v1\n");
+      execFileSync("git", ["add", "."], { cwd: ws });
+      execFileSync("git", ["commit", "-m", "init main"], { cwd: ws });
+      execFileSync("git", ["update-ref", "refs/remotes/origin/main", "HEAD"], { cwd: ws });
+
+      // develop incluye un cambio de harness protegido aún no promocionado a main
+      execFileSync("git", ["checkout", "-b", "develop"], { cwd: ws });
+      writeFileSync(path.join(ws, "harness", "experience_library.jsonl"), "{\"id\":\"exp-0\"}\n{\"id\":\"exp-1\"}\n");
+      execFileSync("git", ["add", "."], { cwd: ws });
+      execFileSync("git", ["commit", "-m", "chore(harness): consolidate on develop"], { cwd: ws });
+      execFileSync("git", ["update-ref", "refs/remotes/origin/develop", "HEAD"], { cwd: ws });
+
+      return ws;
+    }
+
+    it("GIVEN develop adelantado a main con archivo protegido WHEN rama feat/* sin cambios de harness corre harness-gate.sh --base origin/develop THEN pasa y sella", () => {
+      const ws = setupDevelopAheadRepo("gate-develop-base-ok");
+      execFileSync("git", ["checkout", "-b", "feat/872-app-change", "origin/develop"], { cwd: ws });
+      writeFileSync(path.join(ws, "app.txt"), "v2\n");
+      writeFileSync(
+        path.join(ws, "harness", "experience", "PROJ-872.jsonl"),
+        JSON.stringify({ task: "PROJ-872", lesson: "ok" }) + "\n"
+      );
+      execFileSync("git", ["add", "."], { cwd: ws });
+      execFileSync("git", ["commit", "-m", "feat: app change"], { cwd: ws });
+
+      const out = execFileSync(bashBin, [gateScript, "--base", "origin/develop"], {
+        cwd: ws,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      expect(out).toBeDefined();
+      expect(existsSync(path.join(ws, ".harness", "complete.json"))).toBe(true);
+    });
+
+    it("GIVEN develop adelantado a main WHEN rama feat/* sí modifica un archivo protegido del harness THEN harness-gate.sh --base origin/develop bloquea y no sella", () => {
+      const ws = setupDevelopAheadRepo("gate-develop-base-blocks-harness");
+      execFileSync("git", ["checkout", "-b", "feat/872-sneaky-harness", "origin/develop"], { cwd: ws });
+      writeFileSync(path.join(ws, "harness", "guardrails.md"), "# sneaky edit\n");
+      writeFileSync(
+        path.join(ws, "harness", "experience", "PROJ-872.jsonl"),
+        JSON.stringify({ task: "PROJ-872", lesson: "sneaky" }) + "\n"
+      );
+      execFileSync("git", ["add", "."], { cwd: ws });
+      execFileSync("git", ["commit", "-m", "feat: sneaky"], { cwd: ws });
+
+      let failed = false;
+      let output = "";
+      try {
+        execFileSync(bashBin, [gateScript, "--base", "origin/develop"], {
+          cwd: ws,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+      } catch (err: any) {
+        failed = true;
+        output = (err.stdout || "") + (err.stderr || "");
+      }
+      expect(failed).toBe(true);
+      expect(output).toContain("protected harness file(s) changed on a non-harness branch");
+      expect(existsSync(path.join(ws, ".harness", "complete.json"))).toBe(false);
+    });
+
+    it("GIVEN intento de bypass con --base HEAD, HEAD~1 o rama arbitraria WHEN corre --local THEN falla cerrado", () => {
+      const ws = setupDevelopAheadRepo("gate-base-bypass-blocked");
+      execFileSync("git", ["checkout", "-b", "feat/872-bypass", "origin/develop"], { cwd: ws });
+      writeFileSync(path.join(ws, "harness", "guardrails.md"), "# sneaky\n");
+      execFileSync("git", ["add", "."], { cwd: ws });
+      execFileSync("git", ["commit", "-m", "feat: sneaky"], { cwd: ws });
+
+      for (const badBase of ["HEAD", "HEAD~1", "feat/872-bypass", ""]) {
+        let status = 0;
+        let stderr = "";
+        try {
+          execFileSync(process.execPath, [mergeCheckScript, "--local", "--base", badBase], {
+            cwd: ws,
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "pipe"],
+          });
+        } catch (err: any) {
+          status = err.status ?? 1;
+          stderr = err.stderr || "";
+        }
+        expect(status).toBe(1);
+        expect(stderr).toContain("invalid --base ref");
+      }
+    });
+
+    it("GIVEN --base origin/release permitido por project.json pero inexistente en git WHEN resolveLocalBaseRef THEN falla cerrado", () => {
+      const ws = setupDevelopAheadRepo("gate-base-missing-ref");
+      const allowed = allowedLocalBaseRefs({ default_base_branch: "release" });
+      expect(allowed.has("origin/release")).toBe(true);
+      expect(allowed.has("release")).toBe(true);
+      expect(allowed.has("HEAD")).toBe(false);
+
+      const missing = resolveLocalBaseRef(ws, { default_base_branch: "release" }, "origin/release", true);
+      expect(missing.ok).toBe(false);
+      expect(missing.error).toContain("does not exist");
+
+      const okDefault = resolveLocalBaseRef(ws, { default_base_branch: "develop" }, "", false);
+      expect(okDefault).toEqual({ ok: true, baseRef: "origin/develop" });
+    });
   });
 });
 
