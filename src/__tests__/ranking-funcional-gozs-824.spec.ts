@@ -108,3 +108,33 @@ describe("obtener_ranking_funcional_alumno", () => {
     ).rejects.toThrow(/permission denied/);
   });
 });
+
+describe("GOZS-851: ranking sin peso de terceros", () => {
+  it("filas ajenas traen peso_kg y reps NULL; la propia los conserva; posición y ratio intactos", async () => {
+    const filas = await como<Record<string, unknown>>(
+      ANA,
+      `SELECT * FROM public.obtener_ranking_funcional_alumno('${EJ}')`,
+    );
+    const ajenas = filas.filter((f) => !f.es_usuario_actual);
+    const propia = filas.find((f) => f.es_usuario_actual)!;
+    expect(ajenas.length).toBeGreaterThan(0);
+    for (const f of ajenas) {
+      expect(f.peso_kg).toBeNull();
+      expect(f.reps).toBeNull();
+    }
+    expect(Number(propia.peso_kg)).toBe(60);
+    expect(propia.reps).toBe(5);
+    expect(ajenas.find((f) => f.nombre_corto === "Lucas G.")).toMatchObject({ ratio: "1.25", posicion: 1 });
+  });
+
+  it("ningún campo ajeno devuelto permite despejar el peso corporal (peso_kg = NULL)", async () => {
+    const filas = await como<Record<string, unknown>>(
+      ANA,
+      `SELECT * FROM public.obtener_ranking_funcional_alumno('${EJ}')`,
+    );
+    for (const f of filas.filter((x) => !x.es_usuario_actual)) {
+      const conocidos = Object.entries(f).filter(([k, v]) => v !== null && ["peso_kg", "reps"].includes(k));
+      expect(conocidos).toEqual([]);
+    }
+  });
+});

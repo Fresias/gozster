@@ -1,0 +1,1 @@
+{"id":"exp-gozs-851-1","timestamp":"2026-11-26T00:47:16.250Z","task":"GOZS-851","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"Un ranking con ratio=peso/peso_corporal no debe exponer peso_kg de terceros: despeja el peso corporal.","verified":true,"tags":["db","athlete","qa","harness"]}
