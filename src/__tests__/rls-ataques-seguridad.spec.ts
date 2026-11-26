@@ -1576,4 +1576,523 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
       }
     });
   });
+
+  describe("8. Ola C (20261126180000): reclamar_push_pendientes, push_cola, v_prs y registro_sesiones.estado (G1/G2)", () => {
+    const EJ_OLA_C_ID = "11111111-1111-4111-8111-000000088901";
+    const EJ_OLA_C_MARCA_ID = "11111111-1111-4111-8111-000000088902";
+    const SES_A1_COMP_ID = "66666666-6666-4666-8666-000000088901";
+    const SES_A1_CURSO_ID = "66666666-6666-4666-8666-000000088902";
+    const SES_A2_COMP_ID = "66666666-6666-4666-8666-000000088903";
+    const SES_A2_CURSO_ID = "66666666-6666-4666-8666-000000088904";
+    const SES_A1_CLASE_ID = "66666666-6666-4666-8666-000000088905";
+    const SES_ADMIN_A1_ID = "66666666-6666-4666-8666-000000088906";
+    const SES_A1_FLOW_ID = "66666666-6666-4666-8666-000000088907";
+    const SES_A1_CLAIM_1_ID = "66666666-6666-4666-8666-000000088908";
+    const SES_A1_CLAIM_2_ID = "66666666-6666-4666-8666-000000088909";
+
+    const TRIGGER_FNS_OLA_C = [
+      "calcular_volumen_sesion",
+      "recalcular_volumen_sesion_stmt_ins",
+      "recalcular_volumen_sesion_stmt_upd",
+      "recalcular_volumen_sesion_stmt_del",
+      "fn_actualizar_ultimo_entreno",
+      "fn_notificar_sesion_completada",
+    ] as const;
+
+    beforeAll(async () => {
+      await db.exec(`
+        INSERT INTO auth.users (id, email, raw_app_meta_data) VALUES
+          ('${C2_APOYO}', 'apoyo@test.local', '{"rol":"ENTRENADOR"}')
+        ON CONFLICT (id) DO NOTHING;
+
+        INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia) VALUES
+          ('${C2_APOYO}', 'apoyo@test.local', 'Coach Apoyo', 'ENTRENADOR', 'ACTIVA')
+        ON CONFLICT (id) DO UPDATE SET rol = EXCLUDED.rol;
+
+        UPDATE public.perfiles
+        SET profesor_asignado_id = '${C1}',
+            profesor_apoyo_id = '${C2_APOYO}',
+            apoyo_acceso_financiero = false
+        WHERE id = '${A1}';
+
+        UPDATE public.perfiles
+        SET profesor_asignado_id = NULL,
+            profesor_apoyo_id = NULL
+        WHERE id = '${A2}';
+
+        INSERT INTO public.ejercicios (id, nombre, musculos_principales) VALUES
+          ('${EJ_OLA_C_ID}', 'Peso Muerto Ola C 889', ARRAY['Espalda']),
+          ('${EJ_OLA_C_MARCA_ID}', 'Clean Ola C 889', ARRAY['Piernas'])
+        ON CONFLICT (id) DO NOTHING;
+
+        INSERT INTO public.registro_sesiones (id, alumno_id, estado, finalizada_at, duracion_minutos) VALUES
+          ('${SES_A1_COMP_ID}', '${A1}', 'COMPLETADA', now(), 45),
+          ('${SES_A1_CURSO_ID}', '${A1}', 'EN_CURSO', NULL, 20),
+          ('${SES_A2_COMP_ID}', '${A2}', 'COMPLETADA', now(), 50),
+          ('${SES_A2_CURSO_ID}', '${A2}', 'EN_CURSO', NULL, 15)
+        ON CONFLICT (id) DO NOTHING;
+
+        INSERT INTO public.registro_series (sesion_id, ejercicio_id, numero_serie, peso_kg, reps_hechas, completada, set_type) VALUES
+          ('${SES_A1_COMP_ID}', '${EJ_OLA_C_ID}', 1, 100, 5, true, 'NORMAL'),
+          ('${SES_A1_CURSO_ID}', '${EJ_OLA_C_ID}', 1, 180, 5, true, 'NORMAL'),
+          ('${SES_A2_COMP_ID}', '${EJ_OLA_C_ID}', 1, 140, 5, true, 'NORMAL'),
+          ('${SES_A2_CURSO_ID}', '${EJ_OLA_C_ID}', 1, 200, 5, true, 'NORMAL')
+        ON CONFLICT (sesion_id, ejercicio_id, numero_serie) DO NOTHING;
+      `);
+    });
+
+    it("public.reclamar_push_pendientes(INT) rechaza con 42501 a anon, A1, C1, C2_APOYO y ADMIN, y solo service_role puede reclamar respetando FOR UPDATE SKIP LOCKED", async () => {
+      const meta = await db.query<{
+        proconfig: string[] | null;
+        def: string;
+        pub_exec: boolean;
+        anon_exec: boolean;
+        auth_exec: boolean;
+        srv_exec: boolean;
+      }>(`
+        SELECT p.proconfig,
+               pg_get_functiondef(p.oid) AS def,
+               has_function_privilege('public', p.oid, 'EXECUTE') AS pub_exec,
+               has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_exec,
+               has_function_privilege('authenticated', p.oid, 'EXECUTE') AS auth_exec,
+               has_function_privilege('service_role', p.oid, 'EXECUTE') AS srv_exec
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.proname = 'reclamar_push_pendientes'
+      `);
+      expect(meta.rows).toHaveLength(1);
+      expect(meta.rows[0]!.proconfig).toContain("search_path=public, pg_temp");
+      expect(meta.rows[0]!.def).toMatch(/FOR UPDATE SKIP LOCKED/i);
+      expect(meta.rows[0]!.pub_exec).toBe(false);
+      expect(meta.rows[0]!.anon_exec).toBe(false);
+      expect(meta.rows[0]!.auth_exec).toBe(false);
+      expect(meta.rows[0]!.srv_exec).toBe(true);
+
+      const bloqueados: Array<[string, Rol, string | null]> = [
+        ["anon", "anon", null],
+        ["A1", "authenticated", A1],
+        ["C1", "authenticated", C1],
+        ["C2_APOYO", "authenticated", C2_APOYO],
+        ["ADMIN", "authenticated", ADMIN],
+      ];
+      for (const [etiqueta, rol, sub] of bloqueados) {
+        await expect(
+          como(rol, sub, `SELECT * FROM public.reclamar_push_pendientes(10)`),
+          `reclamar_push_pendientes como ${etiqueta}`,
+        ).rejects.toMatchObject({ code: "42501" });
+      }
+
+      // Aislar pendientes previos de otros seeds y crear 2 sesiones completadas por A1 para probar reclamo en lote.
+      await db.exec(`UPDATE public.push_cola SET enviado_at = now() WHERE enviado_at IS NULL`);
+
+      await como(
+        "authenticated",
+        A1,
+        `INSERT INTO public.registro_sesiones (id, alumno_id, estado, finalizada_at)
+         VALUES ($1, $2, 'COMPLETADA', now())`,
+        [SES_A1_CLAIM_1_ID, A1],
+      );
+      await como(
+        "authenticated",
+        A1,
+        `INSERT INTO public.registro_sesiones (id, alumno_id, estado, finalizada_at)
+         VALUES ($1, $2, 'COMPLETADA', now())`,
+        [SES_A1_CLAIM_2_ID, A1],
+      );
+
+      // service_role reclama respetando límite y retornando exactamente (id, destinatario_id, tipo)
+      const lote1 = await como<{ id: string; destinatario_id: string; tipo: string }>(
+        "service_role",
+        null,
+        `SELECT * FROM public.reclamar_push_pendientes(1)`,
+      );
+      expect(lote1.rows).toHaveLength(1);
+      expect(Object.keys(lote1.rows[0]!).sort()).toEqual(["destinatario_id", "id", "tipo"]);
+      expect(lote1.rows[0]!.destinatario_id).toBe(C1);
+      expect(lote1.rows[0]!.tipo).toBe("SESION_COMPLETADA");
+
+      const lote2 = await como<{ id: string; destinatario_id: string; tipo: string }>(
+        "service_role",
+        null,
+        `SELECT * FROM public.reclamar_push_pendientes(10)`,
+      );
+      expect(lote2.rows).toHaveLength(1);
+      expect(lote2.rows[0]!.id).not.toBe(lote1.rows[0]!.id);
+      expect(lote2.rows[0]!.destinatario_id).toBe(C1);
+      expect(lote2.rows[0]!.tipo).toBe("SESION_COMPLETADA");
+
+      // Un tercer reclamo no re-entrega filas ya marcadas como enviadas
+      const lote3 = await como<{ id: string; destinatario_id: string; tipo: string }>(
+        "service_role",
+        null,
+        `SELECT * FROM public.reclamar_push_pendientes(10)`,
+      );
+      expect(lote3.rows).toHaveLength(0);
+    });
+
+    it("public.push_cola bloquea SELECT/INSERT/UPDATE/DELETE directos para anon y authenticated (A1, C1, C2_APOYO, ADMIN)", async () => {
+      // Confirmar RLS habilitado y 0 políticas abiertas en push_cola
+      const rlsMeta = await db.query<{ rls: boolean; politicas: number }>(`
+        SELECT c.relrowsecurity AS rls,
+               (SELECT count(*)::int FROM pg_policies pol
+                WHERE pol.schemaname = 'public' AND pol.tablename = 'push_cola') AS politicas
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relname = 'push_cola'
+      `);
+      expect(rlsMeta.rows[0]).toEqual({ rls: true, politicas: 0 });
+
+      const filaExistente = await db.query<{ id: string; enviado_at: string | null }>(
+        `SELECT id::text, enviado_at::text FROM public.push_cola LIMIT 1`,
+      );
+      expect(filaExistente.rows).toHaveLength(1);
+      const pushId = filaExistente.rows[0]!.id;
+
+      // anon recibe 42501 en SELECT/INSERT/UPDATE/DELETE
+      expect(await contarOCodigoPermiso("anon", null, "push_cola")).toBe("42501");
+      await expect(
+        como(
+          "anon",
+          null,
+          `INSERT INTO public.push_cola (destinatario_id, tipo, sesion_id) VALUES ($1, 'SESION_COMPLETADA', $2)`,
+          [C1, SES_A1_COMP_ID],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+      await expect(
+        como("anon", null, `UPDATE public.push_cola SET enviado_at = NULL WHERE id = $1`, [pushId]),
+      ).rejects.toMatchObject({ code: "42501" });
+      await expect(
+        como("anon", null, `DELETE FROM public.push_cola WHERE id = $1`, [pushId]),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      // authenticated (A1, C1, C2_APOYO, ADMIN): SELECT devuelve 0 (o 42501), INSERT -> 42501, UPDATE/DELETE -> 0 filas (o 42501)
+      for (const [etiqueta, sub] of [
+        ["A1", A1],
+        ["C1", C1],
+        ["C2_APOYO", C2_APOYO],
+        ["ADMIN", ADMIN],
+      ] as const) {
+        const lectura = await contarOCodigoPermiso("authenticated", sub, "push_cola");
+        expect(lectura === 0 || lectura === "42501", `SELECT push_cola como ${etiqueta}`).toBe(true);
+
+        await expect(
+          como(
+            "authenticated",
+            sub,
+            `INSERT INTO public.push_cola (destinatario_id, tipo, sesion_id) VALUES ($1, 'SESION_COMPLETADA', $2)`,
+            [C1, SES_A1_COMP_ID],
+          ),
+          `INSERT push_cola como ${etiqueta}`,
+        ).rejects.toMatchObject({ code: "42501" });
+
+        const upd = await como(
+          "authenticated",
+          sub,
+          `UPDATE public.push_cola SET enviado_at = NULL WHERE id = $1`,
+          [pushId],
+        );
+        expect(upd.affectedRows, `UPDATE push_cola como ${etiqueta}`).toBe(0);
+
+        const del = await como("authenticated", sub, `DELETE FROM public.push_cola WHERE id = $1`, [pushId]);
+        expect(del.affectedRows, `DELETE push_cola como ${etiqueta}`).toBe(0);
+      }
+
+      // Confirmar que la fila testigo sigue intacta
+      const post = await db.query<{ id: string }>(
+        `SELECT id::text FROM public.push_cola WHERE id = $1`,
+        [pushId],
+      );
+      expect(post.rows).toHaveLength(1);
+    });
+
+    it("fn_notificar_sesion_completada encola exactamente 1 push al profesor_asignado_id (C1), nunca a C2_APOYO, sin duplicar y sin push espurio para coach/clase_id", async () => {
+      // 1) A1 inicia sesión EN_CURSO (sin push)
+      await como(
+        "authenticated",
+        A1,
+        `INSERT INTO public.registro_sesiones (id, alumno_id, estado, clase_id, duracion_minutos)
+         VALUES ($1, $2, 'EN_CURSO', NULL, 30)`,
+        [SES_A1_FLOW_ID, A1],
+      );
+      const antes = await db.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM public.push_cola WHERE sesion_id = $1`,
+        [SES_A1_FLOW_ID],
+      );
+      expect(antes.rows[0]!.n).toBe(0);
+
+      // 2) A1 finaliza su propia sesión (COMPLETADA, clase_id IS NULL) -> exactamente 1 fila para C1, 0 para C2_APOYO
+      await como(
+        "authenticated",
+        A1,
+        `UPDATE public.registro_sesiones SET estado = 'COMPLETADA', finalizada_at = now() WHERE id = $1`,
+        [SES_A1_FLOW_ID],
+      );
+      const filasFlow = await db.query<{ destinatario_id: string; tipo: string; sesion_id: string }>(
+        `SELECT destinatario_id::text, tipo, sesion_id::text FROM public.push_cola WHERE sesion_id = $1`,
+        [SES_A1_FLOW_ID],
+      );
+      expect(filasFlow.rows).toEqual([
+        { destinatario_id: C1, tipo: "SESION_COMPLETADA", sesion_id: SES_A1_FLOW_ID },
+      ]);
+
+      const paraC2 = await db.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM public.push_cola WHERE sesion_id = $1 AND destinatario_id = $2`,
+        [SES_A1_FLOW_ID, C2_APOYO],
+      );
+      expect(paraC2.rows[0]!.n).toBe(0);
+
+      // 3) Actualizar la sesión sin cambiar estado (ni re-marcar COMPLETADA) no duplica el push
+      await como(
+        "authenticated",
+        A1,
+        `UPDATE public.registro_sesiones SET duracion_minutos = 55, estado = 'COMPLETADA' WHERE id = $1`,
+        [SES_A1_FLOW_ID],
+      );
+      const trasUpdate = await db.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM public.push_cola WHERE sesion_id = $1`,
+        [SES_A1_FLOW_ID],
+      );
+      expect(trasUpdate.rows[0]!.n).toBe(1);
+
+      // 4) Cuando C1 registra una marca/sesión para A1 (auth.uid() <> alumno_id), sin y con clase_id -> 0 push espurio
+      const marcaSinClase = await como<{ id: string }>(
+        "authenticated",
+        C1,
+        `SELECT public.registrar_marca_funcional($1, $2, 110, 5, DATE '2026-11-26', NULL) AS id`,
+        [A1, EJ_OLA_C_MARCA_ID],
+      );
+      const marcaConClase = await como<{ id: string }>(
+        "authenticated",
+        C1,
+        `SELECT public.registrar_marca_funcional($1, $2, 115, 3, DATE '2026-11-26', $3) AS id`,
+        [A1, EJ_OLA_C_MARCA_ID, CLASE_ID],
+      );
+
+      // También cuando ADMIN inserta directamente una sesión para A1 (auth.uid() <> alumno_id)
+      await como(
+        "authenticated",
+        ADMIN,
+        `INSERT INTO public.registro_sesiones (id, alumno_id, estado, finalizada_at, clase_id)
+         VALUES ($1, $2, 'COMPLETADA', now(), NULL)`,
+        [SES_ADMIN_A1_ID, A1],
+      );
+
+      // Y cuando A1 inserta una sesión con clase_id IS NOT NULL
+      await como(
+        "authenticated",
+        A1,
+        `INSERT INTO public.registro_sesiones (id, alumno_id, estado, finalizada_at, clase_id)
+         VALUES ($1, $2, 'COMPLETADA', now(), $3)`,
+        [SES_A1_CLASE_ID, A1, CLASE_ID],
+      );
+
+      const espurios = await db.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM public.push_cola
+         WHERE sesion_id = ANY($1::uuid[])`,
+        [[marcaSinClase.rows[0]!.id, marcaConClase.rows[0]!.id, SES_ADMIN_A1_ID, SES_A1_CLASE_ID]],
+      );
+      expect(espurios.rows[0]!.n).toBe(0);
+    });
+
+    it("ningún rol no privilegiado (anon, authenticated) puede invocar directamente las 6 funciones trigger de Ola C", async () => {
+      const fns = await db.query<{
+        proname: string;
+        secdef: boolean;
+        proconfig: string[] | null;
+        pub_exec: boolean;
+        anon_exec: boolean;
+        auth_exec: boolean;
+      }>(
+        `SELECT p.proname,
+                p.prosecdef AS secdef,
+                p.proconfig,
+                has_function_privilege('public', p.oid, 'EXECUTE') AS pub_exec,
+                has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_exec,
+                has_function_privilege('authenticated', p.oid, 'EXECUTE') AS auth_exec
+         FROM pg_proc p
+         JOIN pg_namespace n ON n.oid = p.pronamespace
+         WHERE n.nspname = 'public' AND p.proname = ANY($1::text[])
+         ORDER BY p.proname`,
+        [[...TRIGGER_FNS_OLA_C]],
+      );
+      expect(fns.rows).toHaveLength(TRIGGER_FNS_OLA_C.length);
+      for (const fn of fns.rows) {
+        expect(fn.secdef, `SECURITY DEFINER en ${fn.proname}`).toBe(true);
+        expect(fn.proconfig, `search_path en ${fn.proname}`).toContain("search_path=public, pg_temp");
+        expect(fn.pub_exec, `EXECUTE PUBLIC en ${fn.proname}`).toBe(false);
+        expect(fn.anon_exec, `EXECUTE anon en ${fn.proname}`).toBe(false);
+        expect(fn.auth_exec, `EXECUTE authenticated en ${fn.proname}`).toBe(false);
+      }
+
+      // Intento de invocación directa por SQL: rechazado (0A000 / 42501) para anon y authenticated
+      const actores: Array<[string, Rol, string | null]> = [
+        ["anon", "anon", null],
+        ["A1", "authenticated", A1],
+        ["C1", "authenticated", C1],
+        ["C2_APOYO", "authenticated", C2_APOYO],
+        ["ADMIN", "authenticated", ADMIN],
+      ];
+      for (const fnName of TRIGGER_FNS_OLA_C) {
+        for (const [etiqueta, rol, sub] of actores) {
+          let errCode: string | undefined;
+          try {
+            await como(rol, sub, `SELECT public.${fnName}()`);
+          } catch (err) {
+            errCode = typeof err === "object" && err !== null && "code" in err ? String(err.code) : undefined;
+          }
+          expect(
+            errCode === "42501" || errCode === "0A000",
+            `invocación directa ${fnName}() como ${etiqueta} devolvió ${errCode ?? "sin error"}`,
+          ).toBe(true);
+        }
+      }
+    });
+
+    it("public.v_prs (security_invoker = true) rechaza a anon (42501) y aísla PRs COMPLETADA para A1 y C1", async () => {
+      const vistaMeta = await db.query<{
+        reloptions: string[] | null;
+        anon_sel: boolean;
+        auth_sel: boolean;
+        srv_sel: boolean;
+      }>(`
+        SELECT c.reloptions,
+               has_table_privilege('anon', c.oid, 'SELECT') AS anon_sel,
+               has_table_privilege('authenticated', c.oid, 'SELECT') AS auth_sel,
+               has_table_privilege('service_role', c.oid, 'SELECT') AS srv_sel
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relname = 'v_prs'
+      `);
+      expect(vistaMeta.rows).toHaveLength(1);
+      expect(vistaMeta.rows[0]!.reloptions).toContain("security_invoker=true");
+      expect(vistaMeta.rows[0]!.anon_sel).toBe(false);
+      expect(vistaMeta.rows[0]!.auth_sel).toBe(true);
+      expect(vistaMeta.rows[0]!.srv_sel).toBe(true);
+
+      // anon recibe 42501 en SELECT * FROM public.v_prs
+      await expect(como("anon", null, `SELECT * FROM public.v_prs`)).rejects.toMatchObject({ code: "42501" });
+
+      // A1 ve solo sus propios PRs de sesiones COMPLETADA (ni EN_CURSO propia de 180 kg ni filas de A2)
+      const prsA1Ej = await como<{ alumno_id: string; peso_kg: number }>(
+        "authenticated",
+        A1,
+        `SELECT alumno_id::text, peso_kg::float8 AS peso_kg
+         FROM public.v_prs
+         WHERE ejercicio_id = $1`,
+        [EJ_OLA_C_ID],
+      );
+      expect(prsA1Ej.rows).toEqual([{ alumno_id: A1, peso_kg: 100 }]);
+
+      const prsA1DeA2 = await como<{ alumno_id: string }>(
+        "authenticated",
+        A1,
+        `SELECT alumno_id::text FROM public.v_prs WHERE alumno_id = $1`,
+        [A2],
+      );
+      expect(prsA1DeA2.rows).toHaveLength(0);
+
+      const prsA1Ajenos = await como<{ alumno_id: string }>(
+        "authenticated",
+        A1,
+        `SELECT alumno_id::text FROM public.v_prs WHERE alumno_id <> auth.uid()`,
+      );
+      expect(prsA1Ajenos.rows).toHaveLength(0);
+
+      // C1 ve PRs COMPLETADA de su alumno asignado A1 (100 kg, no 180 kg EN_CURSO) y 0 filas de A2 no asignado
+      const prsC1Ej = await como<{ alumno_id: string; peso_kg: number }>(
+        "authenticated",
+        C1,
+        `SELECT alumno_id::text, peso_kg::float8 AS peso_kg
+         FROM public.v_prs
+         WHERE ejercicio_id = $1`,
+        [EJ_OLA_C_ID],
+      );
+      expect(prsC1Ej.rows).toEqual([{ alumno_id: A1, peso_kg: 100 }]);
+
+      const prsC1DeA2 = await como<{ alumno_id: string }>(
+        "authenticated",
+        C1,
+        `SELECT alumno_id::text FROM public.v_prs WHERE alumno_id = $1`,
+        [A2],
+      );
+      expect(prsC1DeA2.rows).toHaveLength(0);
+    });
+
+    it("aislamiento de registro_sesiones.estado / finalizada_at, perfiles.ultimo_entreno_at y CHECK de estado (23514)", async () => {
+      const marcaOriginal = "2025-01-15T10:00:00.000Z";
+      await db.query(`UPDATE public.perfiles SET ultimo_entreno_at = $1::timestamptz WHERE id = $2`, [
+        marcaOriginal,
+        A2,
+      ]);
+
+      // A1 intenta modificar estado y finalizada_at de la sesión EN_CURSO de A2 -> 0 filas afectadas
+      const updAjena = await como(
+        "authenticated",
+        A1,
+        `UPDATE public.registro_sesiones
+         SET estado = 'COMPLETADA', finalizada_at = now()
+         WHERE id = $1`,
+        [SES_A2_CURSO_ID],
+      );
+      expect(updAjena.affectedRows).toBe(0);
+
+      // A1 intenta insertar una sesión para A2 -> 42501
+      await expect(
+        como(
+          "authenticated",
+          A1,
+          `INSERT INTO public.registro_sesiones (alumno_id, estado, finalizada_at)
+           VALUES ($1, 'COMPLETADA', now())`,
+          [A2],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      // A1 intenta alterar directamente perfiles.ultimo_entreno_at de A2 -> 0 filas (o 42501)
+      let updPerfilA2Afectadas = 0;
+      try {
+        const res = await como(
+          "authenticated",
+          A1,
+          `UPDATE public.perfiles SET ultimo_entreno_at = now() WHERE id = $1`,
+          [A2],
+        );
+        updPerfilA2Afectadas = res.affectedRows ?? 0;
+      } catch (err) {
+        expect(err).toMatchObject({ code: "42501" });
+      }
+      expect(updPerfilA2Afectadas).toBe(0);
+
+      // Verificar que sesión y ultimo_entreno_at de A2 permanecen intactos
+      const estadoSesA2 = await db.query<{ estado: string; finalizada_at: string | null }>(
+        `SELECT estado, finalizada_at::text FROM public.registro_sesiones WHERE id = $1`,
+        [SES_A2_CURSO_ID],
+      );
+      expect(estadoSesA2.rows).toEqual([{ estado: "EN_CURSO", finalizada_at: null }]);
+
+      const ultimoA2 = await db.query<{ ultimo_entreno_at: Date | string }>(
+        `SELECT ultimo_entreno_at FROM public.perfiles WHERE id = $1`,
+        [A2],
+      );
+      expect(new Date(ultimoA2.rows[0]!.ultimo_entreno_at).toISOString()).toBe(marcaOriginal);
+
+      // Estado inválido ('CANCELADA') rechazado por CHECK constraint (23514) en INSERT y UPDATE
+      await expect(
+        como(
+          "authenticated",
+          A1,
+          `INSERT INTO public.registro_sesiones (alumno_id, estado) VALUES ($1, 'CANCELADA')`,
+          [A1],
+        ),
+      ).rejects.toMatchObject({ code: "23514" });
+
+      await expect(
+        como(
+          "authenticated",
+          A1,
+          `UPDATE public.registro_sesiones SET estado = 'CANCELADA' WHERE id = $1`,
+          [SES_A1_CURSO_ID],
+        ),
+      ).rejects.toMatchObject({ code: "23514" });
+    });
+  });
 });
