@@ -1253,4 +1253,327 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
       });
     });
   });
+
+  describe("7. Catálogo de ejercicios (usa_barra) y ejercicios_en_rutina: integridad RLS (G1/G2)", () => {
+    const C_AJENO = "00000000-0000-0000-0000-0000000877c9";
+    const EJ_CATALOGO_ID = "11111111-1111-4111-8111-000000087701";
+    const PLAN_C1_A1_ID = "33333333-3333-4333-8333-000000087701";
+    const DIA_C1_A1_ID = "33333333-3333-4333-8333-000000087702";
+    const EJR_C1_A1_ID = "33333333-3333-4333-8333-000000087703";
+
+    beforeAll(async () => {
+      await db.exec(`
+        INSERT INTO auth.users (id, email, raw_app_meta_data) VALUES
+          ('${C_AJENO}', 'coach.ajeno877@test.local', '{"rol":"ENTRENADOR"}')
+        ON CONFLICT (id) DO NOTHING;
+
+        INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia) VALUES
+          ('${C_AJENO}', 'coach.ajeno877@test.local', 'Coach Ajeno 877', 'ENTRENADOR', 'ACTIVA')
+        ON CONFLICT (id) DO UPDATE SET
+          rol = EXCLUDED.rol,
+          estado_membresia = EXCLUDED.estado_membresia;
+
+        INSERT INTO public.ejercicios (id, nombre, url_video, musculos_principales, usa_barra) VALUES
+          ('${EJ_CATALOGO_ID}', 'Ejercicio Catálogo 877', 'vid-original-877', ARRAY['Piernas'], false)
+        ON CONFLICT (id) DO UPDATE SET
+          nombre = EXCLUDED.nombre,
+          url_video = EXCLUDED.url_video,
+          usa_barra = EXCLUDED.usa_barra;
+
+        INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, tipo) VALUES
+          ('${PLAN_C1_A1_ID}', '${C1}', '${A1}', 'Plan Privado C1-A1 877', 'ACTIVO', 'DE_ALUMNO')
+        ON CONFLICT (id) DO NOTHING;
+
+        INSERT INTO public.dias_rutina (id, plan_id, nombre, orden) VALUES
+          ('${DIA_C1_A1_ID}', '${PLAN_C1_A1_ID}', 'Día 1 C1-A1', 1)
+        ON CONFLICT (id) DO NOTHING;
+
+        INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones) VALUES
+          ('${EJR_C1_A1_ID}', '${DIA_C1_A1_ID}', '${EJ_CATALOGO_ID}', 1, 4, '10')
+        ON CONFLICT (id) DO NOTHING;
+      `);
+    });
+
+    it("anon es rechazado (42501) en SELECT/INSERT/UPDATE/DELETE sobre ejercicios y ejercicios_en_rutina, y ejercicios_alternativas está podada", async () => {
+      // public.ejercicios_alternativas fue podada en 20261123100000_podar_tablas_muertas.sql (sin superficie de ataque)
+      const alt = await db.query<{ rel: string | null }>(
+        `SELECT to_regclass('public.ejercicios_alternativas')::text AS rel`,
+      );
+      expect(alt.rows[0]?.rel).toBeNull();
+
+      // Confirmar RLS habilitado y cero privilegios para anon en ejercicios y ejercicios_en_rutina
+      const meta = await db.query<{
+        relname: string;
+        rls: boolean;
+        sel: boolean;
+        ins: boolean;
+        upd: boolean;
+        del: boolean;
+      }>(
+        `SELECT c.relname,
+                c.relrowsecurity AS rls,
+                has_table_privilege('anon', c.oid, 'SELECT') AS sel,
+                has_table_privilege('anon', c.oid, 'INSERT') AS ins,
+                has_table_privilege('anon', c.oid, 'UPDATE') AS upd,
+                has_table_privilege('anon', c.oid, 'DELETE') AS del
+         FROM pg_class c
+         JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'public' AND c.relname IN ('ejercicios', 'ejercicios_en_rutina')
+         ORDER BY c.relname`,
+      );
+      expect(meta.rows).toHaveLength(2);
+      for (const row of meta.rows) {
+        expect(row.rls, `RLS en ${row.relname}`).toBe(true);
+        expect(row.sel, `SELECT anon en ${row.relname}`).toBe(false);
+        expect(row.ins, `INSERT anon en ${row.relname}`).toBe(false);
+        expect(row.upd, `UPDATE anon en ${row.relname}`).toBe(false);
+        expect(row.del, `DELETE anon en ${row.relname}`).toBe(false);
+      }
+
+      // public.ejercicios: SELECT, INSERT, UPDATE y DELETE como anon -> 42501
+      await expect(
+        como("anon", null, `SELECT id, usa_barra FROM public.ejercicios LIMIT 1`),
+      ).rejects.toMatchObject({ code: "42501" });
+      await expect(
+        como("anon", null, `INSERT INTO public.ejercicios (nombre, usa_barra) VALUES ('Anon Hack', true)`),
+      ).rejects.toMatchObject({ code: "42501" });
+      await expect(
+        como("anon", null, `UPDATE public.ejercicios SET usa_barra = true WHERE id = $1`, [EJ_CATALOGO_ID]),
+      ).rejects.toMatchObject({ code: "42501" });
+      await expect(
+        como("anon", null, `DELETE FROM public.ejercicios WHERE id = $1`, [EJ_CATALOGO_ID]),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      // public.ejercicios_en_rutina: SELECT, INSERT, UPDATE y DELETE como anon -> 42501
+      await expect(
+        como("anon", null, `SELECT id FROM public.ejercicios_en_rutina LIMIT 1`),
+      ).rejects.toMatchObject({ code: "42501" });
+      await expect(
+        como(
+          "anon",
+          null,
+          `INSERT INTO public.ejercicios_en_rutina (dia_id, ejercicio_id, orden, series, repeticiones)
+           VALUES ($1, $2, 99, 3, '10')`,
+          [DIA_C1_A1_ID, EJ_CATALOGO_ID],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+      await expect(
+        como("anon", null, `UPDATE public.ejercicios_en_rutina SET series = 99 WHERE id = $1`, [EJR_C1_A1_ID]),
+      ).rejects.toMatchObject({ code: "42501" });
+      await expect(
+        como("anon", null, `DELETE FROM public.ejercicios_en_rutina WHERE id = $1`, [EJR_C1_A1_ID]),
+      ).rejects.toMatchObject({ code: "42501" });
+    });
+
+    it("ALUMNO puede leer el catálogo public.ejercicios pero no puede crear, modificar (usa_barra/nombre/url_video) ni borrar ejercicios ni ejercicios_en_rutina", async () => {
+      // Lectura permitida del catálogo maestro
+      const lectura = await como<{ id: string; nombre: string; usa_barra: boolean }>(
+        "authenticated",
+        A1,
+        `SELECT id, nombre, usa_barra FROM public.ejercicios WHERE id = $1`,
+        [EJ_CATALOGO_ID],
+      );
+      expect(lectura.rows).toEqual([
+        { id: EJ_CATALOGO_ID, nombre: "Ejercicio Catálogo 877", usa_barra: false },
+      ]);
+
+      // INSERT en public.ejercicios rechazado por WITH CHECK (42501)
+      await expect(
+        como("authenticated", A1, `INSERT INTO public.ejercicios (nombre, usa_barra) VALUES ('Alumno Hack 877', true)`),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      // UPDATE en public.ejercicios (usa_barra, nombre, url_video) bloqueado por USING (0 filas) y estado intacto
+      const updUsaBarra = await como(
+        "authenticated",
+        A1,
+        `UPDATE public.ejercicios SET usa_barra = true WHERE id = $1`,
+        [EJ_CATALOGO_ID],
+      );
+      expect(updUsaBarra.affectedRows).toBe(0);
+
+      const updMeta = await como(
+        "authenticated",
+        A1,
+        `UPDATE public.ejercicios SET nombre = 'Hackeado', url_video = 'evil-vid' WHERE id = $1`,
+        [EJ_CATALOGO_ID],
+      );
+      expect(updMeta.affectedRows).toBe(0);
+
+      // DELETE en public.ejercicios bloqueado por USING (0 filas)
+      const delEj = await como(
+        "authenticated",
+        A1,
+        `DELETE FROM public.ejercicios WHERE id = $1`,
+        [EJ_CATALOGO_ID],
+      );
+      expect(delEj.affectedRows).toBe(0);
+
+      // Confirmar integridad intacta del registro del catálogo
+      const estadoEj = await db.query<{ nombre: string; url_video: string | null; usa_barra: boolean }>(
+        `SELECT nombre, url_video, usa_barra FROM public.ejercicios WHERE id = $1`,
+        [EJ_CATALOGO_ID],
+      );
+      expect(estadoEj.rows).toEqual([
+        { nombre: "Ejercicio Catálogo 877", url_video: "vid-original-877", usa_barra: false },
+      ]);
+
+      // En ejercicios_en_rutina: A1 lee su propia rutina, A2 no la ve, y A1 no puede INSERT/UPDATE/DELETE
+      const propio = await como<{ id: string }>(
+        "authenticated",
+        A1,
+        `SELECT id FROM public.ejercicios_en_rutina WHERE id = $1`,
+        [EJR_C1_A1_ID],
+      );
+      expect(propio.rows).toHaveLength(1);
+
+      const ajeno = await como<{ id: string }>(
+        "authenticated",
+        A2,
+        `SELECT id FROM public.ejercicios_en_rutina WHERE id = $1`,
+        [EJR_C1_A1_ID],
+      );
+      expect(ajeno.rows).toHaveLength(0);
+
+      await expect(
+        como(
+          "authenticated",
+          A1,
+          `INSERT INTO public.ejercicios_en_rutina (dia_id, ejercicio_id, orden, series, repeticiones)
+           VALUES ($1, $2, 99, 5, '5')`,
+          [DIA_C1_A1_ID, EJ_CATALOGO_ID],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      const updRutina = await como(
+        "authenticated",
+        A1,
+        `UPDATE public.ejercicios_en_rutina SET series = 99, repeticiones = '99' WHERE id = $1`,
+        [EJR_C1_A1_ID],
+      );
+      expect(updRutina.affectedRows).toBe(0);
+
+      const delRutina = await como(
+        "authenticated",
+        A1,
+        `DELETE FROM public.ejercicios_en_rutina WHERE id = $1`,
+        [EJR_C1_A1_ID],
+      );
+      expect(delRutina.affectedRows).toBe(0);
+
+      const estadoRutina = await db.query<{ series: number; repeticiones: string }>(
+        `SELECT series, repeticiones FROM public.ejercicios_en_rutina WHERE id = $1`,
+        [EJR_C1_A1_ID],
+      );
+      expect(estadoRutina.rows).toEqual([{ series: 4, repeticiones: "10" }]);
+    });
+
+    it("ENTRENADOR sin vínculo no puede leer ni mutar (INSERT/UPDATE/DELETE) ejercicios_en_rutina de otro entrenador/alumno", async () => {
+      const selAjeno = await como<{ id: string }>(
+        "authenticated",
+        C_AJENO,
+        `SELECT id FROM public.ejercicios_en_rutina WHERE id = $1`,
+        [EJR_C1_A1_ID],
+      );
+      expect(selAjeno.rows).toHaveLength(0);
+
+      await expect(
+        como(
+          "authenticated",
+          C_AJENO,
+          `INSERT INTO public.ejercicios_en_rutina (dia_id, ejercicio_id, orden, series, repeticiones)
+           VALUES ($1, $2, 99, 5, '5')`,
+          [DIA_C1_A1_ID, EJ_CATALOGO_ID],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      const updAjeno = await como(
+        "authenticated",
+        C_AJENO,
+        `UPDATE public.ejercicios_en_rutina SET series = 88, repeticiones = '88' WHERE id = $1`,
+        [EJR_C1_A1_ID],
+      );
+      expect(updAjeno.affectedRows).toBe(0);
+
+      const delAjeno = await como(
+        "authenticated",
+        C_AJENO,
+        `DELETE FROM public.ejercicios_en_rutina WHERE id = $1`,
+        [EJR_C1_A1_ID],
+      );
+      expect(delAjeno.affectedRows).toBe(0);
+
+      // Estado intacto
+      const estado = await db.query<{ series: number; repeticiones: string }>(
+        `SELECT series, repeticiones FROM public.ejercicios_en_rutina WHERE id = $1`,
+        [EJR_C1_A1_ID],
+      );
+      expect(estado.rows).toEqual([{ series: 4, repeticiones: "10" }]);
+
+      // Control positivo: el entrenador dueño/asignado (C1) sí puede leer, insertar, actualizar y borrar en su plan
+      const insertPropio = await como<{ id: string }>(
+        "authenticated",
+        C1,
+        `INSERT INTO public.ejercicios_en_rutina (dia_id, ejercicio_id, orden, series, repeticiones)
+         VALUES ($1, $2, 2, 3, '12')
+         RETURNING id`,
+        [DIA_C1_A1_ID, EJ_CATALOGO_ID],
+      );
+      expect(insertPropio.rows).toHaveLength(1);
+      const nuevoEjdId = insertPropio.rows[0]!.id;
+
+      const updPropio = await como(
+        "authenticated",
+        C1,
+        `UPDATE public.ejercicios_en_rutina SET series = 5 WHERE id = $1`,
+        [nuevoEjdId],
+      );
+      expect(updPropio.affectedRows).toBe(1);
+
+      const delPropio = await como(
+        "authenticated",
+        C1,
+        `DELETE FROM public.ejercicios_en_rutina WHERE id = $1`,
+        [nuevoEjdId],
+      );
+      expect(delPropio.affectedRows).toBe(1);
+    });
+
+    it("ENTRENADOR y ADMIN sí pueden crear y actualizar usa_barra en public.ejercicios", async () => {
+      const casos = [
+        { rolNombre: "ENTRENADOR", sub: C1, nombre: "Ejercicio Coach Barra 877", inicial: true, actualizado: false },
+        { rolNombre: "ADMIN", sub: ADMIN, nombre: "Ejercicio Admin Barra 877", inicial: false, actualizado: true },
+      ];
+
+      for (const caso of casos) {
+        const creado = await como<{ id: string; usa_barra: boolean }>(
+          "authenticated",
+          caso.sub,
+          `INSERT INTO public.ejercicios (nombre, musculos_principales, usa_barra)
+           VALUES ($1, ARRAY['Pecho'], $2)
+           RETURNING id, usa_barra`,
+          [caso.nombre, caso.inicial],
+        );
+        expect(creado.rows, `INSERT ${caso.rolNombre}`).toHaveLength(1);
+        expect(creado.rows[0]!.usa_barra).toBe(caso.inicial);
+        const ejId = creado.rows[0]!.id;
+
+        const actualizado = await como<{ usa_barra: boolean }>(
+          "authenticated",
+          caso.sub,
+          `UPDATE public.ejercicios SET usa_barra = $2 WHERE id = $1 RETURNING usa_barra`,
+          [ejId, caso.actualizado],
+        );
+        expect(actualizado.affectedRows, `UPDATE ${caso.rolNombre}`).toBe(1);
+        expect(actualizado.rows[0]!.usa_barra).toBe(caso.actualizado);
+
+        const borrado = await como(
+          "authenticated",
+          caso.sub,
+          `DELETE FROM public.ejercicios WHERE id = $1`,
+          [ejId],
+        );
+        expect(borrado.affectedRows, `DELETE ${caso.rolNombre}`).toBe(1);
+      }
+    });
+  });
 });

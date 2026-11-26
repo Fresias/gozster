@@ -180,6 +180,53 @@ describe("GOZS-872: columna usa_barra en public.ejercicios", () => {
     );
   }, 120_000);
 
+  it("sobre supabase/seed_gozs.sql (paridad GOZS-877): etiqueta con usa_barra = true exactamente los mismos 11 ejercicios de producción sin falsos positivos", async () => {
+    const seedGozsSql = fs.readFileSync(path.join(SUPABASE_DIR, "seed_gozs.sql"), "utf-8");
+
+    // Verificar contrato SQL en todos los INSERT INTO public.ejercicios y sus ON CONFLICT (nombre)
+    const inserts = [...seedGozsSql.matchAll(/INSERT\s+INTO\s+public\.ejercicios\s*\(([^)]+)\)/g)];
+    expect(inserts.length).toBeGreaterThan(0);
+    for (const match of inserts) {
+      expect(match[1]).toContain("usa_barra");
+    }
+    const onConflicts = [...seedGozsSql.matchAll(/ON\s+CONFLICT\s*\(nombre\)\s*DO\s+UPDATE\s+SET\s*([^\n;]+);/g)];
+    expect(onConflicts).toHaveLength(inserts.length);
+    for (const match of onConflicts) {
+      expect(match[1]).toMatch(/usa_barra\s*=\s*EXCLUDED\.usa_barra/);
+    }
+
+    // Aplicar supabase/seed_gozs.sql sobre una base limpia migrada
+    const db: PGlite = await crearDbMigrada();
+    await db.exec(seedGozsSql);
+
+    const conBarra = await db.query<{ nombre: string }>(
+      `SELECT nombre FROM public.ejercicios WHERE usa_barra = true`
+    );
+    expect(conBarra.rows.map((r) => r.nombre).sort((a, b) => a.localeCompare(b, "es"))).toEqual(
+      BARRA_PRODUCCION_ESPERADOS
+    );
+
+    // Ningún falso positivo presente en seed_gozs.sql puede quedar en true
+    const falsos = await db.query<{ nombre: string; usa_barra: boolean }>(
+      `SELECT nombre, usa_barra FROM public.ejercicios WHERE nombre = ANY($1::text[])`,
+      [FALSOS_POSITIVOS_PROHIBIDOS]
+    );
+    expect(falsos.rows.length).toBeGreaterThan(0);
+    for (const fila of falsos.rows) {
+      expect(fila.usa_barra, `Falso positivo detectado en seed_gozs.sql: ${fila.nombre}`).toBe(false);
+    }
+
+    // Re-aplicar seed_gozs.sql tras invertir usa_barra valida el ON CONFLICT (nombre) DO UPDATE SET usa_barra = EXCLUDED.usa_barra
+    await db.exec(`UPDATE public.ejercicios SET usa_barra = NOT usa_barra`);
+    await db.exec(seedGozsSql);
+    const trasReaplicar = await db.query<{ nombre: string }>(
+      `SELECT nombre FROM public.ejercicios WHERE usa_barra = true`
+    );
+    expect(trasReaplicar.rows.map((r) => r.nombre).sort((a, b) => a.localeCompare(b, "es"))).toEqual(
+      BARRA_PRODUCCION_ESPERADOS
+    );
+  }, 120_000);
+
   it("los tipos TypeScript exponen usa_barra?: boolean sin romper fixtures legados", () => {
     const legadoSinUsaBarra: Ejercicio = {
       id: "ej-1",
