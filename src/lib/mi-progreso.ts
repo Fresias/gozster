@@ -217,3 +217,75 @@ export function etiquetaEpley(p: PuntoProgreso): string {
 export function etiquetaVolumen(volumenKg: number): string {
   return `Volumen del mes: ${miles.format(Math.round(volumenKg))} kg`;
 }
+
+// ---- % de cumplimiento (GOZS-849) ----
+
+// Fechas sueltas (servidor, locales, historial) → una sesión por día de Buenos Aires,
+// para no contar dos veces la misma sesión que viene de varias fuentes.
+export function sesionesDesdeFechas(fechas: ReadonlyArray<string | null | undefined>): SesionHistorica[] {
+  const porDia = new Map<string, SesionHistorica>();
+  for (const f of fechas) {
+    if (!f || Number.isNaN(Date.parse(f))) continue;
+    const dia = new Intl.DateTimeFormat("en-CA", { timeZone: ZONA }).format(new Date(f));
+    if (!porDia.has(dia)) porDia.set(dia, { id: dia, fecha: f });
+  }
+  return [...porDia.values()];
+}
+
+// "Cumplimiento del plan: 93 %".
+export function etiquetaCumplimiento(pct: number): string {
+  return `${Math.round(pct)} %`;
+}
+
+// ---- Ranking Funcional (obtener_ranking_funcional_alumno, GOZS-824) ----
+
+// Fila de la RPC. Sin peso corporal crudo ni PII: solo "Nombre + inicial", sexo, marca y ratio.
+export interface RankingFuncionalFila {
+  ejercicio_id: string;
+  es_usuario_actual: boolean;
+  nombre_corto: string;
+  sexo: "M" | "F" | null;
+  peso_kg: number;
+  reps: number;
+  fecha: string;
+  ratio: number | null;
+  posicion: number | null;
+}
+
+export interface RankingEjercicio {
+  ejercicio_id: string;
+  categoria: "M" | "F" | null;
+  filas: RankingFuncionalFila[]; // top de la categoría + la fila propia, por posición
+  propia: RankingFuncionalFila | null;
+}
+
+const TOP_RANKING = 5;
+
+// Agrupa por ejercicio, limita a la categoría del alumno y ordena por posición.
+// Solo devuelve ejercicios donde el alumno tiene marca (si no, no hay "su" ranking).
+export function agruparRankingPorEjercicio(filas: RankingFuncionalFila[]): RankingEjercicio[] {
+  const porEj = new Map<string, RankingFuncionalFila[]>();
+  for (const f of filas) {
+    const g = porEj.get(f.ejercicio_id);
+    if (g) g.push(f);
+    else porEj.set(f.ejercicio_id, [f]);
+  }
+  const res: RankingEjercicio[] = [];
+  for (const [ejercicio_id, grupo] of porEj) {
+    const propia = grupo.find((f) => f.es_usuario_actual) ?? null;
+    if (!propia) continue;
+    const categoria = propia.sexo;
+    const orden = (a: RankingFuncionalFila, b: RankingFuncionalFila) =>
+      (a.posicion ?? Infinity) - (b.posicion ?? Infinity) || b.peso_kg - a.peso_kg;
+    const misma = grupo.filter((f) => f.sexo === categoria).sort(orden);
+    const top = misma.slice(0, TOP_RANKING);
+    const filasVisibles = top.includes(propia) ? top : [...top, propia];
+    res.push({ ejercicio_id, categoria, filas: filasVisibles, propia });
+  }
+  return res;
+}
+
+// "80 kg × 5"
+export function etiquetaMarca(f: Pick<RankingFuncionalFila, "peso_kg" | "reps">): string {
+  return `${kg.format(f.peso_kg)} kg × ${f.reps}`;
+}

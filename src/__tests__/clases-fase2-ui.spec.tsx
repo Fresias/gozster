@@ -407,60 +407,49 @@ describe("GOZS-665 · Clases fase 2 (racha, feedback 1 toque, historial y nota d
     });
   });
 
-  describe("3. Historial de asistencias en Progreso (mi-progreso.tsx)", () => {
-    it("GIVEN tengo asistencias WHEN entro a Progreso THEN veo mi historial por semana con actividad, fecha, sensación y nota opcional", () => {
+  describe("3. Mi Progreso sin historial de clases (GOZS-849; el historial vive en Historial)", () => {
+    it("GIVEN un alumno con plan WHEN abre Mi Progreso THEN ve % de cumplimiento y no ve Volumen del mes ni Historial de clases", () => {
+      const html = renderToStaticMarkup(
+        <MiProgreso
+          estado="listo"
+          vista="TECNICA"
+          data={{ sesiones_mes: 3, sesiones_mes_anterior: 2, volumen_mes_kg: 5000, ejercicios: [] }}
+          cumplimientoPct={93}
+        />,
+      );
+
+      expect(html).toContain("Cumplimiento del plan: 93 %");
+      expect(html).not.toContain("Volumen del mes");
+      expect(html).not.toContain("Historial de clases");
+      expect(html).not.toContain('data-testid="historial-clases-section"');
+    });
+
+    it("GIVEN un alumno de Funcional con marcas WHEN abre Mi Progreso THEN ve el Ranking con Nombre + inicial y sin peso corporal", () => {
       const html = renderToStaticMarkup(
         <MiProgreso
           estado="listo"
           vista="SIMPLE"
-          data={{ sesiones_mes: 0, sesiones_mes_anterior: 0, volumen_mes_kg: 0, ejercicios: [] }}
-          asistenciasClases={[
-            {
-              reserva_id: "r1",
-              clase_id: "c1",
-              actividad: "FUNCIONAL",
-              inicio: "2026-11-20T18:00:00-03:00",
-              sensacion: 3,
-              nota: "Hoy: circuito de piernas",
-            },
-            {
-              reserva_id: "r2",
-              clase_id: "c2",
-              actividad: "BOXEO",
-              inicio: "2026-11-12T19:30:00-03:00",
-              sensacion: 2,
-              nota: null,
-            },
+          data={{
+            sesiones_mes: 1,
+            sesiones_mes_anterior: 0,
+            volumen_mes_kg: 0,
+            ejercicios: [{ ejercicio_id: "e1", nombre: "Sentadilla", a_peso_corporal: false, puntos: [] }],
+          }}
+          rankingFuncional={[
+            { ejercicio_id: "e1", es_usuario_actual: false, nombre_corto: "Lucas G.", sexo: "M", peso_kg: 100, reps: 5, fecha: "2026-11-20", ratio: 1.25, posicion: 1 },
+            { ejercicio_id: "e1", es_usuario_actual: true, nombre_corto: "Mateo R.", sexo: "M", peso_kg: 80, reps: 5, fecha: "2026-11-21", ratio: 1, posicion: 2 },
+            { ejercicio_id: "e1", es_usuario_actual: false, nombre_corto: "Ana P.", sexo: "F", peso_kg: 60, reps: 5, fecha: "2026-11-21", ratio: 1.1, posicion: 1 },
           ]}
         />,
       );
 
-      expect(html).toContain('data-testid="historial-clases-section"');
-      expect(html).toContain("Historial de clases");
-      expect(html).toContain("Funcional");
-      expect(html).toContain("18:00 hs");
-      expect(html).toContain("Dura");
-      expect(html).toContain("Hoy: circuito de piernas");
-      expect(html).toContain("Boxeo");
-      expect(html).toContain("Bien");
-      expect(html).not.toContain("1RM");
-      expect(html.toLowerCase()).not.toContain("volumen");
-      expect(html).not.toContain("RPE");
-    });
-
-    it("muestra estado vacío amable cuando no hay asistencias", () => {
-      const html = renderToStaticMarkup(
-        <MiProgreso
-          estado="listo"
-          vista="SIMPLE"
-          data={{ sesiones_mes: 0, sesiones_mes_anterior: 0, volumen_mes_kg: 0, ejercicios: [] }}
-          asistenciasClases={[]}
-        />,
-      );
-
-      expect(html).toContain('data-testid="historial-clases-vacio"');
-      expect(html).toContain("Todavía no registraste asistencias");
-      expect(html).toContain('href="/athlete/clases"');
+      expect(html).toContain('data-testid="ranking-funcional-alumno"');
+      expect(html).toContain("Lucas G.");
+      expect(html).toContain("Mateo R. (vos)");
+      expect(html).toContain("80 kg × 5");
+      expect(html).toContain("Categoría M");
+      expect(html).not.toContain("Ana P."); // otra categoría
+      expect(html.toLowerCase()).not.toContain("peso corporal");
     });
 
     it("agruparAsistenciasPorSemana ordena semanas más recientes primero", () => {

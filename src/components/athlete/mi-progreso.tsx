@@ -2,26 +2,21 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Calendar, CloudOff, History } from "@/components/athlete/icons";
+import { CloudOff, History } from "@/components/athlete/icons";
 import { TarjetaLogroDiamante } from "@/components/athlete/tarjeta-logro-diamante";
+import { RankingFuncionalAlumno } from "@/components/athlete/ranking-funcional-alumno";
 import { Tooltip1RM } from "@/components/athlete/tooltip-1rm";
 import { formatearFechaCorta } from "@/lib/historial-ejercicio";
-import {
-  ACTIVIDAD_LABEL,
-  ETIQUETA_SENSACION,
-  agruparAsistenciasPorSemana,
-  formatearFechaClaseAsistencia,
-  type AsistenciaClaseItem,
-} from "@/lib/clases";
 import {
   ariaProgreso,
   etiquetaEpley,
   etiquetaValor,
-  etiquetaVolumen,
+  etiquetaCumplimiento,
   formatearDelta,
   valorPunto,
   type EjercicioProgreso,
   type MiProgresoData,
+  type RankingFuncionalFila,
 } from "@/lib/mi-progreso";
 import type { NivelVistaAlumno } from "@/types/database.types";
 
@@ -34,7 +29,8 @@ export interface MiProgresoProps {
   data: MiProgresoData | null;
   offline?: boolean; // hay datos guardados pero sin conexión
   fechaDescarga?: string | null; // ISO de la última descarga, para el aviso offline
-  asistenciasClases?: AsistenciaClaseItem[];
+  cumplimientoPct?: number | null; // % de cumplimiento del plan en el mes (null: sin plan)
+  rankingFuncional?: RankingFuncionalFila[]; // solo alumnos presenciales de Funcional
   diamantesRacha?: number;
   rachaSemanas?: number;
 }
@@ -149,75 +145,6 @@ function EstadoVacio() {
   );
 }
 
-function EstadoVacioClases() {
-  return (
-    <section className="a-card a-state" data-testid="historial-clases-vacio">
-      <span className="a-ic">
-        <Calendar width={24} height={24} aria-hidden="true" />
-      </span>
-      <h3 className="a-t-title">Todavía no registraste asistencias</h3>
-      <p className="a-t-sec">
-        Cuando asistas a una clase vas a ver acá tu historial semana a semana.
-      </p>
-      <Link href="/athlete/clases" className="a-btn">
-        Ver clases
-      </Link>
-    </section>
-  );
-}
-
-function SeccionHistorialClases({ asistencias }: { asistencias: AsistenciaClaseItem[] }) {
-  const semanas = React.useMemo(
-    () => agruparAsistenciasPorSemana(asistencias),
-    [asistencias],
-  );
-
-  return (
-    <section
-      className="grid gap-3"
-      aria-labelledby="historial-clases-titulo"
-      data-testid="historial-clases-section"
-    >
-      <h2 id="historial-clases-titulo" className="a-eb a-t-label">
-        Historial de clases
-      </h2>
-      {asistencias.length === 0 ? (
-        <EstadoVacioClases />
-      ) : (
-        semanas.map((sem) => (
-          <div key={sem.semanaInicioClave} className="grid gap-2" data-testid="historial-clases-semana">
-            <p className="a-t-label a-muted px-1">{sem.etiquetaSemana}</p>
-            <div className="a-card a-days">
-              {sem.items.map((item) => (
-                <div
-                  key={item.reserva_id}
-                  className="a-row"
-                  data-testid="historial-clase-item"
-                >
-                  <span className="a-rt">
-                    <b className="a-t-bs">{ACTIVIDAD_LABEL[item.actividad] || item.actividad}</b>
-                    <small className="a-t-sec">{formatearFechaClaseAsistencia(item.inicio)}</small>
-                    {item.nota?.trim() && (
-                      <small className="a-t-sec a-muted mt-1" data-testid="historial-clase-nota">
-                        {item.nota.trim()}
-                      </small>
-                    )}
-                  </span>
-                  {item.sensacion !== null && (
-                    <span className="a-chip a-t-label" data-testid="historial-clase-sensacion">
-                      {ETIQUETA_SENSACION[item.sensacion]}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        ))
-      )}
-    </section>
-  );
-}
-
 function Esqueleto() {
   return (
     <div data-testid="mi-progreso-cargando" className="grid gap-4">
@@ -235,7 +162,8 @@ export function MiProgreso({
   data,
   offline,
   fechaDescarga,
-  asistenciasClases,
+  cumplimientoPct = null,
+  rankingFuncional = [],
   diamantesRacha = 0,
   rachaSemanas = 0,
 }: MiProgresoProps) {
@@ -254,8 +182,6 @@ export function MiProgreso({
 
   const sinHistorial =
     !data || (data.ejercicios.length === 0 && data.sesiones_mes === 0 && data.sesiones_mes_anterior === 0);
-  const mostrarClases = asistenciasClases !== undefined;
-  const tieneAsistenciasClases = Boolean(asistenciasClases && asistenciasClases.length > 0);
   const ciclosCompletados = rachaSemanas >= 53 ? Math.floor((rachaSemanas - 1) / 52) : 0;
   const diamantesVisibles = Math.max(diamantesRacha, ciclosCompletados);
 
@@ -275,7 +201,7 @@ export function MiProgreso({
         <TarjetaLogroDiamante diamantes={diamantesVisibles} semanas={rachaSemanas} />
       )}
 
-      {sinHistorial && !mostrarClases ? (
+      {sinHistorial ? (
         <EstadoVacio />
       ) : (
         <>
@@ -287,7 +213,11 @@ export function MiProgreso({
                 </span>
                 <div className="a-t-ml">{data!.sesiones_mes}</div>
                 <small className="a-t-sec">el mes pasado: {data!.sesiones_mes_anterior}</small>
-                {vista === "TECNICA" && <small className="a-t-sec">{etiquetaVolumen(data!.volumen_mes_kg)}</small>}
+                {cumplimientoPct !== null && (
+                  <small className="a-t-sec" data-testid="progreso-cumplimiento">
+                    Cumplimiento del plan: {etiquetaCumplimiento(cumplimientoPct)}
+                  </small>
+                )}
               </section>
 
               {data!.ejercicios.map((ej) => (
@@ -296,9 +226,10 @@ export function MiProgreso({
             </>
           )}
 
-          {mostrarClases && (!sinHistorial || tieneAsistenciasClases || asistenciasClases!.length === 0) && (
-            <SeccionHistorialClases asistencias={asistenciasClases!} />
-          )}
+          <RankingFuncionalAlumno
+            filas={rankingFuncional}
+            nombres={Object.fromEntries((data?.ejercicios ?? []).map((e) => [e.ejercicio_id, e.nombre]))}
+          />
         </>
       )}
     </section>
