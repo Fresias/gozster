@@ -20,23 +20,23 @@ ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ENTRENADOR', estado_membresia = 'ACTIVA', updated_at = now();
 
 -- 2. Catálogo Maestro de Ejercicios Únicos
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('55ddab2b-3449-41af-a04d-1f5ce33ad7d6', '90/90', 'Movilidad de cadera', 'noTGHlQVKfA', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('55ddab2b-3449-41af-a04d-1f5ce33ad7d6', '90/90', 'Movilidad de cadera', 'noTGHlQVKfA', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('f5190986-2dcc-40b4-a22a-2bd1fda33de9', 'Extension de rodilla', 'Activacion de cadena posterior', 'Jd9rYOetS9U', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('f5190986-2dcc-40b4-a22a-2bd1fda33de9', 'Extension de rodilla', 'Activacion de cadena posterior', 'Jd9rYOetS9U', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('43b309bb-72bd-4728-a9cb-c34489cc859d', 'Sentadilla en silla', 'Ejercicio de fuerza para el tren inferior', 'QnPCi09koPc', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('43b309bb-72bd-4728-a9cb-c34489cc859d', 'Sentadilla en silla', 'Ejercicio de fuerza para el tren inferior', 'QnPCi09koPc', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('b23e4443-f2b8-4122-ad2a-c551ad7446bd', 'Skater con peso', 'Ejercicio de fuerza para el tren inferior', 'JfOu50OK9a4', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('b23e4443-f2b8-4122-ad2a-c551ad7446bd', 'Skater con peso', 'Ejercicio de fuerza para el tren inferior', 'JfOu50OK9a4', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('54661849-67ec-48f1-a90e-c37522f0e7af', 'Puente de Gluteo Asimetrico', 'Configuración:
 -Acostarse en el suelo, mirando hacia arriba. 
 -Una rodilla flexionada y la otra semi-estirada, con los pies apoyados en el piso.
@@ -46,14 +46,14 @@ Ejecución:
 -Elevar la cadera, de modo que las rodillas y caderas se encuentren en una misma línea horizontal.
 -Aguantar arriba durante 1'''' y contraer los glúteos.
 -Evitar la hiperextensión de la columna.
--Al volver a la posición inicial, bajar la cadera de manera controlada.', '9-r_r2KlpI8', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Al volver a la posición inicial, bajar la cadera de manera controlada.', '9-r_r2KlpI8', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('b19721dc-8846-492f-a9b0-f42086dfd9e9', 'Sentadilla isometrica', 'Mantener las rodillas a 90 grados y la espalda completamente apoyada contra la pared', '-qXuHrdmk4g', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('b19721dc-8846-492f-a9b0-f42086dfd9e9', 'Sentadilla isometrica', 'Mantener las rodillas a 90 grados y la espalda completamente apoyada contra la pared', '-qXuHrdmk4g', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('2c43bdae-c530-4ae7-a126-ee1e927f7a14', 'Abducción de cadera Acostado con Tobillera', 'Configuración:
 Acostado, de manera lateral. 
 Flexionar la pierna de base a 90º y mantener la pierna contraria estirada.
@@ -61,24 +61,24 @@ Colocar una tobillera en cada pierna.
 
 Ejecuccion: 
 Realizar una abducción lateral, manteniendo la pierna estirada. 
-Volver al punto de inicio, contactando el pie con el suelo.', 'n43TRof0MwU', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+Volver al punto de inicio, contactando el pie con el suelo.', 'n43TRof0MwU', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('c9f392e1-2221-47a6-a187-789dabc65ed8', 'Apertura de hombros c/ banda', NULL, 'k4SJcYp3cuk', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('c9f392e1-2221-47a6-a187-789dabc65ed8', 'Apertura de hombros c/ banda', NULL, 'k4SJcYp3cuk', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('2fd2a01d-70cd-4313-acc4-c96adbd71038', 'Flexiones de Brazos Cerradas', 'Configuración:
 -Ubicar el cuerpo boca abajo con las piernas juntas y estiradas. 
 -Ubicar los brazos estirados por dentro de la anchura de los hombros.
 
 Instrucciones:
 -Flexionar los codos  en un angulo de 45º, con la intención de llevar el pecho a al suelo. 
--Mantener una línea recta a lo largo de toda la trayectoria de movimiento.', 'Lz1aFtuNvEQ', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Mantener una línea recta a lo largo de toda la trayectoria de movimiento.', 'Lz1aFtuNvEQ', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('e26cd601-0e6f-4f44-a3a2-07a236f54cad', 'Fondos estrictos con carga', 'Configuración:
 -Comenzar con los brazos estirados sobre la barra.
 -Sostener el peso entre las piernas o en un cinturón.
@@ -86,10 +86,10 @@ VALUES ('e26cd601-0e6f-4f44-a3a2-07a236f54cad', 'Fondos estrictos con carga', 'C
 Ejecución:
 -Iniciar el movimiento empujando los codos hacia atrás.
 -Ubicar los hombros debajo de los codos en la parte inferior.
--Descender la cadera por debajo de la barra.', 'QGcbSt4NSC0', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Descender la cadera por debajo de la barra.', 'QGcbSt4NSC0', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('01ca81d4-8e81-4595-ac5a-59669b51c446', 'Aperturas Planas con Mancuernas', 'Configuracion:
 - Acostado boca arriba en un banco plano.
 - Apoyo de Gluteo, escapula y pies sobre el suelo.
@@ -100,10 +100,10 @@ Ejecucion:
 - Separar lo brazos, moviendolos en centidos opuestos.
 - Durante el recorrido semi-flexionar el codo.
 - Abrir los brazos esta alinearse con el tronco.
-- Volver a la posicion inicial, juntando los brazos y extendiendo el codo al final.', 'z8juzhSsFKU', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+- Volver a la posicion inicial, juntando los brazos y extendiendo el codo al final.', 'z8juzhSsFKU', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('58fb0ac9-c454-4217-a72b-67e3e942a2a1', 'Sentadilla Copa (Enfocada en Cuádriceps)', 'Configuración:
 - Apoyar ambos talones sobre un disco.
 - De pie, piernas juntas.
@@ -112,14 +112,14 @@ VALUES ('58fb0ac9-c454-4217-a72b-67e3e942a2a1', 'Sentadilla Copa (Enfocada en Cu
 Ejecución: 
 - Realizar una flexión de rodillas, llevando la cadera hacia atrás.
 - Centrar el punto de apoyo en los talones de los pies.
-- Llegar a los 90º y volver al punto de inicio.', 'UZvdUM3kBSc', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+- Llegar a los 90º y volver al punto de inicio.', 'UZvdUM3kBSc', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('ba53fc0a-ff13-4eb5-ae7a-d3d50a15dadd', 'Cruce de polea bajo', NULL, 'nP9KArjEDeU', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('ba53fc0a-ff13-4eb5-ae7a-d3d50a15dadd', 'Cruce de polea bajo', NULL, 'nP9KArjEDeU', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('6dee16eb-63e0-4a2b-a10d-32f4f6e6e080', 'Press Frances con Barra EZ en Banco Plano', 'Configuración:
 -Ubicarse acostado en un banco plano.
 -Piernas al ancho de caderas.
@@ -127,23 +127,23 @@ VALUES ('6dee16eb-63e0-4a2b-a10d-32f4f6e6e080', 'Press Frances con Barra EZ en B
 
 Ejecución:
 -Flexionar los codos llevándolos a la altura de la frente.
--Volver a la posición inicial, extendiendo los brazos.', 'l3rHYPtMUo8', '{"Brazos"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Volver a la posición inicial, extendiendo los brazos.', 'l3rHYPtMUo8', '{"Brazos"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('a53f51bf-55b3-4629-a795-1dba2fb9986e', 'Sillon de Cuadriceps', 'Configuración:
 - Sentarse sobre el sillón de cuádriceps.
 - Pies posicionados por debajo del rodillo con puntas direccionadas hacia arriba.
 
 Ejecución: 
-- Realizar una extensión de rodilla y luego regresar al punto de inicio.', 'MpEydcQ1oDw', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+- Realizar una extensión de rodilla y luego regresar al punto de inicio.', 'MpEydcQ1oDw', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('ed06151d-8e3c-405f-ae17-1e955e962439', 'Rotaciones torácicas arrodillado', NULL, 'pvWRd-JinBs', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('ed06151d-8e3c-405f-ae17-1e955e962439', 'Rotaciones torácicas arrodillado', NULL, 'pvWRd-JinBs', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('3473c3f2-f239-4d69-a62a-d8abb92ff936', 'Plancha Toco Hombro', 'Configuración:
 -Ubicar el cuerpo boca abajo en el suelo con los brazos extendidos.
 -Piernas al ancho de cadera.
@@ -153,10 +153,10 @@ Ejecucción:
 -Mantener la posición de plancha.
 -Quitar un brazo y tocar el hombro contrario al de ejecucción.
 -Volver a colocar el apoyo.
--Repetir con el brazo contrario el mismo movimiento.', 'D5bBXAew8Es', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Repetir con el brazo contrario el mismo movimiento.', 'D5bBXAew8Es', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('f2b732c6-623d-4def-ac84-9f6fe940d3a8', 'Press Plano con Barra', 'Configuración:
 - Acostarse boca arriba sobre banco plano.
 - Puntos de apoyo en pies, glúteos y escapular.
@@ -167,10 +167,10 @@ Ejecución:
 - Sacar barra del soporte.
 - Tomar aire y bajar barra direccionada al pecho.
 - Codos a 45 grados en movimiento de bajada y subida.
-- Levantar la barra hacia el punto de inicio.', 'EsTu2NVM1EI', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+- Levantar la barra hacia el punto de inicio.', 'EsTu2NVM1EI', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', true)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('0bdd3b1c-26fe-4c7c-abf7-aa59c486ff43', 'Press Inclinado con Mancuernas', 'Configuración:
 Acostarse boca arriba sobre banco plano.
 Puntos de apoyo en pies, glúteos y escapular.
@@ -182,38 +182,38 @@ Ejecución:
 Bajar las mancuernas a la parte inferior de los pectorales.
 Permanecer con los pies en el suelo.
 Ajustar los glúteos en contacto con el banco, durante todo el movimiento.
-Subir las mancuernas, hasta alinear las mueñcas con los hombros.', 'jMQA3XtJSgo', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+Subir las mancuernas, hasta alinear las mueñcas con los hombros.', 'jMQA3XtJSgo', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('1213e846-0ff9-4750-a129-31a242ef5356', 'Press francés con mancuernas en banco plano', NULL, 'Rn6LgSEPsDc', '{"Brazos"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('1213e846-0ff9-4750-a129-31a242ef5356', 'Press francés con mancuernas en banco plano', NULL, 'Rn6LgSEPsDc', '{"Brazos"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('c7521ded-a63c-48fc-a019-f01872eb3f5c', 'Curl Concentrado', 'Configuracion:
 -Sentarse en un banco y ubicar el brazo extendido sobre el aductor sosteniendo la mancuerna.
 Ejecucion:
--Flexionar el codo elevando la mancuerna hacia la cadera y descender de manera controlada.', 'GnSwYWNgWuk', '{"Brazos"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Flexionar el codo elevando la mancuerna hacia la cadera y descender de manera controlada.', 'GnSwYWNgWuk', '{"Brazos"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('72c7a0d9-3341-4b2a-a987-3de8a62a09a2', 'Extension de triceps barra V', 'Ejercicio para aislar los triceps', 'v7f6PjSAO-4', '{"Brazos"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('72c7a0d9-3341-4b2a-a987-3de8a62a09a2', 'Extension de triceps barra V', 'Ejercicio para aislar los triceps', 'v7f6PjSAO-4', '{"Brazos"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('ad020a89-eea0-43ff-abea-bc1fcc47c7fa', 'Mariposa para Hombros Posteriores', 'Configuración:
 -Regular el asiento de la máquina de modo que los pies esten en contacto con el suelo.
 -Sentarse con el torso apoyado en el respaldo y tomar las manijas de los costados de modo que los codos queden levemente flexionados, utilizando un agarre neutro. 
 Ejecución:
 - Realizar aperturas laterales de ambos brazos de manera simultánea, de modo que las manos se alineen con los hombros.
--Volver al punto de inicio.', 'VpTc5ACO0Qc', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Volver al punto de inicio.', 'VpTc5ACO0Qc', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('14919757-ac5b-4b1b-a00c-13c0e2439178', 'Press militar c/ banda', NULL, '5_hYNIjsSvs', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('14919757-ac5b-4b1b-a00c-13c0e2439178', 'Press militar c/ banda', NULL, '5_hYNIjsSvs', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('b8e0e509-955b-402e-abd8-ae16eade90a5', 'Press Plano con Barra + Pausa (1",2",3")', 'Configuración:
 - Acostarse sobre banco plano
 - puntos de apoyo en pies, glúteos y escapulas.
@@ -222,44 +222,44 @@ Ejecución:
 - Realizar una retracción escapular.
 - Sacar la barra del soporte y bajarla direcciona hacia el pecho.
 - Aguantar 1,2,3 segundo en el pecho. 
-- Volver al punto de inicio.', 'NudCjXj1R2M', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+- Volver al punto de inicio.', 'NudCjXj1R2M', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', true)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('db7e7fc2-7599-4133-a380-293324b5fd94', 'APERTURA EN MAQUINA', '-Mantene el codo levemente flexionado durante todo el recorrido', 'kUTbYC_8Zg4', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('db7e7fc2-7599-4133-a380-293324b5fd94', 'APERTURA EN MAQUINA', '-Mantene el codo levemente flexionado durante todo el recorrido', 'kUTbYC_8Zg4', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('e979e45c-166c-4d5e-ab2b-26db8f6b9430', 'Press militar en guia', 'Colocar la guia a la altura de nuestras claviculas. Con un banco con espaldar recto, colocarnos bajo la guia y empujar hacia arriba. Descender hasta que la guía vuelva a la posición inicial para finalizar la repetición.', 'ia4NTz2XIQA', '{"Hombros"}', '{"Hombro anterior"}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('e979e45c-166c-4d5e-ab2b-26db8f6b9430', 'Press militar en guia', 'Colocar la guia a la altura de nuestras claviculas. Con un banco con espaldar recto, colocarnos bajo la guia y empujar hacia arriba. Descender hasta que la guía vuelva a la posición inicial para finalizar la repetición.', 'ia4NTz2XIQA', '{"Hombros"}', '{"Hombro anterior"}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('943ba0d9-6b8b-4df9-a828-ba7a4a9c23eb', 'Vuelos laterales con mancuernas', 'Ejercicio para aislar la cara media del deltoides.', 'FIQt9pqinXc', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('943ba0d9-6b8b-4df9-a828-ba7a4a9c23eb', 'Vuelos laterales con mancuernas', 'Ejercicio para aislar la cara media del deltoides.', 'FIQt9pqinXc', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('cd9e0518-3ee7-4b79-a592-125796eaf724', 'Dorsiflexion y movilidad de cadera', 'Ejercicio para la movilidad del tobillo y la cadera', 'mBppBW8mob8', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('cd9e0518-3ee7-4b79-a592-125796eaf724', 'Dorsiflexion y movilidad de cadera', 'Ejercicio para la movilidad del tobillo y la cadera', 'mBppBW8mob8', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('7b6143fa-6c2a-45f5-a9be-abd7954160a4', 'Plancha baja + plancha alta', 'Ejercicio de activación', '2sYoLRFTkxQ', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('7b6143fa-6c2a-45f5-a9be-abd7954160a4', 'Plancha baja + plancha alta', 'Ejercicio de activación', '2sYoLRFTkxQ', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('ed40902f-15c4-4b48-a6ca-8de025514c76', 'Fondos Paralelas Asistido con Maquina', 'Configuración:
 Ubicar ambos pies sobre la plataforma, manteniendo las piernas estiradas.
 Tomar cada manija con agarre neutro.
 
 Ejecución:
 Descender de manera controlada, llevando los codos hacia atrás e inclinando el torso levemente hacia adelante.
-Volver al punto de inicio.', 'zQ9ELqwBgAE', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+Volver al punto de inicio.', 'zQ9ELqwBgAE', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('7277039e-6d8d-4d6f-afcd-ed44b3020fca', 'Press plano con mancuernas', NULL, 'qW519gsE2M8', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('7277039e-6d8d-4d6f-afcd-ed44b3020fca', 'Press plano con mancuernas', NULL, 'qW519gsE2M8', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('21311af0-704c-41ff-a074-16a956fda259', 'Prensa 45°', 'Configuración:
 -Sentado en la máquina, con la cabeza, la espalda, las caderas, y las nalgas presionando por igual contra sus respectivos apoyos almohadillados.
 -Si el ángulo del respaldo es ajustable, moverlo
@@ -283,89 +283,89 @@ conseguir).
 4. Los talones se separan de la plataforma de los pies.
 
 -Empujar hacia arriba y controladamente de los pies extendiendo las caderas y las rodillas. 
--Continuar empujando hacia arriba hasta que las rodillas estén estiradas por completo, pero sin bloquearlas forzadamente.', 'yZmx_Ac3880', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Continuar empujando hacia arriba hasta que las rodillas estén estiradas por completo, pero sin bloquearlas forzadamente.', 'yZmx_Ac3880', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('f0ec50f8-cd75-4d67-a66c-7b371f043aee', 'Remo al mentón c/ pesa rusa', NULL, '6iybrrctpjs', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('f0ec50f8-cd75-4d67-a66c-7b371f043aee', 'Remo al mentón c/ pesa rusa', NULL, '6iybrrctpjs', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('991f6823-5969-4f2d-afe0-e6b703206936', 'Sentadilla skater facilitada', 'Ejercicio progresivo de fuerza para el tren inferior', 'eCrJf80jyWo', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('991f6823-5969-4f2d-afe0-e6b703206936', 'Sentadilla skater facilitada', 'Ejercicio progresivo de fuerza para el tren inferior', 'eCrJf80jyWo', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('c530e026-700b-4a56-ab65-f41c588337e2', 'Facepull parado con soga', 'Configuración:
 - De pie, frente a la polea.
 - Utilizar la soga agarrándola en pronación con los nudillos enfrentados.
 Ejecución:
 -Traccionar con los codos hacia atrás.
 -Realizar un ajuste escapular.
--Volver a a la posición incial.', '0Po47vvj9g4', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Volver a a la posición incial.', '0Po47vvj9g4', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('a36b7410-ba07-4def-ab5d-3069f5b2b2ff', 'Patada de gluteo diagonal', 'Ejercicio para aislar el gluteo medio', '1p1nU8CB98k', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('a36b7410-ba07-4def-ab5d-3069f5b2b2ff', 'Patada de gluteo diagonal', 'Ejercicio para aislar el gluteo medio', '1p1nU8CB98k', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('de50165c-084b-44d6-a57c-21b2d6d1f7ed', 'Extensiones de Espalda a 45°', 'Configuración:
 Colocar los pies en la base de un GHD y mantener la columna erguida pero levemente inclinada hacia adelante. 
 Ubicar los brazos por encima del pecho y piernas estiradas. 
 Ejecución:
 Iniciar el movimiento arqueando la espalda y mirando ligeramente hacia abajo.
-Volver al punto de inicio.', 'wmB_AETn1fs', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+Volver al punto de inicio.', 'wmB_AETn1fs', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('88152d73-de17-47a1-a635-f3438cea0c24', 'Angelitos acostado', 'Ejercicio de movilidad y activacion de la cintura escapular y los miembros superiores', 'xiaW-3YiYvU', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('88152d73-de17-47a1-a635-f3438cea0c24', 'Angelitos acostado', 'Ejercicio de movilidad y activacion de la cintura escapular y los miembros superiores', 'xiaW-3YiYvU', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('3652ccf8-63a6-4b5c-a242-638b3f187011', 'Plancha lateral c/ rotación', 'Configuración: 
 Apoyar un antebrazo en contacto con el suelo y mantener ambas piernas estiradas, una por encima de la otra.
 Ejecución:
 El brazo que ese encuentra estirado en línea con el hombro, llevarlo por debajo del cuerpo.
-Volver al punto de inicio.', 'RXlHKL_NEN8', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+Volver al punto de inicio.', 'RXlHKL_NEN8', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('64817423-63ce-45a1-a411-44d827c273b5', 'Rotaciones de hombro con disco', 'Ejercicio de resistencia para los hombros', 'ygvnl_u_nnA', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('64817423-63ce-45a1-a411-44d827c273b5', 'Rotaciones de hombro con disco', 'Ejercicio de resistencia para los hombros', 'ygvnl_u_nnA', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('f339d55c-0dfd-4f32-a75b-b069f2bb5975', 'Remo con barra desde rack', 'Ejercicio de fuerza máxima para los musculos de tracción', 'GXqSFyntKPo', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('f339d55c-0dfd-4f32-a75b-b069f2bb5975', 'Remo con barra desde rack', 'Ejercicio de fuerza máxima para los musculos de tracción', 'GXqSFyntKPo', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', true)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('476bfb69-21ef-4681-af65-ee8bf9f3990a', 'Estocadas Frontales con Barra', 'Configuración:
 -Colocar la barra por encima de los hombros.
 -Mantener un agarre frontal. 
 
 Ejecución:
 -Caminar hacia adelante, a traves de estocadas. 
--Mantener el torso sobre las caderas en todo momento.', 'nqTPrgqSuTI', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Mantener el torso sobre las caderas en todo momento.', 'nqTPrgqSuTI', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', true)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('fbc74266-fca5-41a3-a7fd-75d6482e73d6', 'Dominada al Pecho Supina', 'Configuración:
 Colgarse de la barra, con los brazos completamen estirados, sin apoyar los pies sobre el suelo.
 Ubicar los brazos ligeramente al ancho superior de hombros y utilizando un agarre supino.
 Ejecución:
 Realizar con potencia un tirón de brazos, el pecho debe tocar la barra.
 Los pies deben mantenerse al ancho de caderas, sin abrirse en exceso.
-Volver al punto de inicio.', 'kwdx1Kk-RDc', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+Volver al punto de inicio.', 'kwdx1Kk-RDc', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('84d87480-deea-4d89-ad9e-b2d0230154ea', 'Pullover en polea alta', 'Ejercicio para los dorsales', '5cqIDziQ5Ko', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('84d87480-deea-4d89-ad9e-b2d0230154ea', 'Pullover en polea alta', 'Ejercicio para los dorsales', '5cqIDziQ5Ko', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('65200d67-f176-45a0-aaca-f067d5257196', 'Curl 45°', 'Recostarse en un banco inclinado a 45° y dejar los brazos colgando a los costados para luego subir ambos hacia los hombros', 'aTYlqC_JacQ', '{"Brazos"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('65200d67-f176-45a0-aaca-f067d5257196', 'Curl 45°', 'Recostarse en un banco inclinado a 45° y dejar los brazos colgando a los costados para luego subir ambos hacia los hombros', 'aTYlqC_JacQ', '{"Brazos"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('7a38528b-9b84-4025-afe5-89570f647c73', 'Rotaciones toracicas en Cuadripedia', 'Configuración:
 -Colocar las manos, pies y rodillas en contacto con el suelo
 -Comenzar con los brazos extendidos.
@@ -376,18 +376,18 @@ Ejecución:
 -Colocar una mano contra la oreja.
 -Deje caer ese codo debajo del tronco, apuntando al espacio debajo de la axila opuesta.
 -Regresar a la posición inicial y continuar levantando el codo lo más alto posible.
--No mover las caderas durante todo el movimiento.', 's-lZ6VfElPo', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-No mover las caderas durante todo el movimiento.', 's-lZ6VfElPo', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('357e1785-c4af-4271-a03c-d561ffd51c3e', 'Press militar parado con barra', 'Con la barra colocada sobre nuestro pecho superior, tomar aire y apretar el abdomen. Empujar en linea vertical, evitando que la barra vaya hacia delante. Una vez la barra este arriba, debemos descenderla nuevamente hasta la posición inicial.', 'BjmI3A5_hWs', '{"Hombros"}', '{"Hombro anterior"}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('357e1785-c4af-4271-a03c-d561ffd51c3e', 'Press militar parado con barra', 'Con la barra colocada sobre nuestro pecho superior, tomar aire y apretar el abdomen. Empujar en linea vertical, evitando que la barra vaya hacia delante. Una vez la barra este arriba, debemos descenderla nuevamente hasta la posición inicial.', 'BjmI3A5_hWs', '{"Hombros"}', '{"Hombro anterior"}', '20685bca-6304-4e55-abba-37a1cf8f6113', true)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('b3a04a0b-91b0-4366-a359-0131acd6c084', 'Sentadilla sumo c/ barra', NULL, 'g2FBW50XRUg', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('b3a04a0b-91b0-4366-a359-0131acd6c084', 'Sentadilla sumo c/ barra', NULL, 'g2FBW50XRUg', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', true)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('0de62cb9-7f0d-406b-ac00-c6a1ef6f966c', 'Extension de Triceps Supino a un Brazo en Polea', 'Configuración:
 - De pie, al frente de una polea. Ubicar el agarre en la parte superior.
 - Utilizar un agarre unilateral con toma supina y flexionar el codo a 90º.
@@ -396,10 +396,10 @@ Ejecucción:
 -Realizar una extensión unilateral,  llevando la mano a la altura de la cadera.
 - Evitar despegar el codo cerca del cuerpo o balancearse.
 - Volver al punto de inicio.
-- Realizar las repeticiones estipuladas y cambiar de brazo.', '8EmiPnxZS4M', '{"Brazos"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+- Realizar las repeticiones estipuladas y cambiar de brazo.', '8EmiPnxZS4M', '{"Brazos"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('730a60f0-49ac-4384-acf7-9d4e2f4443c9', 'Sentadilla bulgara 90° con barra', 'Configuración:
 -Ubicar una barra en un rack o jaula.
 -Colocar la barra en la parte superior de los trapecios.
@@ -412,10 +412,10 @@ Ejecución:
 -Descender hasta que la rodilla trasera toque el suelo.
 -Descender con el torso recto. 
 -Mantener el talón en contacto con el suelo durante todo el movimiento.
--Volver a subir hasta extender completamente la cadera.', 'IJkhxApUqP4', '{"Piernas"}', '{"Glúteos"}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Volver a subir hasta extender completamente la cadera.', 'IJkhxApUqP4', '{"Piernas"}', '{"Glúteos"}', '20685bca-6304-4e55-abba-37a1cf8f6113', true)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('0342ef22-9092-4b15-adbf-6da9f445e82c', 'Rotaciones Dorsales', 'Configuración: 
 En posición de cuadrupedia, manos estiradas al ancho de hombros en contacto con el suelo.
 Cabeza en línea con la columna.
@@ -423,14 +423,14 @@ Ejecución:
 Realizar una rotación interna, de modo que un brazo estirado se ubique por debajo del hombro contario.
 El mismo brazo debe contactar con la colchenta.
 Luego realizar una rotación externa. 
-Volver al punto de inicio.', 'ds3umIYJDrE', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+Volver al punto de inicio.', 'ds3umIYJDrE', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('67947c59-3dec-4e04-ad24-0de994173179', 'Almeja isometrica con banda', 'Ejercicio de activación del gluteo medio', 'kTRkqjbKHGw', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('67947c59-3dec-4e04-ad24-0de994173179', 'Almeja isometrica con banda', 'Ejercicio de activación del gluteo medio', 'kTRkqjbKHGw', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('c0aaba94-49f3-4fe6-a36d-4ee942058882', 'Sentadilla Paralela Barra Baja al Cajon', 'Configuración:
 -Ubicar un banco plano o cajón  cerca de nuestro cuerpo
 -Colocar la barra en un rack o jaula de potencia justo por debajo de los hombros.
@@ -443,27 +443,27 @@ Ejecución:
 -Tomar la barra ubicada en el rack o jaula de potencia.
 -Colocar las piernas al ancho de caderas, con los dedos de los pies apuntando ligeramente hacia afuera.
 -Bajar la barra hasta llegar a sentarse en el cajón. 
--Volver a la posición inicial de manera controlada.', 'Rffukx_0--0', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Volver a la posición inicial de manera controlada.', 'Rffukx_0--0', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', true)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('608a25d1-0532-4acb-a633-5cc6ef1b0ae0', 'Dominada isométrica', NULL, 'bjGe73KUJWo', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('608a25d1-0532-4acb-a633-5cc6ef1b0ae0', 'Dominada isométrica', NULL, 'bjGe73KUJWo', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('7eeb358c-e230-4a46-abf2-a6526fc6dd2f', 'Camilla de Isquios', 'Configuración: 
 - Acostado sobre la camilla de isquiotibiales.
 - Talones ubicados por debajo del rodillo. 
 
 Ejecución: 
-- Realizar una flexión de rodilla, luego volver al punto de inicio.', 'SiwJ_T62l9c', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+- Realizar una flexión de rodilla, luego volver al punto de inicio.', 'SiwJ_T62l9c', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('b182cdf4-c36a-4a93-a855-b1bb1e93d1de', 'Remo gorila', 'Ejercicio de fuerza para los musculos de la espalda', 'eIM8d32x2Go', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('b182cdf4-c36a-4a93-a855-b1bb1e93d1de', 'Remo gorila', 'Ejercicio de fuerza para los musculos de la espalda', 'eIM8d32x2Go', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('b62de09b-26a9-4fe7-a1ef-30a61f725d58', 'Sentadilla bulgara 45° con mancuernas', 'Configuración:
 -Sostener una mancuerna en cada mano.
 -Los brazos permanecen rectos a los lados.
@@ -473,14 +473,14 @@ VALUES ('b62de09b-26a9-4fe7-a1ef-30a61f725d58', 'Sentadilla bulgara 45° con man
 Ejecución:
 -Descender hasta que la rodilla trasera toque el suelo o el pliegue de la cadera quede por debajo de la rodilla.
 -Mantener el talón en contacto con el suelo durante todo el movimiento.
--Volver a subir hasta extender completamente la cadera.', 'MGh5po3i5cE', '{"Piernas"}', '{"Glúteos"}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Volver a subir hasta extender completamente la cadera.', 'MGh5po3i5cE', '{"Piernas"}', '{"Glúteos"}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('75b64ec7-ba2d-4924-a6f0-37cbabe2fdaf', 'Sillon de cuadriceps unilateral', 'Ejercicio de fuerza para el cuadriceps', 'OhHvfoomEfY', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('75b64ec7-ba2d-4924-a6f0-37cbabe2fdaf', 'Sillon de cuadriceps unilateral', 'Ejercicio de fuerza para el cuadriceps', 'OhHvfoomEfY', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('fc5cbe0e-68a0-441f-ad3f-6e422a33c560', 'Flexiones de Brazos con Discos', 'Configuración:
 -Ubicar el cuerpo boca abajo con las piernas juntas y estiradas. 
 -Ubicar los brazos estirados a la altura de los hombros, sobre un superficie elevada. Mientras mayor inclinación, menor dificultad de ejecucción. 
@@ -488,14 +488,14 @@ VALUES ('fc5cbe0e-68a0-441f-ad3f-6e422a33c560', 'Flexiones de Brazos con Discos'
 Instrucciones:
 -Flexionar los codos en un angulo de 45º, con la intención de llevar el pecho a la superficie seleccionada. 
 -Una vez completado el rango de moviemiento, extender los codos. 
--Mantener una línea recta a lo largo de toda la trayectoria de movimiento.', 'KadL9HpmWSg', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Mantener una línea recta a lo largo de toda la trayectoria de movimiento.', 'KadL9HpmWSg', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('0a2c2da5-3f3d-4e25-a800-e1fcce32a646', 'Fondos con pausa', 'Ejercicio para los pectorales y triceps', 'WBQqSX1vy3A', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('0a2c2da5-3f3d-4e25-a800-e1fcce32a646', 'Fondos con pausa', 'Ejercicio para los pectorales y triceps', 'WBQqSX1vy3A', '{"Pecho"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('c5d56949-3a06-4168-a087-9ea2e8bceafb', 'Sentadilla con Barra', 'Configuración:
 -Colocar la barra en un rack o jaula de potencia justo por debajo de los hombros.
 -Ubicar la barra en la parte superior de los omoplatos. 
@@ -506,38 +506,38 @@ Ejecución:
 -Alejarse del soporte del rack o jaula.
 -Colocar las piernas al ancho de caderas, con los dedos de los pies apuntando ligeramente hacia afuera.
 -Bajar la barra hasta llegar a la posición de cuclillas.
--Volver a la posición inicial de manera controlada.', 'rrJIyZGlK8c', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Volver a la posición inicial de manera controlada.', 'rrJIyZGlK8c', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', true)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('81707c19-53dd-4f84-a9f2-dc88cdc057cb', 'Step Up Contralateral', NULL, '7kf18bICPUM', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('81707c19-53dd-4f84-a9f2-dc88cdc057cb', 'Step Up Contralateral', NULL, '7kf18bICPUM', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('15892e3e-1567-433d-ad74-dc6cf9adc272', 'Abdominales Acostado con Disco', 'Configuración:
 Acostado en una colchoneta, con las piernas al ancho de caderas.
 Tomar un disco con los brazos estirados entre ambas manos.
 
 Ejecución:
 Elevar el torso hacia adelante, manteniendo la espalda erguida. 
-Volver al punto de inicio de manera controlada, apoyando la espalda baja primero.', 'y-BkLY8jyuw', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+Volver al punto de inicio de manera controlada, apoyando la espalda baja primero.', 'y-BkLY8jyuw', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('050c8756-5f7f-4cc9-a323-3aeae589c753', 'Russian Twist c/ Mancuerna', NULL, 'Tau0hsW8iR0', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('050c8756-5f7f-4cc9-a323-3aeae589c753', 'Russian Twist c/ Mancuerna', NULL, 'Tau0hsW8iR0', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('0c9d22aa-370c-41a4-a781-2b79c714cd62', 'Caminata Lateral en Sentadilla', 'Configuración:
 Piernas flexionadas a 90º, al ancho de caderas.
 Brazos al costado del cuerpo o juntos. 
 
 Ejecución:
 Realizar pasos laterales ampliando el ancho de caderas, manteniendo la posición de sentadilla. 
-Volver al punto de inicio.', 'g78CxAtjkCE', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+Volver al punto de inicio.', 'g78CxAtjkCE', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('90076515-125a-4b30-a030-98748a900baa', 'Plancha Frontal desplazando Elemento', 'Configuración:
 -Ubicar el cuerpo boca abajo con los brazos estirados.
 -Colocar una sola mancuerna de peso ligero/moderado a su lado.
@@ -547,14 +547,14 @@ Ejecución:
 -Comenzar con una mancuerna en el lado derecho del cuerpo.
 -Con la mano izquierda, agarrar la mancuerna.
 -Colocar la mancuerna del lado izquierdo y volver a la posición de plancha.
--Ahora realizar el mismo movimiento en el lado opuesto.', 'aFrXv1bdioY', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Ahora realizar el mismo movimiento en el lado opuesto.', 'aFrXv1bdioY', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('3beb9f1d-351f-4437-a83a-3d67637848fe', 'Hip thrust en maquina', 'Ejercicio de hipertrofia para la cadena posterior', 'Xk8ZEl4i_O8', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('3beb9f1d-351f-4437-a83a-3d67637848fe', 'Hip thrust en maquina', 'Ejercicio de hipertrofia para la cadena posterior', 'Xk8ZEl4i_O8', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('7d4702d4-35ae-47b8-a737-c6c00b78d5de', 'Peso Muerto Rumano a una Pierna con Manc.', 'Configuración:
 -Mantener las mancuernas cerca del cuerpo.
 -Comenzar con el apoyo de un solo pie, con las mancuernas en ambas manos.
@@ -565,10 +565,10 @@ Ejecución:
 -Bajar las mancuernas pegadas al cuerpo.
 -Mantener la columna neutra. 
 -Regresar extendiendo la cadera.
--Completar las repeticiones estipuladas y cambiar de pierna.', 'PHZ-RBb8KYc', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Completar las repeticiones estipuladas y cambiar de pierna.', 'PHZ-RBb8KYc', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('d514bf7c-c4c5-4a26-a153-b20cd4ca017f', 'Patada de gluteo lateral en polea', 'Configuración: 
 - De pie, posicionado de costado a la polea.
 - Tobillera puesta en la pierna que va a ejecutar el movimiento.
@@ -577,20 +577,20 @@ VALUES ('d514bf7c-c4c5-4a26-a153-b20cd4ca017f', 'Patada de gluteo lateral en pol
 
 Ejecución: 
 - Realizar una patada lateral hacia el costado contrario a la polea.
-- Volver al punto de inicio.', 'vSqhrbzZb7A', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+- Volver al punto de inicio.', 'vSqhrbzZb7A', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('c6a5debf-dc7b-4d33-a607-05658a33008b', 'Despliegue c/ rueda abdominal', 'Configuración:
 Boca abajo, con el apoyo de ambas rodillas flexionadas.
 Comenzar con las manos estiradas sosteniendo la rueda abdominal.
 La espalda lumbar se encuentra redondeada. 
 Ejecución:
 Rolar la rueda hacia adelante, de modo que nuestra espalda pueda seguir manteniendo la misma curva, hasta contactar el pecho con el suelo.
-Volver a la posición de inicio.', 'DA2QGI0NPWU', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+Volver a la posición de inicio.', 'DA2QGI0NPWU', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('16ca8589-d145-475a-a3f6-b37e7cbb71fd', 'Sentadilla Aerea', 'Configuración:
 -Pies al ancho de caderas.
 -Puntas de los pies levemente hacia afuera.
@@ -598,10 +598,10 @@ VALUES ('16ca8589-d145-475a-a3f6-b37e7cbb71fd', 'Sentadilla Aerea', 'Configuraci
 
 Ejecución:
 -Bajar hasta llegar a la posición de cuclillas.
--Volver a la posición inicial de manera controlada.', 'hOzIP_sDfU0', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Volver a la posición inicial de manera controlada.', 'hOzIP_sDfU0', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('a0da644a-198d-4b0f-a286-56efcd318e13', 'Remo Inclinado Agarre Prono con Barra', 'Configuracion:
 -Los pies a la ancho de los hombros, hacer peso muerto con la barra para iniciar el ejercicio.
 -Mantenga ambas manos en un agarre prono (las palmas hacia el cuerpo) con las manos mayor al ancho de los hombros.
@@ -611,10 +611,10 @@ Ejecución:
 -Bisagra en la cadera, desplazando las caderas hacia atrás.
 -Continuar hasta que el pecho quede en frente al suelo o paralelo.
 -Tirar de los codos hacia atrás y juntos hasta que la barra llegue a la parte superior de los abdominales o boca del estomago.
--Volver a la posición inicial.', 'GIqICKwpUHw', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Volver a la posición inicial.', 'GIqICKwpUHw', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', true)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('3b1647e1-5771-4b74-aaf3-5c72df77affd', 'Remo unilateral con Giro de Torso', 'Ejecución:
 Utilizar un banco plano para apoyar un brazo y una pierna del mismo lado.
 Pierna contraria estirada, y brazo estirado con una mancuerna.
@@ -622,10 +622,10 @@ Pierna contraria estirada, y brazo estirado con una mancuerna.
 Configuración:
 Llevar un brazo hacia atrás a la altura del pectoral.
 Rotar levemente el torso.
-Volver a la posición inicial.', 'OJqzswBViq0', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+Volver a la posición inicial.', 'OJqzswBViq0', '{"Espalda"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('582fc07a-e7e0-4366-aa3b-93ff2f6b3a6e', 'Estocadas Isometricas', 'Configuración:
 - De pie, al ancho de caderas.
 
@@ -633,14 +633,14 @@ Ejecución:
 - Realizar un paso hacia adelante y flexionar una rodilla a 90 grados.
 -Pierna de atrás en la misma posición. 
 - Mantener la cantidad de segundos estipulados. 
--Alternar de pierna.', '869fS-uDgz0', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Alternar de pierna.', '869fS-uDgz0', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('77d7856b-6957-4ac3-a46c-fbfdacdd51b9', 'Sentadilla + bisagra', 'Ejercicio de movilidad para tren inferior', 'TMjo01fOESs', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('77d7856b-6957-4ac3-a46c-fbfdacdd51b9', 'Sentadilla + bisagra', 'Ejercicio de movilidad para tren inferior', 'TMjo01fOESs', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('a68fe779-de36-4690-af14-366be05f62c7', 'Sentadilla Frontal agarre cruzado', 'Configuración:
 -Colocar la barra en un rack o jaula de potencia justo por debajo de los hombros.
 -Apoyar la barra en los hombros, con los brazos cruzados. 
@@ -652,26 +652,26 @@ Ejecución:
 -Alejarse del soporte del rack o jaula.
 -Colocar las piernas al ancho de las caderas, con los dedos de los pies apuntando ligeramente hacia afuera.
 -Bajar la barra hasta llegar a la posición de cuclillas.
--Volver a la posición inicial de manera controlada.', 'Ceh8f8pIeKY', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Volver a la posición inicial de manera controlada.', 'Ceh8f8pIeKY', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', true)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('d1558a7b-c764-4e2e-ac0f-91d4d347f3f7', 'Sentadilla lateral', 'Ejercicio de fuerza para el tren inferior', 'XRT7wdEqJ1I', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('d1558a7b-c764-4e2e-ac0f-91d4d347f3f7', 'Sentadilla lateral', 'Ejercicio de fuerza para el tren inferior', 'XRT7wdEqJ1I', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('4ce4faee-0b2b-43b7-acc8-95838b4c9e97', 'Aduccion en maquina', 'En maquina para aducción, buscar juntar las piernas focalizando el trabajo en aductores', 'd5DW2sBKxog', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('4ce4faee-0b2b-43b7-acc8-95838b4c9e97', 'Aduccion en maquina', 'En maquina para aducción, buscar juntar las piernas focalizando el trabajo en aductores', 'd5DW2sBKxog', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('bcbac147-2a78-4063-a6af-f2386f2f06b3', 'Movilidad de tobillo en sentadilla', 'Ejercicio de movilidad para el tren inferior', 'weC9PRj6n3U', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('bcbac147-2a78-4063-a6af-f2386f2f06b3', 'Movilidad de tobillo en sentadilla', 'Ejercicio de movilidad para el tren inferior', 'weC9PRj6n3U', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('2c2c63b9-5ebe-4128-a543-a82360a9ccbb', 'Sentadilla frontal con mochila', NULL, 'Pgj8OXPRHjA', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('2c2c63b9-5ebe-4128-a543-a82360a9ccbb', 'Sentadilla frontal con mochila', NULL, 'Pgj8OXPRHjA', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('d6b0e0d9-5d7e-46f6-a369-c10370bcfd82', 'Flexiones de brazos', 'Configuración:
 -Ubicar el cuerpo boca abajo con la rodillas apoyadas en el suelo y las piernas juntas. 
 -Ubicar los brazos estirados a la altura de los hombros, cerca del cuerpo.
@@ -680,10 +680,10 @@ Instrucciones:
 -Flexionar los codos en un angulo de 45º, con la intención de llevar el pecho al suelo.
 -Completar el rango total de movimiento, o llegar a los 90º, 
 -Extender los codos. 
--Mantener una línea recta a lo largo de toda la trayectoria de movimiento.', 'JhFCg91vXR0', '{"Pecho"}', '{"Hombro anterior","Triceps"}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Mantener una línea recta a lo largo de toda la trayectoria de movimiento.', 'JhFCg91vXR0', '{"Pecho"}', '{"Hombro anterior","Triceps"}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('8f58bf34-3e36-40d6-af71-8a72b35f2d70', 'Sentadilla Bulgara con Peso Corporal', 'Configuración:
 -Los brazos permanecen rectos a los lados.
 -Una pierna da un paso largo hacia adelante al ancho de la cadera.
@@ -692,27 +692,27 @@ VALUES ('8f58bf34-3e36-40d6-af71-8a72b35f2d70', 'Sentadilla Bulgara con Peso Cor
 Ejecución:
 -Descender hasta que la rodilla trasera toque el suelo o el pliegue de la cadera quede por debajo de la rodilla.
 -Mantener el talón en contacto con el suelo durante todo el movimiento.
--Volver a subir hasta extender completamente la cadera.', 'kBQ1krvKFBU', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+-Volver a subir hasta extender completamente la cadera.', 'kBQ1krvKFBU', '{"Piernas"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
 VALUES ('bfb24d47-2238-46ed-a6d7-84d0688e4d91', 'Remo al Mentón+ Press de Hombro c/ Banda', 'Configuración: 
 De pie, al ancho de caderas.
 Ubicar una banda circular de tensión baja, en el soporte inferior de una columna.
 Colocar las manos al ancho de hombros.
 Ejecución:
 Realizar una tracción llevando ambos codos hacia atrás y luego realizando un press por encima de la cabeza. 
-Volver al punto de inicio.', 'YE70G9abE98', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+Volver al punto de inicio.', 'YE70G9abE98', '{"Hombros"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('da13c7ce-3660-4344-ada1-9e4fa2735c30', 'Abdominales acordeón', NULL, 'rBihuuvVMaM', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('da13c7ce-3660-4344-ada1-9e4fa2735c30', 'Abdominales acordeón', NULL, 'rBihuuvVMaM', '{"Core"}', '{}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
-INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por)
-VALUES ('208d5c64-957b-4fcf-ab4c-08c22ac26453', 'Plancha 4 apoyos', NULL, 'tdQL8yQ6fQE', '{"Core"}', '{"Lumbares"}', '20685bca-6304-4e55-abba-37a1cf8f6113')
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
+INSERT INTO public.ejercicios (id, nombre, comentario, url_video, musculos_principales, musculos_secundarios, creado_por, usa_barra)
+VALUES ('208d5c64-957b-4fcf-ab4c-08c22ac26453', 'Plancha 4 apoyos', NULL, 'tdQL8yQ6fQE', '{"Core"}', '{"Lumbares"}', '20685bca-6304-4e55-abba-37a1cf8f6113', false)
 ON CONFLICT (nombre) DO UPDATE SET
-  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, updated_at = now();
+  comentario = EXCLUDED.comentario, url_video = EXCLUDED.url_video, musculos_principales = EXCLUDED.musculos_principales, musculos_secundarios = EXCLUDED.musculos_secundarios, usa_barra = EXCLUDED.usa_barra, updated_at = now();
 
 -- 3. Creación Silenciosa de Alumnos en auth.users y public.perfiles
 INSERT INTO auth.users (
