@@ -351,14 +351,14 @@ isOneToOne: false
                   ]
                 },"ejercicios": {
                   Row: {
-                    "comentario": string | null,"creado_por": string | null,"created_at": string,"id": string,"musculos_principales": (string)[],"musculos_secundarios": (string)[],"nombre": string,"updated_at": string,"url_video": string | null
+                    "comentario": string | null,"creado_por": string | null,"created_at": string,"id": string,"musculos_principales": (string)[],"musculos_secundarios": (string)[],"nombre": string,"updated_at": string,"url_video": string | null,"usa_barra": boolean
                   }
                   ComputedFields: never
                   Insert: {
-                    "comentario"?: string | null,"creado_por"?: string | null,"created_at"?: string,"id"?: string,"musculos_principales"?: (string)[],"musculos_secundarios"?: (string)[],"nombre": string,"updated_at"?: string,"url_video"?: string | null
+                    "comentario"?: string | null,"creado_por"?: string | null,"created_at"?: string,"id"?: string,"musculos_principales"?: (string)[],"musculos_secundarios"?: (string)[],"nombre": string,"updated_at"?: string,"url_video"?: string | null,"usa_barra"?: boolean
                   }
                   Update: {
-                    "comentario"?: string | null,"creado_por"?: string | null,"created_at"?: string,"id"?: string,"musculos_principales"?: (string)[],"musculos_secundarios"?: (string)[],"nombre"?: string,"updated_at"?: string,"url_video"?: string | null
+                    "comentario"?: string | null,"creado_por"?: string | null,"created_at"?: string,"id"?: string,"musculos_principales"?: (string)[],"musculos_secundarios"?: (string)[],"nombre"?: string,"updated_at"?: string,"url_video"?: string | null,"usa_barra"?: boolean
                   }
                   Relationships: [
                     {

@@ -12,7 +12,8 @@ INSERT INTO public.ejercicios (
   comentario,
   url_video,
   musculos_principales,
-  musculos_secundarios
+  musculos_secundarios,
+  usa_barra
 )
 VALUES
   (
@@ -21,7 +22,8 @@ VALUES
     'Sentadilla trasera con barra (Back Squat). Mantener el torso neutro, rodillas alineadas con la punta de los pies y romper el paralelo.',
     'ultWZbUMPL8',
     ARRAY['Cuádriceps', 'Glúteos'],
-    ARRAY['Isquiotibiales', 'Erectores espinales', 'Core']
+    ARRAY['Isquiotibiales', 'Erectores espinales', 'Core'],
+    true
   ),
   (
     '11111111-1111-4111-8111-111111111102',
@@ -29,7 +31,8 @@ VALUES
     'Press de banca plano con barra olímpica. Retracción escapular firme, pies apoyados en el suelo y control excéntrico hasta tocar el esternón.',
     'rT7DgCr-3pg',
     ARRAY['Pectoral mayor'],
-    ARRAY['Tríceps braquial', 'Deltoides anterior']
+    ARRAY['Tríceps braquial', 'Deltoides anterior'],
+    true
   ),
   (
     '11111111-1111-4111-8111-111111111103',
@@ -37,7 +40,8 @@ VALUES
     'Peso muerto convencional con barra. Barra pegada a las tibias, activación dorsal (romper la barra) y empuje de suelo sin hiperextender la zona lumbar.',
     'op9kVnSso6Q',
     ARRAY['Isquiotibiales', 'Glúteos', 'Erectores espinales'],
-    ARRAY['Dorsal ancho', 'Trapecio', 'Antebrazos', 'Core']
+    ARRAY['Dorsal ancho', 'Trapecio', 'Antebrazos', 'Core'],
+    true
   ),
   (
     '11111111-1111-4111-8111-111111111104',
@@ -45,7 +49,8 @@ VALUES
     'Press vertical de pie con barra (Overhead Press). Contraer glúteos y abdomen para evitar compensación lumbar; bloquear codos sobre la corona.',
     '2yjwXTZQDDI',
     ARRAY['Deltoides anterior', 'Deltoides lateral'],
-    ARRAY['Tríceps braquial', 'Trapecio superior', 'Core']
+    ARRAY['Tríceps braquial', 'Trapecio superior', 'Core'],
+    true
   ),
   (
     '11111111-1111-4111-8111-111111111105',
@@ -53,13 +58,15 @@ VALUES
     'Dominadas pronas en barra fija. Iniciar el gesto con depresión escapular y traccionar llevando el pecho hacia la barra en rango completo.',
     'eGo4IYlbE5g',
     ARRAY['Dorsal ancho', 'Redondo mayor'],
-    ARRAY['Bíceps braquial', 'Romboides', 'Trapecio medio', 'Core']
+    ARRAY['Bíceps braquial', 'Romboides', 'Trapecio medio', 'Core'],
+    false
   )
 ON CONFLICT (nombre) DO UPDATE SET
   comentario = EXCLUDED.comentario,
   url_video = EXCLUDED.url_video,
   musculos_principales = EXCLUDED.musculos_principales,
   musculos_secundarios = EXCLUDED.musculos_secundarios,
+  usa_barra = EXCLUDED.usa_barra,
   updated_at = now();
 
 -- 2. Plantilla Global de Plan de Entrenamiento (alumno_id = NULL)
