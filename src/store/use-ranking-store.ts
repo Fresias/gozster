@@ -4,6 +4,7 @@ import { userScopedStorage } from "@/lib/user-storage";
 import { supabase } from "@/lib/supabase/client";
 import { esUuid } from "@/lib/athlete/uuid";
 import { prsDeClasesDesdeVista } from "@/lib/ranking-prs";
+import type { RankingFuncionalFila } from "@/lib/mi-progreso";
 import type { Perfil, PrView, RankingPR, Reserva } from "@/types/database.types";
 
 export interface RankingCalculadoItem {
@@ -26,11 +27,49 @@ export interface ResultadoRanking {
   sinClasificar: RankingCalculadoItem[];
 }
 
+// Marca que no llegó al servidor (sin red o error): se reintenta al reconectar.
+export interface MarcaPendiente {
+  alumno_id: string;
+  ejercicio_id: string;
+  peso_kg: number;
+  reps: number;
+  fecha: string;
+  clase_id?: string;
+  peso_corporal_kg?: number;
+  sexo?: "M" | "F";
+}
+
+const hayRed = () => typeof navigator === "undefined" || navigator.onLine !== false;
+
+// Persiste una marca con registrar_marca_funcional (GOZS-824).
+async function enviarMarca(m: MarcaPendiente): Promise<{ ok: boolean; error?: string }> {
+  if (typeof supabase?.rpc !== "function") return { ok: false, error: "Cliente no disponible" };
+  try {
+    const { error } = await supabase.rpc("registrar_marca_funcional", {
+      p_alumno_id: m.alumno_id,
+      p_ejercicio_id: m.ejercicio_id,
+      p_peso_kg: m.peso_kg,
+      p_reps: m.reps,
+      p_fecha: m.fecha,
+      p_clase_id: m.clase_id && esUuid(m.clase_id) ? m.clase_id : undefined,
+      p_peso_corporal_kg: m.peso_corporal_kg,
+      p_sexo: m.sexo,
+    });
+    return error ? { ok: false, error: error.message } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Error de red" };
+  }
+}
+
 export interface RankingState {
   claseIdSeleccionada: string | null;
   ejercicioIdSeleccionado: string | null;
   prs: RankingPR[];
   perfilesActualizados: Record<string, { peso_corporal_kg?: number; sexo?: "M" | "F" }>;
+  pendientesMarcas: MarcaPendiente[];
+  rankingAlumno: RankingFuncionalFila[];
+  rankingAlumnoFecha: string | null;
+  cargandoRankingAlumno: boolean;
   cargando: boolean;
   guardandoPrId: string | null;
   error: string | null;
@@ -39,6 +78,8 @@ export interface RankingState {
   setClaseId: (id: string | null) => void;
   setEjercicioId: (id: string | null) => void;
   cargarPrsClase: (claseId: string, ejercicioId?: string) => Promise<void>;
+  cargarRankingAlumno: () => Promise<void>;
+  sincronizarMarcasPendientes: () => Promise<void>;
   registrarPr: (datos: {
     clase_id: string;
     alumno_id: string;
@@ -229,11 +270,28 @@ export function calcularRankingRelativo(params: {
 
 export const useRankingStore = create<RankingState>()(
   persist(
-    (set, get) => ({
+    (set, get) => {
+      // Envía la marca; sin red o con error la deja en cola y devuelve el aviso a mostrar.
+      // Ids que no son UUID (datos locales) no se persisten en el servidor.
+      const persistirMarca = async (m: MarcaPendiente): Promise<Partial<RankingState> | null> => {
+        if (!esUuid(m.alumno_id) || !esUuid(m.ejercicio_id) || m.peso_kg <= 0) return null;
+        const conRed = hayRed();
+        const r = conRed ? await enviarMarca(m) : { ok: false, error: "Sin conexión" };
+        if (r.ok) return null;
+        set((state) => ({ pendientesMarcas: [...state.pendientesMarcas, m] }));
+        return conRed
+          ? { error: `No se pudo guardar en el servidor: ${r.error ?? "error"}. Se reintenta al reconectar.` }
+          : { aviso: "Sin conexión: la marca se sincroniza al reconectar." };
+      };
+      return {
       claseIdSeleccionada: null,
       ejercicioIdSeleccionado: null,
       prs: [],
       perfilesActualizados: {},
+      pendientesMarcas: [],
+      rankingAlumno: [],
+      rankingAlumnoFecha: null,
+      cargandoRankingAlumno: false,
       cargando: false,
       guardandoPrId: null,
       error: null,
@@ -295,6 +353,44 @@ export const useRankingStore = create<RankingState>()(
         }
       },
 
+      cargarRankingAlumno: async () => {
+        if (typeof supabase?.rpc !== "function" || !hayRed()) return;
+        set({ cargandoRankingAlumno: true });
+        try {
+          const { data, error } = await supabase.rpc("obtener_ranking_funcional_alumno", {});
+          if (!error && Array.isArray(data)) {
+            set({
+              rankingAlumno: (data as RankingFuncionalFila[]).map((f) => ({
+                ...f,
+                peso_kg: Number(f.peso_kg),
+                ratio: f.ratio === null ? null : Number(f.ratio),
+                posicion: f.posicion === null ? null : Number(f.posicion),
+              })),
+              rankingAlumnoFecha: new Date().toISOString(),
+              cargandoRankingAlumno: false,
+            });
+          } else {
+            set({ cargandoRankingAlumno: false });
+          }
+        } catch {
+          set({ cargandoRankingAlumno: false });
+        }
+      },
+
+      sincronizarMarcasPendientes: async () => {
+        const cola = get().pendientesMarcas;
+        if (cola.length === 0 || !hayRed()) return;
+        const fallidas: MarcaPendiente[] = [];
+        for (const m of cola) {
+          if (!(await enviarMarca(m)).ok) fallidas.push(m);
+        }
+        // Se conserva lo que se agregó mientras se sincronizaba.
+        set((state) => ({
+          pendientesMarcas: [...fallidas, ...state.pendientesMarcas.filter((p) => !cola.includes(p))],
+          aviso: fallidas.length < cola.length ? "Marcas sincronizadas." : state.aviso,
+        }));
+      },
+
       registrarPr: async (datos) => {
         const reps = datos.reps ?? 1;
         const fecha = datos.fecha ?? new Date().toISOString().substring(0, 10);
@@ -329,6 +425,15 @@ export const useRankingStore = create<RankingState>()(
           guardandoPrId: null,
           aviso: "PR guardado con éxito.",
         });
+        const resultado = await persistirMarca({
+          alumno_id: datos.alumno_id,
+          ejercicio_id: datos.ejercicio_id,
+          peso_kg: datos.peso_kg,
+          reps,
+          fecha,
+          clase_id: datos.clase_id,
+        });
+        if (resultado) set(resultado);
         return { ok: true, pr: nuevoPr };
       },
 
@@ -394,6 +499,18 @@ export const useRankingStore = create<RankingState>()(
           guardandoPrId: null,
           aviso: "Registro guardado con éxito.",
         });
+
+        const resultado = await persistirMarca({
+          alumno_id: datos.alumno_id,
+          ejercicio_id: datos.ejercicio_id,
+          peso_kg: datos.peso_kg,
+          reps,
+          fecha,
+          clase_id: datos.clase_id,
+          peso_corporal_kg: datos.peso_corporal_kg,
+          sexo: datos.sexo,
+        });
+        if (resultado) set(resultado);
 
         return { ok: true, pr: nuevoPr };
       },
@@ -497,7 +614,8 @@ export const useRankingStore = create<RankingState>()(
           reservas: params.reservas,
         });
       },
-    }),
+      };
+    },
     {
       name: "gozster-ranking-store",
       version: 2,
@@ -522,6 +640,9 @@ export const useRankingStore = create<RankingState>()(
         ejercicioIdSeleccionado: state.ejercicioIdSeleccionado,
         prs: state.prs,
         perfilesActualizados: state.perfilesActualizados,
+        pendientesMarcas: state.pendientesMarcas,
+        rankingAlumno: state.rankingAlumno,
+        rankingAlumnoFecha: state.rankingAlumnoFecha,
       }),
     },
   ),

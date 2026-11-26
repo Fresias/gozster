@@ -92,8 +92,11 @@ describe("MiProgreso — vista TECNICA (spec historial-progreso §4.6, §4.8)", 
   const h = html(props({ vista: "TECNICA" }));
   const t = texto(h);
 
-  it("agrega el volumen del mes", () => {
-    expect(t).toContain("Volumen del mes: 42.350 kg");
+  it("GOZS-849: en lugar del volumen del mes muestra el % de cumplimiento del plan", () => {
+    const conPct = texto(html(props({ vista: "TECNICA", cumplimientoPct: 93 })));
+    expect(conPct).toContain("Cumplimiento del plan: 93 %");
+    expect(t).not.toContain("Volumen del mes");
+    expect(conPct).not.toContain("Volumen del mes");
   });
 
   it("agrega el 1RM estimado y la segunda línea punteada con leyenda", () => {
