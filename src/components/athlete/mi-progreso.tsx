@@ -201,7 +201,7 @@ export function MiProgreso({
         <TarjetaLogroDiamante diamantes={diamantesVisibles} semanas={rachaSemanas} />
       )}
 
-      {sinHistorial ? (
+      {sinHistorial && rankingFuncional.length === 0 ? (
         <EstadoVacio />
       ) : (
         <>
