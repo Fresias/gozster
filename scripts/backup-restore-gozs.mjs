@@ -46,7 +46,7 @@ export const TABLAS = [
   { nombre: "conversaciones", fks: { alumno_id: "perfiles", responsable_id: "perfiles" } },
   { nombre: "mensajes", fks: { conversacion_id: "conversaciones", remitente_id: "perfiles" } },
   { nombre: "push_suscripciones", fks: { usuario_id: "perfiles" } },
-  { nombre: "push_cola", fks: { destinatario_id: "perfiles", mensaje_id: "mensajes" } },
+  { nombre: "push_cola", fks: { destinatario_id: "perfiles", mensaje_id: "mensajes", sesion_id: "registro_sesiones" } },
   {
     nombre: "alumno_historial_dolor",
     fks: {

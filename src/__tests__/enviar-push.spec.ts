@@ -3,8 +3,10 @@ import { type PGlite } from "@electric-sql/pglite";
 import { crearDbMigrada } from "./helpers/pglite-migrada";
 import {
   autorizado,
+  payloadPara,
   procesarCola,
   type ProcesarPushDeps,
+  type PushPendiente,
   type SuscripcionPush,
 } from "../../supabase/functions/enviar-push/handler";
 import { urlBase64ToBytes } from "@/lib/push-notifications";
@@ -56,6 +58,67 @@ describe("enviar-push: procesarCola", () => {
     const r = await procesarCola(d);
     expect(r).toMatchObject({ expiradas: 1, fallidos: 2, enviados: 0 });
     expect(d.eliminarSuscripcion).toHaveBeenCalledWith("s1");
+  });
+
+  it("emite payload diferenciado sin PII para SESION_COMPLETADA (singular y plural) y agrupa por (destinatario_id, tipo)", async () => {
+    expect(payloadPara(1, "SESION_COMPLETADA")).toEqual({
+      title: "GOZSter",
+      body: "Un alumno finalizó su entrenamiento.",
+      url: "/studio",
+      tag: "gozs-workout-completed",
+    });
+    expect(payloadPara(3, "SESION_COMPLETADA")).toEqual({
+      title: "GOZSter",
+      body: "3 alumnos finalizaron su entrenamiento.",
+      url: "/studio",
+      tag: "gozs-workout-completed",
+    });
+
+    const items: PushPendiente[] = [
+      { id: "c1", destinatario_id: "coach1", tipo: "MENSAJE_CHAT" },
+      { id: "c2", destinatario_id: "coach1", tipo: "MENSAJE_CHAT" },
+      { id: "c3", destinatario_id: "coach1", tipo: "SESION_COMPLETADA" },
+      { id: "c4", destinatario_id: "coach1", tipo: "SESION_COMPLETADA" },
+      { id: "c5", destinatario_id: "coach2", tipo: "SESION_COMPLETADA" },
+    ];
+    const d = deps({
+      reclamarPendientes: vi.fn().mockResolvedValue(items),
+      subs: [sub("sc1", "coach1"), sub("sc2", "coach2")],
+    });
+    const r = await procesarCola(d);
+    expect(r).toMatchObject({ procesados: 5, enviados: 3, sinSuscripcion: 0 });
+    expect(d.suscripciones).toHaveBeenCalledWith(["coach1", "coach2"]);
+
+    const llamadas = (d.enviar as Mock).mock.calls.map(([s, payload]) => ({ subId: s.id, payload }));
+    expect(llamadas).toEqual([
+      {
+        subId: "sc1",
+        payload: {
+          title: "GOZSter",
+          body: "Tenés 2 mensajes nuevos.",
+          url: "/",
+          tag: "gozs-chat-notification",
+        },
+      },
+      {
+        subId: "sc1",
+        payload: {
+          title: "GOZSter",
+          body: "2 alumnos finalizaron su entrenamiento.",
+          url: "/studio",
+          tag: "gozs-workout-completed",
+        },
+      },
+      {
+        subId: "sc2",
+        payload: {
+          title: "GOZSter",
+          body: "Un alumno finalizó su entrenamiento.",
+          url: "/studio",
+          tag: "gozs-workout-completed",
+        },
+      },
+    ]);
   });
 });
 
@@ -117,5 +180,25 @@ describe("migración push_procesador_cola (PGlite)", () => {
     expect(borradas).toBeGreaterThan(0);
     const resto = (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.push_cola`)).rows[0]!.n;
     expect(resto).toBeGreaterThan(0);
+  });
+
+  it("reclamar_push_pendientes retorna tipo MENSAJE_CHAT y SESION_COMPLETADA", async () => {
+    await db.exec(`
+      UPDATE public.perfiles SET profesor_asignado_id = '${U1}' WHERE id = '${U2}';
+      DELETE FROM public.push_cola;
+      INSERT INTO public.registro_sesiones (alumno_id, estado) VALUES ('${U2}', 'COMPLETADA');
+    `);
+    const conv = (await db.query<{ id: string }>(`SELECT id FROM public.conversaciones LIMIT 1`)).rows[0]!.id;
+    await db.query(`INSERT INTO public.mensajes (conversacion_id, remitente_id, contenido) VALUES ($1,$2,'ping')`, [conv, U2]);
+
+    const filas = (
+      await db.query<{ id: string; destinatario_id: string; tipo: string }>(
+        `SELECT id::text, destinatario_id::text, tipo FROM public.reclamar_push_pendientes(100) ORDER BY tipo`,
+      )
+    ).rows;
+    expect(filas.map((f) => ({ destinatario_id: f.destinatario_id, tipo: f.tipo }))).toEqual([
+      { destinatario_id: U1, tipo: "MENSAJE_CHAT" },
+      { destinatario_id: U1, tipo: "SESION_COMPLETADA" },
+    ]);
   });
 });

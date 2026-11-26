@@ -158,6 +158,8 @@ type RefinedTables = Omit<
       motivo_cambio_dia?: MotivoCambioDia | null;
       dia_sugerido_id?: string | null;
       clase_id?: string | null;
+      estado?: "EN_CURSO" | "COMPLETADA";
+      finalizada_at?: string | null;
     }
   >;
   registro_series: RefineTable<
