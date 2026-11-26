@@ -85,7 +85,7 @@ describe("GOZS-850 · pliegues técnicos y Cierre sin cortes", () => {
     expect(openTag(html, "calculadora-barra")).not.toMatch(/\sopen(=|\s|>)/);
   });
 
-  it("Cierre con nombre largo renderiza el titular completo y el CSS no usa hyphens: auto", () => {
+  it("Cierre con nombre largo renderiza el titular completo y la regla .a-dk-cierre .a-t-dxl aplica clamp sin hyphens: auto ni duplicado muerto", () => {
     const html = renderToStaticMarkup(
       <CierreDiaModal
         isOpen
@@ -101,18 +101,71 @@ describe("GOZS-850 · pliegues técnicos y Cierre sin cortes", () => {
     expect(titulo).not.toBeNull();
     expect((titulo?.[1] ?? "").replace(/<!-- -->/g, "")).toContain("Maximiliano Alejandro");
 
-    const regla = CSS.match(/\[data-testid="cierre-dia-titulo"\]\s*\{[^}]*\}/);
+    const regla = CSS.match(/\.theme-athlete\[data-v7\] \.a-dk\.a-dk-cierre \.a-dk-in \.a-t-dxl\s*\{[^}]*\}/);
     expect(regla).not.toBeNull();
     expect(regla![0]).not.toMatch(/hyphens:\s*auto/);
-    expect(regla![0]).toContain("clamp(");
+    expect(regla![0]).not.toContain("overflow-wrap: anywhere");
+    expect(regla![0]).toContain("font-size: clamp(1.5rem, 8vw, 2rem)");
     expect(regla![0]).toContain("overflow-wrap: break-word");
+    expect(regla![0]).toContain("hyphens: none");
+    expect(regla![0]).toContain("word-break: normal");
+    expect(regla![0]).toContain("max-width: 100%");
+    expect(CSS).not.toMatch(/\[data-testid="cierre-dia-titulo"\]\s*\{/);
   });
 
-  it("Tus días: filas compactas con target >= 44px", () => {
+  it("Tus días: un único bloque .a-days .a-row compacto con target >= 44px y sin duplicados", () => {
     const bloques = [...CSS.matchAll(/\.a-days \.a-row \{([^}]*)\}/g)];
-    const ultimo = bloques[bloques.length - 1]?.[1] ?? "";
-    const min = Number(/min-height:\s*(\d+)px/.exec(ultimo)?.[1]);
+    expect(bloques).toHaveLength(1);
+    const cuerpo = bloques[0]?.[1] ?? "";
+    const min = Number(/min-height:\s*(\d+)px/.exec(cuerpo)?.[1]);
     expect(min).toBeGreaterThanOrEqual(44);
     expect(min).toBeLessThan(64);
+    expect(cuerpo).toContain("padding: 6px 12px");
+    expect(cuerpo).toContain("gap: 10px");
+    expect(CSS).not.toContain("gap 12px entre tarjetas");
+  });
+
+  it(".a-hero sin duplicados, preserva min-height: 56px en .a-hero .a-btn.a-gym y 44px solo en .a-hero .a-hero-ghost", () => {
+    const bloquesHero = [...CSS.matchAll(/\.theme-athlete\[data-v7\] \.a-hero\s*\{([^}]*)\}/g)];
+    expect(bloquesHero).toHaveLength(1);
+    const heroBody = bloquesHero[0]?.[1] ?? "";
+    expect(heroBody).toContain("padding: var(--md-sys-measurement-space200)");
+    expect(heroBody).toContain("gap: 8px");
+
+    const gymBtn = CSS.match(/\.theme-athlete\[data-v7\] \.a-hero \.a-btn\.a-gym\s*\{([^}]*)\}/);
+    expect(gymBtn).not.toBeNull();
+    expect(gymBtn![1]).toContain("min-height: 56px");
+
+    const ghostBtn = CSS.match(/\.theme-athlete\[data-v7\] \.a-hero \.a-hero-ghost\s*\{([^}]*)\}/);
+    expect(ghostBtn).not.toBeNull();
+    expect(ghostBtn![1]).toContain("min-height: 44px");
+
+    expect(CSS).not.toMatch(/\.a-hero \.a-hbtn,\s*\.theme-athlete\[data-v7\] \.a-hero \.a-btn\s*\{/);
+  });
+
+  it("radios residuales alineados a tokens M3 y diferenciación tonal Claro/Oscuro", () => {
+    expect(CSS.match(/\.theme-athlete\[data-v7\] \.a-banner\s*\{[^}]*\}/)?.[0]).toContain(
+      "border-radius: var(--md-sys-shape-corner-large)",
+    );
+    expect(CSS.match(/\.theme-athlete\[data-v7\] \.a-racha-perm-card\s*\{[^}]*\}/)?.[0]).toContain(
+      "border-radius: var(--md-sys-shape-corner-large)",
+    );
+    expect(CSS.match(/\.theme-athlete\[data-v7\] \.a-info\s*\{[^}]*\}/)?.[0]).toContain(
+      "border-radius: var(--md-sys-shape-corner-medium)",
+    );
+    expect(CSS.match(/\.theme-athlete\[data-v7\] \.a-fold\s*\{[^}]*\}/)?.[0]).toContain(
+      "border-radius: var(--md-sys-shape-corner-medium)",
+    );
+    const foldClosed = CSS.match(/\.theme-athlete\[data-v7\] \.a-fold:not\(\[open\]\)\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(foldClosed).not.toMatch(/padding-block:\s*0\s*;/);
+    expect(foldClosed).toMatch(/padding(-block)?:\s*[1-9]\d*px/);
+
+    // Diferenciación tonal Tonal + Shadow en Claro (sin colapsar l2/l3 a --a-surface)
+    const claroBlock = CSS.slice(0, CSS.indexOf(".dark .theme-athlete[data-v7]"));
+    const bg = /--a-bg:\s*(#[0-9A-Fa-f]{6})/.exec(claroBlock)?.[1];
+    const s1 = /--a-surface:\s*(#[0-9A-Fa-f]{6})/.exec(claroBlock)?.[1];
+    const s2 = /--a-surface-l2:\s*(#[0-9A-Fa-f]{6})/.exec(claroBlock)?.[1];
+    const s3 = /--a-surface-l3:\s*(#[0-9A-Fa-f]{6})/.exec(claroBlock)?.[1];
+    expect(new Set([bg, s1, s2, s3]).size).toBe(4);
   });
 });

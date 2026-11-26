@@ -65,11 +65,11 @@ body:has(.theme-athlete[data-v7]) {
   --danger-soft-foreground: 0 73.7% 41.8%;
   --danger-soft-border: 0 72.2% 50.6%;
 
-  /* Tokens --a-* neutros y acción */
+  /* Tokens --a-* neutros y acción (Tonal + Shadow en escala zinc) */
   --a-bg: #FAFAFA;
   --a-surface: #FFFFFF;
-  --a-surface-l2: #FFFFFF;
-  --a-surface-l3: #FFFFFF;
+  --a-surface-l2: #F9F9FB;
+  --a-surface-l3: #F7F7F8;
   --a-surface-2: #F4F4F5;
   --a-fg: #09090B;
   --a-fg-2: #3F3F46;
@@ -882,7 +882,7 @@ body:has(.theme-athlete[data-v7]) {
   align-items: flex-start;
   background: var(--a-surface);
   border: 1px solid var(--a-line);
-  border-radius: 14px;
+  border-radius: var(--md-sys-shape-corner-medium);
   padding: 12px;
   margin: 0;
   color: var(--a-fg);
@@ -1145,7 +1145,7 @@ body:has(.theme-athlete[data-v7]) {
   background: var(--a-racha-bg);
   color: var(--a-racha-fg);
   border: 1.5px solid var(--a-racha-bd);
-  border-radius: 18px;
+  border-radius: var(--md-sys-shape-corner-large);
   padding: 13px 14px;
   box-shadow: var(--a-elev-1);
 }
@@ -1271,7 +1271,7 @@ body:has(.theme-athlete[data-v7]) {
   overflow: hidden;
   border: 1px solid var(--a-hero-line);
   display: grid;
-  gap: 12px;
+  gap: 8px;
   box-shadow: var(--a-elev-2);
 }
 
@@ -1327,16 +1327,28 @@ body:has(.theme-athlete[data-v7]) {
   color: var(--a-hero-2);
 }
 
+.theme-athlete[data-v7] .a-hero .a-btn.a-gym {
+  min-height: 56px;
+}
+
+.theme-athlete[data-v7] .a-hero .a-hero-ghost {
+  min-height: 44px;
+}
+
 .theme-athlete[data-v7] .a-days {
   display: grid;
 }
 
+/* "Tus días" compacto (targets >= 44px, filas separadas por divisor) */
 .theme-athlete[data-v7] .a-days .a-row {
   border-radius: 0;
   border: 0;
   border-top: 1px solid var(--a-line);
   background: transparent;
   box-shadow: none;
+  min-height: 52px;
+  padding: 6px 12px;
+  gap: 10px;
 }
 
 .theme-athlete[data-v7] .a-days .a-row:first-child {
@@ -1367,7 +1379,7 @@ body:has(.theme-athlete[data-v7]) {
   border: 1.5px solid var(--a-warn-line);
   background: var(--a-warn-bg);
   color: var(--a-warn-fg);
-  border-radius: 18px;
+  border-radius: var(--md-sys-shape-corner-large);
 }
 
 .theme-athlete[data-v7] .a-banner b {
@@ -1863,7 +1875,7 @@ body:has(.theme-athlete[data-v7]) {
   display: grid;
   gap: 10px;
   background: var(--a-surface-2);
-  border-radius: 16px;
+  border-radius: var(--md-sys-shape-corner-medium);
   padding: 12px;
 }
 
@@ -2967,8 +2979,11 @@ body:has(.theme-athlete[data-v7]) {
 }
 
 .theme-athlete[data-v7] .a-dk.a-dk-cierre .a-dk-in .a-t-dxl {
-  font-size: calc(2.125rem * var(--a-ds));
-  overflow-wrap: anywhere;
+  font-size: clamp(1.5rem, 8vw, 2rem);
+  overflow-wrap: break-word;
+  hyphens: none;
+  word-break: normal;
+  max-width: 100%;
 }
 
 .theme-athlete[data-v7] .a-dk .a-muted {
@@ -3505,7 +3520,7 @@ body:has(.theme-athlete[data-v7]) {
   }
 }
 
-/* ===== GOZS-826 F2a: Inicio compacto, RachaFlama mayor, pliegues técnicos, Cierre ===== */
+/* ===== GOZS-826 F2a: RachaFlama mayor y pliegues técnicos ===== */
 .theme-athlete[data-v7] .a-racha-btn {
   min-height: 40px;
   padding: 6px 12px;
@@ -3518,14 +3533,8 @@ body:has(.theme-athlete[data-v7]) {
   height: 26px;
 }
 
-.theme-athlete[data-v7] .a-hero {
-  gap: 8px;
-  padding: 16px;
-}
-
-.theme-athlete[data-v7] .a-hero .a-hbtn,
-.theme-athlete[data-v7] .a-hero .a-btn {
-  min-height: 44px;
+.theme-athlete[data-v7] .a-fold {
+  border-radius: var(--md-sys-shape-corner-medium);
 }
 
 .theme-athlete[data-v7] .a-fold > .a-fold-sum {
@@ -3551,25 +3560,10 @@ body:has(.theme-athlete[data-v7]) {
 }
 
 .theme-athlete[data-v7] .a-fold:not([open]) {
-  padding-block: 0;
+  padding-block: 4px;
 }
 
 .theme-athlete[data-v7] .a-fold-sub {
   display: grid;
-  gap: 10px;
-}
-
-.theme-athlete[data-v7] [data-testid="cierre-dia-titulo"] {
-  font-size: clamp(1.5rem, 8vw, 2rem);
-  overflow-wrap: break-word;
-  hyphens: none;
-  word-break: normal;
-  max-width: 100%;
-}
-
-/* GOZS-850: "Tus días" compacto (targets >= 44px, gap 12px entre tarjetas) */
-.theme-athlete[data-v7] .a-days .a-row {
-  min-height: 52px;
-  padding: 6px 12px;
   gap: 10px;
 }

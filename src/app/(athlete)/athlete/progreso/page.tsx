@@ -87,7 +87,7 @@ export default function AthleteProgresoPage() {
   }, [fechasSesiones, resumenClases]);
 
   const tieneDatosLocales = Boolean(
-    miProgreso || diamantesRacha > 0,
+    miProgreso || diamantesRacha > 0 || rankingAlumno.length > 0,
   );
 
   const estado: EstadoMiProgreso = !isOnline && !tieneDatosLocales
