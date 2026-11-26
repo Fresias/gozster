@@ -672,14 +672,14 @@ isOneToOne: false
                   ]
                 },"push_cola": {
                   Row: {
-                    "created_at": string,"destinatario_id": string,"enviado_at": string | null,"id": string,"mensaje_id": string
+                    "created_at": string,"destinatario_id": string,"enviado_at": string | null,"id": string,"mensaje_id": string | null,"sesion_id": string | null,"tipo": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"destinatario_id": string,"enviado_at"?: string | null,"id"?: string,"mensaje_id": string
+                    "created_at"?: string,"destinatario_id": string,"enviado_at"?: string | null,"id"?: string,"mensaje_id"?: string | null,"sesion_id"?: string | null,"tipo"?: string
                   }
                   Update: {
-                    "created_at"?: string,"destinatario_id"?: string,"enviado_at"?: string | null,"id"?: string,"mensaje_id"?: string
+                    "created_at"?: string,"destinatario_id"?: string,"enviado_at"?: string | null,"id"?: string,"mensaje_id"?: string | null,"sesion_id"?: string | null,"tipo"?: string
                   }
                   Relationships: [
                     {
@@ -693,6 +693,12 @@ isOneToOne: false
       columns: ["mensaje_id"]
 isOneToOne: false
       referencedRelation: "mensajes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "push_cola_sesion_id_fkey"
+      columns: ["sesion_id"]
+isOneToOne: false
+      referencedRelation: "registro_sesiones"
       referencedColumns: ["id"]
     }
                   ]
@@ -744,14 +750,14 @@ isOneToOne: false
                   ]
                 },"registro_sesiones": {
                   Row: {
-                    "alumno_id": string,"clase_id": string | null,"created_at": string,"dia_id": string | null,"dia_sugerido_id": string | null,"duracion_minutos": number | null,"effective_volume_kg": number,"fecha": string,"id": string,"motivo_cambio_dia": string | null,"updated_at": string,"volumen_total_kg": number
+                    "alumno_id": string,"clase_id": string | null,"created_at": string,"dia_id": string | null,"dia_sugerido_id": string | null,"duracion_minutos": number | null,"effective_volume_kg": number,"estado": string,"fecha": string,"finalizada_at": string | null,"id": string,"motivo_cambio_dia": string | null,"updated_at": string,"volumen_total_kg": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "alumno_id": string,"clase_id"?: string | null,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"fecha"?: string,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
+                    "alumno_id": string,"clase_id"?: string | null,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"estado"?: string,"fecha"?: string,"finalizada_at"?: string | null,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
                   }
                   Update: {
-                    "alumno_id"?: string,"clase_id"?: string | null,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"fecha"?: string,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
+                    "alumno_id"?: string,"clase_id"?: string | null,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"estado"?: string,"fecha"?: string,"finalizada_at"?: string | null,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
                   }
                   Relationships: [
                     {
@@ -1302,6 +1308,11 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"reclamar_push_pendientes":
+{ Args: { "p_limite"?: number }; Returns: {
+              "destinatario_id": string,"id": string,"tipo": string
+            }[]
+                           },
 "registrar_logro_racha":
 { Args: { "numero_ciclo": number,"tipo"?: string }; Returns: {
               "alumno_id": string,
