@@ -436,7 +436,7 @@ describe("GOZS-665 · Clases fase 2 (racha, feedback 1 toque, historial y nota d
             ejercicios: [{ ejercicio_id: "e1", nombre: "Sentadilla", a_peso_corporal: false, puntos: [] }],
           }}
           rankingFuncional={[
-            { ejercicio_id: "e1", es_usuario_actual: false, nombre_corto: "Lucas G.", sexo: "M", peso_kg: 100, reps: 5, fecha: "2026-11-20", ratio: 1.25, posicion: 1 },
+            { ejercicio_id: "e1", es_usuario_actual: false, nombre_corto: "Lucas G.", sexo: "M", peso_kg: null, reps: null, fecha: "2026-11-20", ratio: 1.25, posicion: 1 },
             { ejercicio_id: "e1", es_usuario_actual: true, nombre_corto: "Mateo R.", sexo: "M", peso_kg: 80, reps: 5, fecha: "2026-11-21", ratio: 1, posicion: 2 },
             { ejercicio_id: "e1", es_usuario_actual: false, nombre_corto: "Ana P.", sexo: "F", peso_kg: 60, reps: 5, fecha: "2026-11-21", ratio: 1.1, posicion: 1 },
           ]}
@@ -446,7 +446,11 @@ describe("GOZS-665 · Clases fase 2 (racha, feedback 1 toque, historial y nota d
       expect(html).toContain('data-testid="ranking-funcional-alumno"');
       expect(html).toContain("Lucas G.");
       expect(html).toContain("Mateo R. (vos)");
-      expect(html).toContain("80 kg × 5");
+      expect(html).not.toMatch(/kg/i); // el ranking no muestra peso en ninguna fila
+      expect(html).not.toContain("null");
+      expect(html).not.toContain("NaN");
+      expect(html).toContain("#1");
+      expect(html).toContain("1.25 x peso");
       expect(html).toContain("Categoría M");
       expect(html).not.toContain("Ana P."); // otra categoría
       expect(html.toLowerCase()).not.toContain("peso corporal");
