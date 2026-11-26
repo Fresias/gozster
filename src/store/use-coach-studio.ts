@@ -863,8 +863,9 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         },
       });
 
+      const nivelEventId = `update-view-mode-${Date.now()}`;
       useOfflineQueueStore.getState().enqueueEvent({
-        id: `update-view-mode-${Date.now()}`,
+        id: nivelEventId,
         action: "UPDATE_ALUMNO_NIVEL_VISTA",
         payload: { alumnoId, nivel },
       });
@@ -875,6 +876,8 @@ export const useCoachStudioStore = create<CoachStudioState>()(
             .from("perfiles")
             .update({ nivel_vista_alumno: nivel })
             .eq("id", alumnoId);
+          // Confirmado por el servidor: no se reenvía en el próximo flushQueue().
+          if (!error) useOfflineQueueStore.getState().removeEvent(nivelEventId);
           if (error) {
             console.warn("Aviso actualizando nivel_vista_alumno en Supabase:", error.message);
             if (!error.message?.includes("schema cache")) {

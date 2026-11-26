@@ -348,7 +348,7 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
       expect(useAthleteStore.getState().nivelVistaAlumno).toBe("SIMPLE");
     });
 
-    it("guarda el cuestionario inicial en memoria y encola evento offline", async () => {
+    it("guarda el cuestionario inicial en memoria y, confirmado online, no deja el evento colgado en la cola (GOZS-885)", async () => {
       const store = useAthleteStore.getState();
       await store.saveCuestionarioInicial({
         objetivo_principal: "Ganar masa muscular y fuerza",
@@ -366,9 +366,8 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
       expect(updated?.completado_at).toBeDefined();
 
       const queue = useOfflineQueueStore.getState().pendingEvents;
-      const queueEvent = queue.find((e) => e.action === "UPSERT_CUESTIONARIO_INICIAL");
-      expect(queueEvent).toBeDefined();
-      expect((queueEvent?.payload as any)?.objetivo_principal).toBe("Ganar masa muscular y fuerza");
+      // Upsert directo confirmado por el servidor: el evento se limpia para no reenviarse.
+      expect(queue.find((e) => e.action === "UPSERT_CUESTIONARIO_INICIAL")).toBeUndefined();
     });
 
     it("en modo SIMPLE: completeSet permite registrar serie normal con peso y repeticiones sin bloqueo", () => {
