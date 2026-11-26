@@ -15,6 +15,7 @@ import type {
 import { CloudOff, History, Info, Pencil, Trophy, TriangleAlert, X } from "@/components/athlete/icons";
 import { Tooltip1RM } from "@/components/athlete/tooltip-1rm";
 import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
+import { HistorialClases, useAsistenciasClases } from "@/components/athlete/historial-clases";
 
 export interface HistorialSesionesProps {
   offline?: boolean;
@@ -115,14 +116,10 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
 
   const [tabActiva, setTabActiva] = React.useState<"sesiones" | "dashboard">(initialTab);
 
-  // Acordeón: la sesión más reciente arranca abierta.
-  const [expandedIds, setExpandedIds] = React.useState<Record<string, boolean>>({});
+  const asistenciasClases = useAsistenciasClases();
 
-  React.useEffect(() => {
-    if (sesiones.length > 0 && Object.keys(expandedIds).length === 0) {
-      setExpandedIds({ [sesiones[0]!.id]: true });
-    }
-  }, [sesiones, expandedIds]);
+  // Acordeón: todas las sesiones arrancan colapsadas.
+  const [expandedIds, setExpandedIds] = React.useState<Record<string, boolean>>({});
 
   const toggleExpand = (sesionId: string) => {
     setExpandedIds((prev) => ({ ...prev, [sesionId]: !prev[sesionId] }));
@@ -353,7 +350,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
       {/* VISTA 1: sesiones */}
       {(tabActiva === "sesiones" || sesiones.length === 0) &&
         (sesiones.length === 0 ? (
-          <section className="a-card a-state" data-testid="historial-vacio">
+          asistenciasClases.length > 0 ? null : <section className="a-card a-state" data-testid="historial-vacio">
             <span className="a-ic">
               <History width={24} height={24} aria-hidden="true" />
             </span>
@@ -365,8 +362,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
           </section>
         ) : (
           sesiones.map((sesion, i) => {
-            const isExpanded =
-              expandedIds[sesion.id] !== undefined ? !!expandedIds[sesion.id] : sesion.id === sesiones[0]?.id;
+            const isExpanded = !!expandedIds[sesion.id];
             const { dia, mes } = diaYMes(sesion.fecha);
             const prs = recordsPorSesion[sesion.id] ?? 0;
             return (
@@ -456,6 +452,8 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
             );
           })
         ))}
+
+      {(tabActiva === "sesiones" || sesiones.length === 0) && <HistorialClases asistencias={asistenciasClases} />}
 
       {/* VISTA 2: por ejercicio */}
       {tabActiva === "dashboard" && sesiones.length > 0 && (
