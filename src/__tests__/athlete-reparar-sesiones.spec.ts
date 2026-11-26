@@ -13,18 +13,22 @@ vi.mock("@/lib/supabase/client", () => ({
       }),
     },
     from: (table: string) => ({
-      upsert: async (row: Record<string, unknown>) => {
+      // GOZS-884: acepta fila o lote (array); cada fila queda registrada por separado.
+      upsert: async (rowOrRows: Record<string, unknown> | Record<string, unknown>[]) => {
+        const rows = [rowOrRows].flat();
         // Simula la validación real de Postgres para columnas UUID (22P02)
-        const idCol = table === "registro_sesiones" ? row.id : row.sesion_id;
-        if (!esUuid(idCol)) {
-          return {
-            error: {
-              code: "22P02",
-              message: `invalid input syntax for type uuid: "${String(idCol)}"`,
-            },
-          };
+        for (const row of rows) {
+          const idCol = table === "registro_sesiones" ? row.id : row.sesion_id;
+          if (!esUuid(idCol)) {
+            return {
+              error: {
+                code: "22P02",
+                message: `invalid input syntax for type uuid: "${String(idCol)}"`,
+              },
+            };
+          }
         }
-        upserts.push({ table, row });
+        for (const row of rows) upserts.push({ table, row });
         return { error: null };
       },
     }),
@@ -195,15 +199,18 @@ describe("BE-00 CP4 · repararSesionesNoUuid y destrabe de cola (22P02)", () => 
     const sesionUpserts = upserts.filter((u) => u.table === "registro_sesiones");
     const serieUpserts = upserts.filter((u) => u.table === "registro_series");
 
-    expect(sesionUpserts).toHaveLength(3);
+    // GOZS-884: 1 cabecera por sesión (los 2 eventos reparados viajan juntos) + 3 series.
+    expect(sesionUpserts).toHaveLength(2);
     expect(serieUpserts).toHaveLength(3);
 
     const repairedId1 = sesionUpserts[0]!.row.id as string;
-    const repairedId2 = sesionUpserts[1]!.row.id as string;
-    const behindId = sesionUpserts[2]!.row.id as string;
+    const behindId = sesionUpserts[1]!.row.id as string;
 
     expect(esUuid(repairedId1)).toBe(true);
-    expect(repairedId2).toBe(repairedId1);
+    // Los dos eventos con el mismo id viejo conservan la agrupación en el mismo UUID.
+    expect(serieUpserts[0]!.row.sesion_id).toBe(repairedId1);
+    expect(serieUpserts[1]!.row.sesion_id).toBe(repairedId1);
+    expect(serieUpserts[2]!.row.sesion_id).toBe(validUuidBehind);
     expect(behindId).toBe(validUuidBehind);
   });
 

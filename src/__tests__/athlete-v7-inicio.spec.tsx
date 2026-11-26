@@ -1,4 +1,6 @@
 import * as React from "react";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -635,6 +637,74 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
       fetchPlanSpy.mockRestore();
       fromSpy.mockRestore();
     }
+  });
+
+  describe("GOZS-884 · Ola B: cooldown de 30.000 ms (30 s) al volver a InicioMisDias", () => {
+    const mockFromVacio = () =>
+      vi.spyOn(supabase, "from").mockImplementation(
+        () =>
+          ({
+            select: () => ({
+              eq: () => ({
+                order: () => ({ limit: async () => ({ data: [], error: null }) }),
+              }),
+            }),
+          }) as any,
+      );
+
+    it("GIVEN un plan recién cargado WHEN se remonta InicioMisDias dentro de 30 s THEN no repite las consultas del plan, pero 'Reintentar' sí recarga", async () => {
+      const fetchPlanSpy = vi.spyOn(alumnosService, "fetchPlanAlumno").mockResolvedValue(PLAN_BASE);
+      const fromSpy = mockFromVacio();
+      let ahora = 1_800_000_000_000;
+      const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => ahora);
+      try {
+        await useAthleteStore.getState().cargarPlanAlumno();
+        expect(fetchPlanSpy).toHaveBeenCalledTimes(1);
+
+        ahora += 29_000;
+        await useAthleteStore.getState().cargarPlanAlumno({ cooldownMs: 30_000 });
+        expect(fetchPlanSpy).toHaveBeenCalledTimes(1);
+
+        // "Reintentar" (sin opciones) siempre recarga.
+        await useAthleteStore.getState().cargarPlanAlumno();
+        expect(fetchPlanSpy).toHaveBeenCalledTimes(2);
+
+        ahora += 30_001;
+        await useAthleteStore.getState().cargarPlanAlumno({ cooldownMs: 30_000 });
+        expect(fetchPlanSpy).toHaveBeenCalledTimes(3);
+      } finally {
+        nowSpy.mockRestore();
+        fetchPlanSpy.mockRestore();
+        fromSpy.mockRestore();
+      }
+    });
+
+    it("sin plan en memoria el cooldown no aplica y dos cargas simultáneas comparten una sola corrida", async () => {
+      const fetchPlanSpy = vi.spyOn(alumnosService, "fetchPlanAlumno").mockResolvedValue(PLAN_BASE);
+      const fromSpy = mockFromVacio();
+      try {
+        await useAthleteStore.getState().cargarPlanAlumno();
+        useAthleteStore.setState({ planAlumno: null });
+        fetchPlanSpy.mockClear();
+        await Promise.all([
+          useAthleteStore.getState().cargarPlanAlumno({ cooldownMs: 30_000 }),
+          useAthleteStore.getState().cargarPlanAlumno({ cooldownMs: 30_000 }),
+        ]);
+        expect(fetchPlanSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        fetchPlanSpy.mockRestore();
+        fromSpy.mockRestore();
+      }
+    });
+
+    it("InicioMisDias aplica el cooldown solo en el montaje; el botón 'Reintentar' llama sin opciones", () => {
+      const src = fs.readFileSync(
+        path.resolve(__dirname, "../components/athlete/inicio-mis-dias.tsx"),
+        "utf8",
+      );
+      expect(src).toContain("void cargarPlanAlumno({ cooldownMs: PLAN_REVALIDATE_COOLDOWN_MS });");
+      expect(src).toContain("onClick={() => void cargarPlanAlumno()}");
+    });
   });
 
   it("tocar una fila de día DONE inicia ese día para repetirlo (mantiene ChevronRight)", () => {

@@ -470,9 +470,10 @@ describe("GOZS-881 · Ola A: guardado batch, timeout, anti-zombi y dedup MiProgr
         });
         const { llamadas } = mockUpserts(async () => ({ error: null }));
         await useOfflineQueueStore.getState().flushQueue();
+        // GOZS-884: la cola envía las series de cada sesión en lote (array por upsert).
         const series = llamadas
           .filter((l) => l.table === "registro_series")
-          .map((l) => l.payload as { sesion_id: string; numero_serie: number });
+          .flatMap((l) => [l.payload].flat() as { sesion_id: string; numero_serie: number }[]);
         expect(series).toEqual([
           expect.objectContaining({ sesion_id: S1, numero_serie: 2 }),
           expect.objectContaining({ sesion_id: OTRA_SESION, numero_serie: 1 }),

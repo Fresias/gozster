@@ -46,6 +46,8 @@ export interface CierreDiaModalProps {
   diaNombre?: string;
   isOffline?: boolean;
   seriesPendientes?: number;
+  /** Fuerza el estado "Sincronizando…" (tests); por defecto se lee de los stores. */
+  isSyncing?: boolean;
   esVistaTecnica?: boolean;
 }
 
@@ -65,12 +67,15 @@ export function CierreDiaModal({
   diaNombre = "DÍA 1",
   isOffline: isOfflineProp,
   seriesPendientes: seriesPendientesProp,
+  isSyncing: isSyncingProp,
   esVistaTecnica: esVistaTecnicaProp,
 }: CierreDiaModalProps) {
   const storeNombrePreferido = useAthleteStore((s) => s.nombrePreferido);
   const nivelVistaAlumno = useAthleteStore((s) => s.nivelVistaAlumno);
   const isOnline = useOfflineQueueStore((s) => s.isOnline);
   const pendingEvents = useOfflineQueueStore((s) => s.pendingEvents);
+  const isFlushing = useOfflineQueueStore((s) => s.isFlushing);
+  const syncingSessionId = useAthleteStore((s) => s.syncingSessionId);
 
   // Manejo de tecla Escape
   React.useEffect(() => {
@@ -91,7 +96,31 @@ export function CierreDiaModal({
   ).length;
   const effectiveOffline = isOfflineProp ?? !isOnline;
   const pendingCount = seriesPendientesProp ?? pendingQueueCount;
-  const mostrarEstadoLocal = effectiveOffline || pendingCount > 0;
+  const effectiveSyncing = isSyncingProp ?? (Boolean(syncingSessionId) || Boolean(isFlushing));
+  // 3 estados excluyentes: guardada en el teléfono (offline) · sincronizando · sincronizada.
+  const estadoSync: "offline" | "sincronizando" | "lista" = effectiveOffline
+    ? "offline"
+    : effectiveSyncing || pendingCount > 0
+      ? "sincronizando"
+      : "lista";
+  const textoChip =
+    estadoSync === "offline"
+      ? "Guardada en el teléfono"
+      : estadoSync === "sincronizando"
+        ? "Sincronizando…"
+        : "Guardada y sincronizada";
+  const detalleSeries =
+    estadoSync === "offline"
+      ? pendingCount > 0
+        ? ` · ${pendingCount} ${
+            pendingCount === 1 ? "serie se envía" : "series se envían"
+          } cuando vuelva la señal`
+        : ""
+      : estadoSync === "sincronizando"
+        ? pendingCount > 0
+          ? ` · enviando ${pendingCount} ${pendingCount === 1 ? "serie" : "series"}…`
+          : " · terminando de sincronizar…"
+        : "";
 
   const saludoNombre = nombreParaSaludo({
     nombre_preferido: nombrePreferidoProp ?? storeNombrePreferido,
@@ -129,9 +158,12 @@ export function CierreDiaModal({
         <span
           className="a-chip a-t-label a-dk-chip"
           data-testid="cierre-dia-estado-chip"
+          data-estado={estadoSync}
+          role="status"
+          aria-live="polite"
         >
           <Check width={12} height={12} className="a-i" />
-          {mostrarEstadoLocal ? "Guardada en el teléfono" : "Guardada y sincronizada"}
+          {textoChip}
         </span>
 
         <div className="a-grow" />
@@ -150,11 +182,7 @@ export function CierreDiaModal({
 
         <p className="a-t-body a-muted m-0">
           Completaste {diaNombre}
-          {pendingCount > 0
-            ? ` · ${pendingCount} ${
-                pendingCount === 1 ? "serie se envía" : "series se envían"
-              } cuando vuelva la señal`
-            : ""}
+          {detalleSeries}
         </p>
 
         <div className="a-tiles">

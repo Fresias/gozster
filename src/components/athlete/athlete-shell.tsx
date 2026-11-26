@@ -286,7 +286,8 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
   const { getUnreadStaffCount, isAthleteChatOpen, setAthleteChatOpen } = useChatStore();
   const unreadChatCount = getUnreadStaffCount(resolvedAlumnoId);
   const reparadoRef = React.useRef(false);
-  const [syncingSeriesCount, setSyncingSeriesCount] = React.useState(0);
+  const queueSyncingCount = useOfflineQueueStore((s) => s.syncingSeriesCount);
+  const isSyncingSession = useAthleteStore((s) => s.syncingSessionId !== null);
 
   const ocultarNav = debeOcultarNavegacion({
     pathname,
@@ -301,6 +302,7 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
     () => pendingEvents.filter((ev) => SERIES_SET_ACTIONS.has(ev.action)).length,
     [pendingEvents],
   );
+  const syncingSeriesCount = queueSyncingCount || (isSyncingSession ? pendingSeriesCount : 0);
 
   // Aísla la persistencia local por usuario: se rehidrata solo con los datos del alumno autenticado.
   React.useEffect(() => {
@@ -351,23 +353,11 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
   }, [toastSesion, setToastSesion]);
 
   React.useEffect(() => {
-    const flushConIndicador = async () => {
-      const count = useOfflineQueueStore
-        .getState()
-        .pendingEvents.filter((ev) => SERIES_SET_ACTIONS.has(ev.action)).length;
-      if (count > 0) setSyncingSeriesCount(count);
-      try {
-        await flushQueue();
-      } finally {
-        setSyncingSeriesCount(0);
-      }
-    };
-
     const online = navigator.onLine;
     setOnlineStatus(online);
     if (online) {
       if (useOfflineQueueStore.getState().pendingEvents.length > 0) {
-        void flushConIndicador();
+        void flushQueue();
       }
       void useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
       void useAthleteStore.getState().sincronizarOnboardingPendiente();
@@ -378,7 +368,7 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
     }
     const handleOnline = () => {
       setOnlineStatus(true);
-      void manejarReconexionOnline(flushConIndicador);
+      void manejarReconexionOnline(flushQueue);
       void useAthleteStore.getState().flushMolestiasPendientes();
     };
     const handleOffline = () => setOnlineStatus(false);
