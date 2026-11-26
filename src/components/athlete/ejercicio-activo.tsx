@@ -24,7 +24,6 @@ import {
   Trophy,
   History,
   TrendingUp,
-  Equal,
   Info,
   Smartphone,
   ArrowUp,
@@ -34,6 +33,7 @@ import { calcularSeriesAproximacion, esEjercicioAislamiento } from "@/lib/aproxi
 import { formatearCarga, formatearFechaCorta, serieDeReferencia } from "@/lib/historial-ejercicio";
 import { motivoSugerencia, partesTitulo } from "@/lib/sugerencia-carga";
 import { useAthleteStore } from "@/store/use-athlete-store";
+import { calcularProgresoVueltasSuperserie } from "@/lib/superserie-vueltas";
 import {
   useLiveWorkout,
   etiquetaGrupoSuperserie,
@@ -280,6 +280,7 @@ export function EjercicioActivo() {
   const esTiempo = ej.tipo_medicion === "TIEMPO";
   const esDrop = isDropset(ej.tipo_serie) || (serie ? isDropset(serie.set_type) : false);
   const esUni = Boolean(ej.es_unilateral);
+  const usaBarra = Boolean(ej.usa_barra); // GOZS-873: Aproximación y calculadora solo con barra libre
   const ssGrupo = ej.es_superserie ? ej.grupo_superserie || 1 : null;
   const ssEjercicios =
     ssGrupo !== null
@@ -288,10 +289,9 @@ export function EjercicioActivo() {
         )
       : [];
   const esCicloSS = ssEjercicios.length >= 2;
-  const totalVueltasSS = esCicloSS ? Math.max(...ssEjercicios.map((x) => x.series.length), 0) : 0;
-  const vueltasHechasSS = esCicloSS
-    ? Math.min(...ssEjercicios.map((x) => x.series.filter((s) => s.completada).length))
-    : 0;
+  const progresoSS = esCicloSS ? calcularProgresoVueltasSuperserie(ssEjercicios) : { total: 0, hechas: 0 };
+  const totalVueltasSS = progresoSS.total;
+  const vueltasHechasSS = progresoSS.hechas;
   let vueltaActivaSS: number | null = null;
   if (esCicloSS) {
     for (let r = 1; r <= totalVueltasSS; r += 1) {
@@ -325,6 +325,7 @@ export function EjercicioActivo() {
   const pesoTrabajo = ej.series.find((s) => !isWarmup(s.set_type))?.peso_kg || serie?.peso_kg || 0;
   const hayW = ej.series.some((s) => isWarmup(s.set_type));
   const mostrarAprox =
+    usaBarra &&
     !esTiempo &&
     !esDrop &&
     !esUni &&
@@ -356,7 +357,7 @@ export function EjercicioActivo() {
 
   const pesoWarn = Boolean(atypicalPrompt);
 
-  const t = serie && !isSimpleView ? discosPorLado(serie.peso_kg, barraKg) : null;
+  const t = serie && !isSimpleView && usaBarra ? discosPorLado(serie.peso_kg, barraKg) : null;
 
   return (
     <div className="a-view" data-testid="live-workout-container">
@@ -505,6 +506,11 @@ export function EjercicioActivo() {
                 Drop set
               </span>
             )}
+            {usaBarra && (
+              <span className="a-chip a-t-sec" data-testid="badge-barra">
+                Barra
+              </span>
+            )}
             {esUni && (
               <span className="a-chip a-line a-t-label" data-testid="badge-unilateral">
                 Por lado
@@ -621,6 +627,7 @@ export function EjercicioActivo() {
             className="a-btn"
             data-testid={`aproximacion-btn-${ej.id}`}
             onClick={() => {
+              setPesoDraft(null);
               applyWarmupSetsToExercise(ej.id, filasAprox);
               setAproxSaltada((p) => ({ ...p, [ej.id]: true }));
             }}
@@ -662,7 +669,7 @@ export function EjercicioActivo() {
           <div className="a-ss-inline-list">
             {ssEjercicios.map((item) => {
               const itemIdx = currentSession.ejercicios.findIndex((e) => e.id === item.id) + 1;
-              const itemSet = item.series.find((s) => s.numero_serie === vueltaActivaSS) ?? item.series[item.series.length - 1];
+              const itemSet = item.series.find((s) => s.numero_serie === vueltaActivaSS);
               const itemDone = item.series.length > 0 && item.series.every((s) => s.completada);
               const itemUni = Boolean(item.es_unilateral);
               const itemSplit = Boolean(ssSplitByEx[item.id]);
@@ -686,13 +693,13 @@ export function EjercicioActivo() {
 
               return (
                 <div key={item.id} className="a-ss-ex-block" data-testid={`ss-cycle-item-${item.id}`}>
-                  <div className="a-ss-ex-top">
-                    <span
-                      className={`a-num${itemDone ? " a-done" : " a-active"}`}
-                      aria-label={itemDone ? "Hecho" : undefined}
-                    >
-                      {itemDone ? <Check width={14} height={14} className="a-i" /> : itemIdx}
-                    </span>
+                  <span
+                    className={`a-num${itemDone ? " a-done" : " a-active"}`}
+                    aria-label={itemDone ? "Hecho" : undefined}
+                  >
+                    {itemDone ? <Check width={14} height={14} className="a-i" /> : itemIdx}
+                  </span>
+                  <div className="a-ss-ex-body">
                     <div className="a-ss-ex-copy">
                       <b className="a-t-bs">{item.nombre}</b>
                       <small className="a-t-sec a-muted">
@@ -701,49 +708,146 @@ export function EjercicioActivo() {
                         {itemRef ? ` · Última: ${formatearCarga(itemRef)}` : ""}
                       </small>
                     </div>
-                  </div>
 
-                  {itemSet && !itemSet.completada && (
-                    <div className="a-ss-ex-ctrl">
-                      {itemUni && !itemTiempo && (
-                        <div className="a-seg a-seg-compact" role="group" aria-label={`Carga por lado en ${item.nombre}`}>
-                          <button
-                            type="button"
-                            aria-pressed={!itemSplit}
-                            aria-label="Mismo peso en Derecha e Izquierda"
-                            data-testid={`ss-uni-same-${item.id}`}
-                            onClick={() => setSsSplitByEx((p) => ({ ...p, [item.id]: false }))}
-                          >
-                            Igual D/I
-                          </button>
-                          <button
-                            type="button"
-                            aria-pressed={itemSplit}
-                            aria-label="Separar Derecha e Izquierda"
-                            data-testid={`ss-uni-split-${item.id}`}
-                            onClick={() => {
-                              setSsIzqByEx((prev) => ({
-                                ...prev,
-                                [item.id]: prev[item.id] ?? { kg: itemSet.peso_kg, reps: itemSet.reps_hechas },
-                              }));
-                              setSsSplitByEx((p) => ({ ...p, [item.id]: true }));
-                            }}
-                          >
-                            Separar D/I
-                          </button>
-                        </div>
-                      )}
+                    {!itemSet && itemDone && (
+                      <span className="a-ss-ex-done a-t-sec a-muted" data-testid={`ss-cycle-item-done-${item.id}`}>
+                        Completado · {item.series.length}/{item.series.length} series
+                      </span>
+                    )}
 
-                      {itemUni && itemSplit && !itemTiempo ? (
-                        <div className="a-uni-split">
-                          <div className="a-uni-side-card" data-testid={`ss-uni-side-D-${item.id}`}>
-                            <span className="a-uni-side-pill">DER</span>
-                            <div className="a-uni-grid">
+                    {itemSet && !itemSet.completada && (
+                      <div className="a-ss-ex-ctrl">
+                        {itemUni && !itemTiempo && (
+                          <div className="a-seg a-seg-compact" role="group" aria-label={`Carga por lado en ${item.nombre}`}>
+                            <button
+                              type="button"
+                              aria-pressed={!itemSplit}
+                              aria-label="Mismo peso en Derecha e Izquierda"
+                              data-testid={`ss-uni-same-${item.id}`}
+                              onClick={() => setSsSplitByEx((p) => ({ ...p, [item.id]: false }))}
+                            >
+                              = D/I
+                            </button>
+                            <button
+                              type="button"
+                              aria-pressed={itemSplit}
+                              aria-label="Separar Derecha e Izquierda"
+                              data-testid={`ss-uni-split-${item.id}`}
+                              onClick={() => {
+                                setSsIzqByEx((prev) => ({
+                                  ...prev,
+                                  [item.id]: prev[item.id] ?? { kg: itemSet.peso_kg, reps: itemSet.reps_hechas },
+                                }));
+                                setSsSplitByEx((p) => ({ ...p, [item.id]: true }));
+                              }}
+                            >
+                              D/I
+                            </button>
+                          </div>
+                        )}
+
+                        {itemUni && itemSplit && !itemTiempo ? (
+                          <div className="a-uni-split">
+                            <div className="a-uni-side-card" data-testid={`ss-uni-side-D-${item.id}`}>
+                              <span className="a-uni-side-pill">DER</span>
+                              <div className="a-uni-grid">
+                                <div className="a-mini-step">
+                                  <button
+                                    type="button"
+                                    disabled={itemSet.peso_kg <= 0}
+                                    aria-label={`Restar ${fmtAr.format(pasoPeso)} kg derecha`}
+                                    onClick={() => updateSetField(item.id, itemSet.numero_serie, "peso_kg", Math.max(0, itemSet.peso_kg - pasoPeso))}
+                                  >
+                                    −
+                                  </button>
+                                  <span className="a-mini-val">
+                                    {fmtAr.format(itemSet.peso_kg)} <small>kg</small>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    aria-label={`Sumar ${fmtAr.format(pasoPeso)} kg derecha`}
+                                    onClick={() => updateSetField(item.id, itemSet.numero_serie, "peso_kg", itemSet.peso_kg + pasoPeso)}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                                <div className="a-mini-step">
+                                  <button
+                                    type="button"
+                                    disabled={itemSet.reps_hechas <= 1}
+                                    aria-label="Restar 1 rep derecha"
+                                    onClick={() => updateSetField(item.id, itemSet.numero_serie, "reps_hechas", Math.max(1, itemSet.reps_hechas - 1))}
+                                  >
+                                    −
+                                  </button>
+                                  <span className="a-mini-val">
+                                    {itemSet.reps_hechas} <small>reps</small>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    aria-label="Sumar 1 rep derecha"
+                                    onClick={() => updateSetField(item.id, itemSet.numero_serie, "reps_hechas", itemSet.reps_hechas + 1)}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="a-uni-side-card" data-testid={`ss-uni-side-I-${item.id}`}>
+                              <span className="a-uni-side-pill a-alt">IZQ</span>
+                              <div className="a-uni-grid">
+                                <div className="a-mini-step">
+                                  <button
+                                    type="button"
+                                    disabled={izqVals.kg <= 0}
+                                    aria-label={`Restar ${fmtAr.format(pasoPeso)} kg izquierda`}
+                                    onClick={() => updateIzq("kg", izqVals.kg - pasoPeso)}
+                                  >
+                                    −
+                                  </button>
+                                  <span className="a-mini-val">
+                                    {fmtAr.format(izqVals.kg)} <small>kg</small>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    aria-label={`Sumar ${fmtAr.format(pasoPeso)} kg izquierda`}
+                                    onClick={() => updateIzq("kg", izqVals.kg + pasoPeso)}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                                <div className="a-mini-step">
+                                  <button
+                                    type="button"
+                                    disabled={izqVals.reps <= 1}
+                                    aria-label="Restar 1 rep izquierda"
+                                    onClick={() => updateIzq("reps", izqVals.reps - 1)}
+                                  >
+                                    −
+                                  </button>
+                                  <span className="a-mini-val">
+                                    {izqVals.reps} <small>reps</small>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    aria-label="Sumar 1 rep izquierda"
+                                    onClick={() => updateIzq("reps", izqVals.reps + 1)}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="a-uni-grid">
+                            {!itemTiempo && (
                               <div className="a-mini-step">
                                 <button
                                   type="button"
                                   disabled={itemSet.peso_kg <= 0}
-                                  aria-label={`Restar ${fmtAr.format(pasoPeso)} kg derecha`}
+                                  aria-label={`Restar ${fmtAr.format(pasoPeso)} kg en ${item.nombre}`}
                                   onClick={() => updateSetField(item.id, itemSet.numero_serie, "peso_kg", Math.max(0, itemSet.peso_kg - pasoPeso))}
                                 >
                                   −
@@ -753,143 +857,52 @@ export function EjercicioActivo() {
                                 </span>
                                 <button
                                   type="button"
-                                  aria-label={`Sumar ${fmtAr.format(pasoPeso)} kg derecha`}
+                                  aria-label={`Sumar ${fmtAr.format(pasoPeso)} kg en ${item.nombre}`}
                                   onClick={() => updateSetField(item.id, itemSet.numero_serie, "peso_kg", itemSet.peso_kg + pasoPeso)}
                                 >
                                   +
                                 </button>
                               </div>
-                              <div className="a-mini-step">
-                                <button
-                                  type="button"
-                                  disabled={itemSet.reps_hechas <= 1}
-                                  aria-label="Restar 1 rep derecha"
-                                  onClick={() => updateSetField(item.id, itemSet.numero_serie, "reps_hechas", Math.max(1, itemSet.reps_hechas - 1))}
-                                >
-                                  −
-                                </button>
-                                <span className="a-mini-val">
-                                  {itemSet.reps_hechas} <small>reps</small>
-                                </span>
-                                <button
-                                  type="button"
-                                  aria-label="Sumar 1 rep derecha"
-                                  onClick={() => updateSetField(item.id, itemSet.numero_serie, "reps_hechas", itemSet.reps_hechas + 1)}
-                                >
-                                  +
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="a-uni-side-card" data-testid={`ss-uni-side-I-${item.id}`}>
-                            <span className="a-uni-side-pill a-alt">IZQ</span>
-                            <div className="a-uni-grid">
-                              <div className="a-mini-step">
-                                <button
-                                  type="button"
-                                  disabled={izqVals.kg <= 0}
-                                  aria-label={`Restar ${fmtAr.format(pasoPeso)} kg izquierda`}
-                                  onClick={() => updateIzq("kg", izqVals.kg - pasoPeso)}
-                                >
-                                  −
-                                </button>
-                                <span className="a-mini-val">
-                                  {fmtAr.format(izqVals.kg)} <small>kg</small>
-                                </span>
-                                <button
-                                  type="button"
-                                  aria-label={`Sumar ${fmtAr.format(pasoPeso)} kg izquierda`}
-                                  onClick={() => updateIzq("kg", izqVals.kg + pasoPeso)}
-                                >
-                                  +
-                                </button>
-                              </div>
-                              <div className="a-mini-step">
-                                <button
-                                  type="button"
-                                  disabled={izqVals.reps <= 1}
-                                  aria-label="Restar 1 rep izquierda"
-                                  onClick={() => updateIzq("reps", izqVals.reps - 1)}
-                                >
-                                  −
-                                </button>
-                                <span className="a-mini-val">
-                                  {izqVals.reps} <small>reps</small>
-                                </span>
-                                <button
-                                  type="button"
-                                  aria-label="Sumar 1 rep izquierda"
-                                  onClick={() => updateIzq("reps", izqVals.reps + 1)}
-                                >
-                                  +
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="a-uni-grid">
-                          {!itemTiempo && (
+                            )}
                             <div className="a-mini-step">
                               <button
                                 type="button"
-                                disabled={itemSet.peso_kg <= 0}
-                                aria-label={`Restar ${fmtAr.format(pasoPeso)} kg en ${item.nombre}`}
-                                onClick={() => updateSetField(item.id, itemSet.numero_serie, "peso_kg", Math.max(0, itemSet.peso_kg - pasoPeso))}
+                                disabled={itemSet.reps_hechas <= 1}
+                                aria-label={itemTiempo ? "Restar 5 segundos" : `Restar 1 rep en ${item.nombre}`}
+                                onClick={() =>
+                                  updateSetField(
+                                    item.id,
+                                    itemSet.numero_serie,
+                                    "reps_hechas",
+                                    Math.max(1, itemSet.reps_hechas - (itemTiempo ? 5 : 1)),
+                                  )
+                                }
                               >
                                 −
                               </button>
                               <span className="a-mini-val">
-                                {fmtAr.format(itemSet.peso_kg)} <small>kg</small>
+                                {itemSet.reps_hechas} <small>{itemTiempo ? "s" : "reps"}</small>
                               </span>
                               <button
                                 type="button"
-                                aria-label={`Sumar ${fmtAr.format(pasoPeso)} kg en ${item.nombre}`}
-                                onClick={() => updateSetField(item.id, itemSet.numero_serie, "peso_kg", itemSet.peso_kg + pasoPeso)}
+                                aria-label={itemTiempo ? "Sumar 5 segundos" : `Sumar 1 rep en ${item.nombre}`}
+                                onClick={() =>
+                                  updateSetField(
+                                    item.id,
+                                    itemSet.numero_serie,
+                                    "reps_hechas",
+                                    itemSet.reps_hechas + (itemTiempo ? 5 : 1),
+                                  )
+                                }
                               >
                                 +
                               </button>
                             </div>
-                          )}
-                          <div className="a-mini-step">
-                            <button
-                              type="button"
-                              disabled={itemSet.reps_hechas <= 1}
-                              aria-label={itemTiempo ? "Restar 5 segundos" : `Restar 1 rep en ${item.nombre}`}
-                              onClick={() =>
-                                updateSetField(
-                                  item.id,
-                                  itemSet.numero_serie,
-                                  "reps_hechas",
-                                  Math.max(1, itemSet.reps_hechas - (itemTiempo ? 5 : 1)),
-                                )
-                              }
-                            >
-                              −
-                            </button>
-                            <span className="a-mini-val">
-                              {itemSet.reps_hechas} <small>{itemTiempo ? "s" : "reps"}</small>
-                            </span>
-                            <button
-                              type="button"
-                              aria-label={itemTiempo ? "Sumar 5 segundos" : `Sumar 1 rep en ${item.nombre}`}
-                              onClick={() =>
-                                updateSetField(
-                                  item.id,
-                                  itemSet.numero_serie,
-                                  "reps_hechas",
-                                  itemSet.reps_hechas + (itemTiempo ? 5 : 1),
-                                )
-                              }
-                            >
-                              +
-                            </button>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -1014,7 +1027,8 @@ export function EjercicioActivo() {
             </p>
           )}
 
-          {sugerencia && serie.numero_serie === 1 && (
+          {/* GOZS-873: "repetir" es redundante con "Última vez" + precarga; solo se muestra la progresión. */}
+          {sugerencia && sugerencia.tipo === "subir" && serie.numero_serie === 1 && (
             <button
               type="button"
               className="a-sug"
@@ -1027,11 +1041,7 @@ export function EjercicioActivo() {
               }}
             >
               <span className="a-sug-ic">
-                {sugerencia.tipo === "subir" ? (
-                  <TrendingUp width={18} height={18} className="a-i" />
-                ) : (
-                  <Equal width={18} height={18} className="a-i" />
-                )}
+                <TrendingUp width={18} height={18} className="a-i" />
               </span>
               <span className="a-rt">
                 <b className="a-t-bs">
@@ -1117,7 +1127,7 @@ export function EjercicioActivo() {
                     data-testid="uni-mode-same"
                     onClick={() => setUniSplit(false)}
                   >
-                    Igual D/I
+                    = D/I
                   </button>
                   <button
                     type="button"
@@ -1130,7 +1140,7 @@ export function EjercicioActivo() {
                       setUniSplit(true);
                     }}
                   >
-                    Separar D/I
+                    D/I
                   </button>
                 </div>
               )}
@@ -1484,6 +1494,7 @@ export function EjercicioActivo() {
                   </button>
                 ))}
               </div>
+              {usaBarra && (
               <details className="a-fold a-fold-sub" data-testid="calculadora-barra">
               <summary className="a-fold-sum a-t-label">Calculadora de barra y discos</summary>
               <span className="a-t-label a-muted">Barra</span>
@@ -1544,6 +1555,7 @@ export function EjercicioActivo() {
                 </div>
               )}
               </details>
+              )}
             </details>
           )}
 

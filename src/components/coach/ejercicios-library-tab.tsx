@@ -63,6 +63,7 @@ export function EjerciciosLibraryTab({
 }: EjerciciosLibraryTabProps) {
   const [busqueda, setBusqueda] = React.useState("");
   const [grupoMuscular, setGrupoMuscular] = React.useState("Todos");
+  const [soloBarra, setSoloBarra] = React.useState(false);
 
   // Estado del Diálogo Formulario (Crear / Editar)
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -74,6 +75,7 @@ export function EjerciciosLibraryTab({
   const [musculosSecundarios, setMusculosSecundarios] = React.useState("");
   const [urlVideo, setUrlVideo] = React.useState("");
   const [comentario, setComentario] = React.useState("");
+  const [usaBarra, setUsaBarra] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -128,8 +130,8 @@ export function EjerciciosLibraryTab({
   }, [isNuevoOpen, onOpenNuevoChange]);
 
   const filteredEjercicios = React.useMemo(() => {
-    return filtrarEjercicios(ejercicios, grupoMuscular, busqueda);
-  }, [ejercicios, grupoMuscular, busqueda]);
+    return filtrarEjercicios(ejercicios, grupoMuscular, busqueda, soloBarra);
+  }, [ejercicios, grupoMuscular, busqueda, soloBarra]);
 
   // Contar rutinas en las que se usa cada ejercicio
   const conteoUso = React.useMemo(() => {
@@ -147,6 +149,7 @@ export function EjerciciosLibraryTab({
     setMusculosSecundarios("");
     setUrlVideo("");
     setComentario("");
+    setUsaBarra(false);
     setFormError(null);
     setDialogOpen(true);
   };
@@ -158,6 +161,7 @@ export function EjerciciosLibraryTab({
     setMusculosSecundarios((ej.musculos_secundarios || []).join(", "));
     setUrlVideo(ej.url_video || "");
     setComentario(ej.comentario || "");
+    setUsaBarra(ej.usa_barra === true);
     setFormError(null);
     setDialogOpen(true);
   };
@@ -196,6 +200,7 @@ export function EjerciciosLibraryTab({
           musculos_secundarios: musculosSecundariosArray,
           url_video: videoTrim,
           comentario: comentarioTrim,
+          usa_barra: usaBarra,
           updated_at: nowIso,
         };
 
@@ -210,6 +215,7 @@ export function EjerciciosLibraryTab({
                 musculos_secundarios: actualizado.musculos_secundarios,
                 url_video: actualizado.url_video,
                 comentario: actualizado.comentario,
+                usa_barra: usaBarra,
                 updated_at: actualizado.updated_at,
               })
               .eq("id", editingEjercicio.id);
@@ -233,6 +239,7 @@ export function EjerciciosLibraryTab({
           musculos_secundarios: musculosSecundariosArray,
           url_video: videoTrim,
           comentario: comentarioTrim,
+          usa_barra: usaBarra,
           creado_por: null,
           created_at: nowIso,
           updated_at: nowIso,
@@ -335,6 +342,19 @@ export function EjerciciosLibraryTab({
                   </button>
                 );
               })}
+              <button
+                type="button"
+                onClick={() => setSoloBarra((v) => !v)}
+                data-testid="filtro-barra"
+                aria-pressed={soloBarra}
+                className={`h-7 px-3 text-[13px] font-medium shrink-0 rounded-md transition-colors ${
+                  soloBarra
+                    ? "bg-background text-foreground font-semibold shadow-xs"
+                    : "hover:bg-background/50 hover:text-foreground"
+                }`}
+              >
+                Barra
+              </button>
             </div>
           </div>
 
@@ -376,18 +396,19 @@ export function EjerciciosLibraryTab({
             No se encontraron ejercicios
           </h3>
           <p className="mt-1 text-sm text-muted-foreground max-w-sm mx-auto">
-            {busqueda || grupoMuscular !== "Todos"
+            {busqueda || grupoMuscular !== "Todos" || soloBarra
               ? "No hay ejercicios que coincidan con los filtros aplicados. Podés limpiar la búsqueda o cambiar de grupo muscular."
               : "Todavía no hay ejercicios en el catálogo maestro. Podés comenzar agregando el primero."}
           </p>
           <div className="mt-4 flex justify-center gap-2">
-            {(busqueda || grupoMuscular !== "Todos") && (
+            {(busqueda || grupoMuscular !== "Todos" || soloBarra) && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
                   setBusqueda("");
                   setGrupoMuscular("Todos");
+                  setSoloBarra(false);
                 }}
                 data-testid="btn-limpiar-filtros-ejercicios"
               >
@@ -458,6 +479,14 @@ export function EjerciciosLibraryTab({
                             {m}
                           </span>
                         ))}
+                        {ej.usa_barra === true && (
+                          <span
+                            className="inline-flex items-center rounded-md border border-border/60 bg-secondary/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                            data-testid={`ejercicio-barra-${ej.id}`}
+                          >
+                            Barra
+                          </span>
+                        )}
                         {(ej.musculos_secundarios || []).map((m, idx) => (
                           <span
                             key={`sec-${idx}`}
@@ -774,6 +803,20 @@ export function EjerciciosLibraryTab({
                       </button>
                     );
                   })}
+                  <button
+                    type="button"
+                    aria-pressed={usaBarra}
+                    aria-label="Usa barra libre"
+                    data-testid="chip-usa-barra"
+                    onClick={() => setUsaBarra((v) => !v)}
+                    className={`h-10 px-4 rounded-full border text-sm font-medium transition-colors ${
+                      usaBarra
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-foreground border-border hover:bg-secondary"
+                    }`}
+                  >
+                    Barra
+                  </button>
                 </div>
               </div>
 

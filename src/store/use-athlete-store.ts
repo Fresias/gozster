@@ -118,6 +118,7 @@ export interface LiveWorkoutExercise {
   tipo_medicion?: "REPS" | "TIEMPO";
   tiempo_objetivo_segundos?: number | null;
   es_unilateral?: boolean;
+  usa_barra?: boolean; // GOZS-873: public.ejercicios.usa_barra (barra libre cargable con discos)
 }
 
 export interface LiveWorkoutSession {
@@ -359,6 +360,7 @@ const defaultSession: LiveWorkoutSession = {
       ejercicio_id: "ej-sentadilla-con-barra",
       nombre: "Sentadilla Trasera con Barra",
       musculos_principales: ["Cuádriceps", "Glúteos", "Core"],
+      usa_barra: true,
       descanso_segundos: 90,
       rpe_objetivo: 8,
       repeticiones_objetivo: "4 a 6 (descendente)",
@@ -377,6 +379,7 @@ const defaultSession: LiveWorkoutSession = {
       ejercicio_id: "ej-press-plano-con-barra",
       nombre: "Press de Banca Plano",
       musculos_principales: ["Pectorales", "Tríceps", "Deltoides Frontal"],
+      usa_barra: true,
       descanso_segundos: 120,
       rpe_objetivo: 8,
       repeticiones_objetivo: "4 a 6 (descendente)",
@@ -2998,6 +3001,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
             tipo_medicion: tipoMedicion,
             tiempo_objetivo_segundos: tiempoObjetivo,
             es_unilateral: esUnilateral,
+            usa_barra: Boolean(ejMaestro?.usa_barra),
           };
         });
 

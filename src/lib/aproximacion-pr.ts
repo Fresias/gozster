@@ -37,6 +37,14 @@ export const MENSAJE_ANTIGUEDAD_8_SEMANAS =
 export const PESO_BARRA_DEFAULT = 20;
 
 /**
+ * GOZS-873: redondea una carga sobre barra a múltiplos de 5 kg totales por encima de la barra
+ * (discos estándar de 2,5 kg y 5 kg por lado, sin requerir discos de 1,25 kg). Nunca menor a la barra.
+ */
+export function redondearCargaBarra(pesoKg: number, barWeight: number = PESO_BARRA_DEFAULT): number {
+  return Math.max(barWeight, barWeight + Math.round((pesoKg - barWeight) / 5) * 5);
+}
+
+/**
  * Redondea un peso al múltiplo de 2.5 kg más cercano, con un mínimo opcional (default 20 kg).
  */
 export function redondearA2_5(pesoKg: number, minimoKg: number = PESO_BARRA_DEFAULT): number {
@@ -194,7 +202,7 @@ export function calcularSeriesAproximacion(
 
   if (W <= 0) return [];
 
-  const roundTo2_5 = (val: number) => redondearA2_5(val, barWeight);
+  const roundTo2_5 = (val: number) => redondearCargaBarra(val, barWeight);
 
   // Series candidatas completas (1 a 4)
   const candidatas: WarmupSetProgression[] = [
