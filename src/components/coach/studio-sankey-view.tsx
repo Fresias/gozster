@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { type SankeyFlowData } from "./studio-sankey-modal";
 import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
 import { crearKpisNegocioVacios, type KpisNegocio, type KpisNegocioDatos } from "@/lib/kpis-negocio";
@@ -10,6 +12,10 @@ export interface StudioSankeyViewProps {
   initialData?: SankeyFlowData;
   kpis?: KpisNegocio | KpisNegocioDatos;
   isLiveMode?: boolean;
+  /** Mensaje legible cuando falló la carga de KPIs (GOZS-912); nunca el error crudo. */
+  errorCarga?: string | null;
+  /** Reintento opcional; por defecto `router.refresh()`. */
+  onReintentar?: () => void;
 }
 
 type FilterKey = "ALL" | "COBRADO" | "PENDIENTE" | "POR_COBRAR" | "VENCIDO" | "PRESENCIAL" | "ONLINE";
@@ -39,7 +45,38 @@ function createSankeyRibbon(
   ].join(" ");
 }
 
-export function StudioSankeyView({ initialData, kpis: propKpis, isLiveMode = false }: StudioSankeyViewProps) {
+// Se monta solo con error para no exigir App Router en los renders sin fallo.
+function AvisoErrorIngresos({ mensaje, onReintentar }: { mensaje: string; onReintentar?: () => void }) {
+  const router = useRouter();
+  return (
+    <div
+      role="alert"
+      data-testid="sankey-error-carga"
+      className="flex flex-col gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-foreground sm:flex-row sm:items-center sm:justify-between"
+    >
+      <span>
+        <strong>{mensaje}</strong> Los montos se muestran en cero hasta que la carga funcione.
+      </span>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="min-h-11"
+        onClick={() => (onReintentar ? onReintentar() : router.refresh())}
+      >
+        Reintentar
+      </Button>
+    </div>
+  );
+}
+
+export function StudioSankeyView({
+  initialData,
+  kpis: propKpis,
+  isLiveMode = false,
+  errorCarga = null,
+  onReintentar,
+}: StudioSankeyViewProps) {
   const [selectedFilter, setSelectedFilter] = React.useState<FilterKey>("ALL");
   const [activeNode, setActiveNode] = React.useState<string | null>(null);
   const [periodo, setPeriodo] = React.useState<"mes" | "trimestre">("mes");
@@ -196,6 +233,7 @@ export function StudioSankeyView({ initialData, kpis: propKpis, isLiveMode = fal
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6" data-testid="studio-sankey-view">
+      {errorCarga && <AvisoErrorIngresos mensaje={errorCarga} onReintentar={onReintentar} />}
       {/* Cabecera & Selector de Período estilo reui.io */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/40 pb-5">
         <div className="space-y-1">
