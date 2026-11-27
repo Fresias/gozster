@@ -139,6 +139,10 @@ interface CoachStudioState {
 
   isLoading: boolean;
   isLiveDatabase: boolean;
+  /** Fallo al cargar alumnos (perfiles) o de conexión en la última carga en vivo; null si cargó bien. */
+  datasetError: string | null;
+  /** Fallo al cargar rutinas (planes_entrenamiento) en la última carga en vivo; null si cargó bien. */
+  planesError: string | null;
   loadLiveSupabaseData: () => Promise<void>;
   resetDemoDataset: () => void;
 
@@ -281,6 +285,8 @@ export const useCoachStudioStore = create<CoachStudioState>()(
 
     isLoading: false,
     isLiveDatabase: false,
+    datasetError: null,
+    planesError: null,
 
     resetDemoDataset: () => {
       set({
@@ -320,6 +326,8 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         currentPage: 1,
         isLoading: false,
         isLiveDatabase: false,
+        datasetError: null,
+        planesError: null,
       });
     },
 
@@ -341,6 +349,8 @@ export const useCoachStudioStore = create<CoachStudioState>()(
           isLiveDatabase: true,
           isLoading: false,
           selectedAlumnoId: null,
+          datasetError: dataset.datasetError ?? null,
+          planesError: dataset.planesError ?? null,
         });
         useCobrosStore.getState().hydrateFromLiveDataset(dataset);
       } else {

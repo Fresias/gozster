@@ -67,7 +67,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/status-badge";
-import { User, MessageSquare, Plus, ChevronDown, MoreHorizontal, Search } from "@/components/ui/icons";
+import { User, MessageSquare, Plus, ChevronDown, MoreHorizontal, Search, AlertTriangle } from "@/components/ui/icons";
 import { useCobrosStore } from "@/store/use-cobros-store";
 import { derivarBadgePlan } from "@/lib/planes";
 import { esEntrenadorDeApoyo, puedeVerFinanzasAlumno } from "@/lib/entrenador-apoyo";
@@ -136,6 +136,11 @@ export function CoachStudioView({
     : isLiveInicio
     ? store.alumnos
     : DEMO_GIMNASIO.alumnos;
+
+  // Fallo real de carga (perfiles o conexión): distingue error de base vacía, sin datos demo (G5/G12).
+  const datasetError = hasInitialData
+    ? (useHydratedStore ? store.datasetError : initialDataset!.datasetError ?? null)
+    : store.datasetError;
 
   // Mapa de alumnos estancados (+30 días sin PR) (GOZS-351)
   const estancadosMap = React.useMemo(() => {
@@ -248,6 +253,8 @@ export function CoachStudioView({
           historialCargas: {},
           sustituciones: [],
           isLiveDatabase: true,
+          datasetError: initialDataset.datasetError ?? null,
+          planesError: initialDataset.planesError ?? null,
         });
         useCobrosStore.getState().hydrateFromLiveDataset(initialDataset);
         setHydratedDataset(initialDataset);
@@ -1448,6 +1455,29 @@ export function CoachStudioView({
               <strong>Modo Offline Activo:</strong> Las métricas y cambios se guardan localmente ({pendingEvents.length} eventos pendientes).
             </span>
           </div>
+        </div>
+      )}
+
+      {datasetError && alumnos.length === 0 && !isLoading && (
+        <div
+          role="alert"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200"
+          data-testid="studio-dataset-load-error"
+        >
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-rose-300" aria-hidden="true" />
+            <span>
+              <strong>{datasetError}</strong> Revisá tu conexión e intentá de nuevo.
+            </span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void loadLiveSupabaseData()}
+            data-testid="btn-reintentar-carga-studio"
+          >
+            Reintentar
+          </Button>
         </div>
       )}
 
