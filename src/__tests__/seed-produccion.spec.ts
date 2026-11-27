@@ -8,6 +8,7 @@ import { crearDbMigrada } from "./helpers/pglite-migrada";
 
 const ROOT = path.resolve(__dirname, "../..");
 const SEED_PATH = path.join(ROOT, "supabase/seed_produccion.sql");
+const SEED_GOZS_PATH = path.join(ROOT, "supabase/seed_gozs.sql");
 const FERIADOS_2027_PATH = path.join(ROOT, "supabase/seed_data/feriados_ar_2027.sql");
 
 const ALUMNO = "00000000-0000-0000-0000-0000000000b1";
@@ -101,6 +102,8 @@ describe("GOZS-705: seed de producción sin personas e idempotente", () => {
         contrataciones: number;
         sesiones: number;
         series: number;
+        usa_barra_true: number;
+        usa_barra_false: number;
       }>(`
         SELECT
           (SELECT count(*)::int FROM public.ejercicios) AS ejercicios,
@@ -119,7 +122,9 @@ describe("GOZS-705: seed de producción sin personas e idempotente", () => {
           (SELECT count(*)::int FROM public.perfiles) AS perfiles,
           (SELECT count(*)::int FROM public.contrataciones) AS contrataciones,
           (SELECT count(*)::int FROM public.registro_sesiones) AS sesiones,
-          (SELECT count(*)::int FROM public.registro_series) AS series
+          (SELECT count(*)::int FROM public.registro_series) AS series,
+          (SELECT count(*)::int FROM public.ejercicios WHERE usa_barra IS TRUE) AS usa_barra_true,
+          (SELECT count(*)::int FROM public.ejercicios WHERE usa_barra IS FALSE) AS usa_barra_false
       `);
       return r.rows[0]!;
     };
@@ -150,6 +155,8 @@ describe("GOZS-705: seed de producción sin personas e idempotente", () => {
       contrataciones: 0,
       sesiones: 0,
       series: 0,
+      usa_barra_true: 11,
+      usa_barra_false: 78,
     });
 
     const nombresPlantillas = await db.query<{ nombre: string }>(
@@ -167,6 +174,91 @@ describe("GOZS-705: seed de producción sin personas e idempotente", () => {
 
     const segundaPasada = await contar();
     expect(segundaPasada).toEqual(primeraPasada);
+  });
+
+  it("usa_barra: 11 true / 78 false y paridad 1-a-1 con seed_gozs.sql (idempotente)", async () => {
+    // seed_produccion ya corrió dos veces en el test anterior: el conteo exacto se preserva.
+    const r = await db.query<{ id: string; nombre: string }>(
+      "SELECT id, nombre FROM public.ejercicios WHERE usa_barra IS TRUE ORDER BY id"
+    );
+    expect(r.rows).toHaveLength(11);
+
+    const gozs = fs.readFileSync(SEED_GOZS_PATH, "utf-8");
+    const esperados: { id: string; nombre: string }[] = [];
+    const rx = /VALUES \('([0-9a-f-]{36})', '((?:[^']|'')*)',[\s\S]*?,\s*(true|false)\)\s*\nON CONFLICT/g;
+    for (const m of gozs.matchAll(rx)) {
+      if (m[3] === "true") esperados.push({ id: m[1]!, nombre: m[2]!.replace(/''/g, "'") });
+    }
+    esperados.sort((a, b) => a.id.localeCompare(b.id));
+    expect(r.rows).toEqual(esperados);
+  });
+
+  it("humo post-corte: tablas operativas en 0, ranking vacío, anon 42501 y triggers de volumen Ola C sobre el catálogo real", async () => {
+    const SES = "00000000-0000-0000-0000-0000000000c1";
+    const ROLLBACK = new Error("rollback-humo");
+
+    const op = await db.query<{ n: number }>(`
+      SELECT (SELECT count(*) FROM public.push_cola)::int
+           + (SELECT count(*) FROM public.registro_sesiones)::int
+           + (SELECT count(*) FROM public.registro_series)::int
+           + (SELECT count(*) FROM public.v_prs)::int AS n`);
+    expect(op.rows[0]!.n).toBe(0);
+
+    let resultado: { filas: number; total: string; efectivo: string } | undefined;
+    await db
+      .transaction(async (tx: Transaction) => {
+        await tx.query(`INSERT INTO auth.users (id, email) VALUES ('${ALUMNO}', 'alumno-humo@gozster.local') ON CONFLICT (id) DO NOTHING`);
+        await tx.query(
+          `INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia)
+           VALUES ('${ALUMNO}', 'alumno-humo@gozster.local', 'Alumno Humo', 'ALUMNO', 'ACTIVA')
+           ON CONFLICT (id) DO UPDATE SET rol = EXCLUDED.rol, estado_membresia = EXCLUDED.estado_membresia`
+        );
+        await tx.query(
+          `INSERT INTO public.alumno_actividades (alumno_id, actividad, veces_por_semana) VALUES ('${ALUMNO}', 'FUNCIONAL', 3) ON CONFLICT DO NOTHING`
+        );
+        // Ranking como alumno Funcional en base recién cortada (sin sesiones): 0 filas.
+        await tx.query(`SELECT set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: ALUMNO, role: "authenticated" })]);
+        await tx.query(`SET LOCAL ROLE authenticated`);
+        const rk = await tx.query("SELECT * FROM public.obtener_ranking_funcional_alumno(NULL)");
+        const filasRanking = rk.rows.length;
+        await tx.query(`RESET ROLE`);
+        const ej = await tx.query<{ id: string }>("SELECT id FROM public.ejercicios ORDER BY nombre LIMIT 1");
+        const ejId = ej.rows[0]!.id;
+
+        await tx.query(`INSERT INTO public.registro_sesiones (id, alumno_id, estado) VALUES ('${SES}', '${ALUMNO}', 'EN_CURSO')`);
+        await tx.query(
+          `INSERT INTO public.registro_series (sesion_id, ejercicio_id, numero_serie, peso_kg, reps_hechas, completada, set_type)
+           VALUES ('${SES}', '${ejId}', 1, 20, 10, true, 'WARMUP'), ('${SES}', '${ejId}', 2, 50, 10, true, 'NORMAL')`
+        );
+        await tx.query(`UPDATE public.registro_sesiones SET estado = 'COMPLETADA' WHERE id = '${SES}'`);
+        const vol = await tx.query<{ total: string; efectivo: string }>(
+          `SELECT volumen_total_kg::text AS total, effective_volume_kg::text AS efectivo FROM public.registro_sesiones WHERE id = '${SES}'`
+        );
+        resultado = { filas: filasRanking, total: vol.rows[0]!.total, efectivo: vol.rows[0]!.efectivo };
+        throw ROLLBACK;
+      })
+      .catch((e) => {
+        if (e !== ROLLBACK) throw e;
+      });
+
+    expect(resultado).toBeDefined();
+    expect(resultado!.total).toBe("700.00");
+    expect(resultado!.efectivo).toBe("500.00");
+    expect(resultado!.filas).toBe(0);
+
+    // Aislamiento: el rollback no deja residuos en las tablas operativas.
+    const post = await db.query<{ n: number }>(
+      "SELECT ((SELECT count(*) FROM public.registro_sesiones) + (SELECT count(*) FROM public.registro_series))::int AS n"
+    );
+    expect(post.rows[0]!.n).toBe(0);
+
+    // G2: anon no ejecuta el ranking.
+    await expect(
+      db.transaction(async (tx: Transaction) => {
+        await tx.query(`SET LOCAL ROLE anon`);
+        await tx.query("SELECT * FROM public.obtener_ranking_funcional_alumno(NULL)");
+      })
+    ).rejects.toMatchObject({ code: "42501" });
   });
 
   it("feriados_en_rango('2027-01-01','2027-12-31') devuelve los 16 feriados de 2027", async () => {
