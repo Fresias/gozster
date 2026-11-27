@@ -66,6 +66,8 @@ export interface CobrosPanelProps {
   isLiveMode?: boolean;
   currentUserId?: string | null;
   userRole?: string | null;
+  /** Error de la carga SSR (cobros/perfiles/KPIs); se limpia al reintentar o cerrar. */
+  initialError?: string | null;
 }
 
 export function CobrosPanel({
@@ -81,6 +83,7 @@ export function CobrosPanel({
   isLiveMode = false,
   currentUserId = null,
   userRole = null,
+  initialError = null,
 }: CobrosPanelProps = {}): React.JSX.Element {
   const {
     cobros: storeCobros,
@@ -413,6 +416,17 @@ export function CobrosPanel({
       void cargarCobros();
     }
   }, [mappedInitial, isLiveMode, cargarCobros]);
+
+  const [errorInicial, setErrorInicial] = React.useState<string | null>(initialError);
+  const errorVisible = error ?? errorInicial;
+  const cerrarError = () => {
+    setErrorInicial(null);
+    limpiarMensajes();
+  };
+  const reintentarCarga = () => {
+    cerrarError();
+    void cargarCobros();
+  };
 
   const kpis = React.useMemo(() => {
     if (storeIsLiveMode || !mappedInitial) {
@@ -939,16 +953,27 @@ export function CobrosPanel({
       </header>
 
       {/* Avisos y Errores */}
-      {error && (
+      {errorVisible && (
         <div
           role="alert"
           className="flex items-start justify-between gap-3 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300"
           data-testid="cobros-error-alert"
         >
-          <span>{error}</span>
-          <button type="button" onClick={limpiarMensajes} className="min-h-8 px-1 font-bold" aria-label="Cerrar aviso">
-            ✕
-          </button>
+          <span>{errorVisible}</span>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={reintentarCarga}
+              disabled={cargando}
+              className="min-h-11 rounded-lg border border-rose-500/40 px-3 font-semibold disabled:opacity-60"
+              data-testid="cobros-error-reintentar"
+            >
+              Reintentar
+            </button>
+            <button type="button" onClick={cerrarError} className="min-h-8 px-1 font-bold" aria-label="Cerrar aviso">
+              ✕
+            </button>
+          </div>
         </div>
       )}
 

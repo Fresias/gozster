@@ -283,6 +283,8 @@ export interface ClassAgendaProps {
   initialClaseId?: string;
   initialCancelDialogOpen?: boolean;
   initialEditDialogOpen?: boolean;
+  /** Error de la carga SSR (clases/reservas/profesores); se limpia al reintentar o cerrar. */
+  initialError?: string | null;
 }
 
 // Coach Studio · Agenda de Clases (GOZS-190 / GOZS-191 / GOZS-399):
@@ -299,6 +301,7 @@ export function ClassAgenda({
   initialClaseId,
   initialCancelDialogOpen,
   initialEditDialogOpen,
+  initialError = null,
 }: ClassAgendaProps = {}) {
   const {
     vista,
@@ -325,6 +328,16 @@ export function ClassAgenda({
     quitarAnotadoCoach,
     limpiarMensajes,
   } = useClasesStore();
+  const [errorInicial, setErrorInicial] = React.useState<string | null>(initialError);
+  const errorVisible = error ?? errorInicial;
+  const cerrarError = () => {
+    setErrorInicial(null);
+    limpiarMensajes();
+  };
+  const reintentarCarga = () => {
+    cerrarError();
+    void cargarAgenda();
+  };
 
   const isOnline = useOfflineQueueStore((s) => s.isOnline);
   const testAhora = testAhoraProp ?? testAhoraStore;
@@ -1067,16 +1080,27 @@ export function ClassAgenda({
       )}
 
       {/* Alertas */}
-      {error && (
+      {errorVisible && (
         <div
           role="alert"
           className="flex items-start justify-between gap-3 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300"
           data-testid="agenda-error-alert"
         >
-          <span>{error}</span>
-          <button type="button" onClick={limpiarMensajes} className="min-h-8 px-1 font-bold" aria-label="Cerrar aviso">
-            ✕
-          </button>
+          <span>{errorVisible}</span>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={reintentarCarga}
+              disabled={cargando}
+              className="min-h-11 rounded-lg border border-rose-500/40 px-3 font-semibold disabled:opacity-60"
+              data-testid="agenda-error-reintentar"
+            >
+              Reintentar
+            </button>
+            <button type="button" onClick={cerrarError} className="min-h-8 px-1 font-bold" aria-label="Cerrar aviso">
+              ✕
+            </button>
+          </div>
         </div>
       )}
 

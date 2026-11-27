@@ -755,6 +755,9 @@ export const useCobrosStore = create<CobrosState>()(
             fetchCobrosDatasetFromSupabase(supabase),
             supabase.from("perfiles").select("id, nombre_completo, email, telefono"),
           ]);
+          if (perfilesRes.error) {
+            throw new Error(`No se pudieron cargar los perfiles de alumnos: ${perfilesRes.error.message}`);
+          }
           const perfiles = (perfilesRes.data as Array<Pick<Perfil, "id" | "nombre_completo" | "email" | "telefono">>) ?? [];
           const mapped = mapearCobrosDataset(dataset, perfiles);
           set({

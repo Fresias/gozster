@@ -69,6 +69,7 @@ export type EstadoSincronizacionRanking =
   | { tipo: "al-dia"; ultimaSincronizacionAt: string | null };
 
 export const RANKING_SYNC_ERROR_MSG = "No se pudo actualizar el ranking";
+export const RANKING_ALUMNO_ERROR_MSG = "No se pudo cargar tu ranking de Funcional";
 
 /**
  * Señal de frescura del ranking (GOZS-885). Pura: la reutilizan Coach Studio y
@@ -96,6 +97,8 @@ export interface RankingState {
   pendientesMarcas: MarcaPendiente[];
   rankingAlumno: RankingFuncionalFila[];
   rankingAlumnoFecha: string | null;
+  /** Efímero: la última descarga online del ranking del alumno falló. */
+  rankingAlumnoError: string | null;
   cargandoRankingAlumno: boolean;
   cargando: boolean;
   guardandoPrId: string | null;
@@ -322,6 +325,7 @@ export const useRankingStore = create<RankingState>()(
       pendientesMarcas: [],
       rankingAlumno: [],
       rankingAlumnoFecha: null,
+      rankingAlumnoError: null,
       cargandoRankingAlumno: false,
       cargando: false,
       guardandoPrId: null,
@@ -345,7 +349,7 @@ export const useRankingStore = create<RankingState>()(
           aviso: null,
         }),
 
-      limpiarAviso: () => set({ aviso: null, error: null }),
+      limpiarAviso: () => set({ aviso: null, error: null, rankingAlumnoError: null }),
 
       cargarPrsClase: async (claseId) => {
         if (!claseId || !esUuid(claseId) || typeof supabase?.from !== "function") {
@@ -395,7 +399,7 @@ export const useRankingStore = create<RankingState>()(
 
       cargarRankingAlumno: async () => {
         if (typeof supabase?.rpc !== "function" || !hayRed()) return;
-        set({ cargandoRankingAlumno: true });
+        set({ cargandoRankingAlumno: true, rankingAlumnoError: null });
         try {
           const { data, error } = await supabase.rpc("obtener_ranking_funcional_alumno", {});
           if (!error && Array.isArray(data)) {
@@ -407,13 +411,20 @@ export const useRankingStore = create<RankingState>()(
                 posicion: f.posicion === null ? null : Number(f.posicion),
               })),
               rankingAlumnoFecha: new Date().toISOString(),
+              rankingAlumnoError: null,
               cargandoRankingAlumno: false,
             });
           } else {
-            set({ cargandoRankingAlumno: false });
+            set({
+              cargandoRankingAlumno: false,
+              rankingAlumnoError: `${RANKING_ALUMNO_ERROR_MSG}: ${error?.message ?? "respuesta inválida del servidor"}.`,
+            });
           }
-        } catch {
-          set({ cargandoRankingAlumno: false });
+        } catch (e) {
+          set({
+            cargandoRankingAlumno: false,
+            rankingAlumnoError: `${RANKING_ALUMNO_ERROR_MSG}: ${e instanceof Error ? e.message : "error de red"}.`,
+          });
         }
       },
 
@@ -620,16 +631,9 @@ export const useRankingStore = create<RankingState>()(
         for (const p of get().prs) {
           if (!mapaExistentes.has(p.alumno_id)) {
             const override = perfiles[p.alumno_id];
-            let nombre = "Alumno Desconocido";
-            if (p.alumno_id === "demo-alumno-01-lucas") nombre = "Lucas Giménez";
-            else if (p.alumno_id === "demo-alumno-ext-mie-5") nombre = "Emilia Castro";
-            else if (p.alumno_id === "demo-alumno-08-camila") nombre = "Camila Navarro";
-            else if (p.alumno_id === "demo-alumno-05-mateo") nombre = "Mateo Rossi";
-            else if (p.alumno_id === "demo-alumno-ext-mie-4") nombre = "Renata Quiroga";
-
             alumnosCombinados.push({
               id: p.alumno_id,
-              nombre_completo: nombre,
+              nombre_completo: "Alumno",
               email: `${p.alumno_id}@gozster.test`,
               rol: "ALUMNO",
               estado_membresia: "ACTIVA",

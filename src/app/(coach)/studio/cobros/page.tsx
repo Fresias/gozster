@@ -43,19 +43,30 @@ export default async function CobrosPage() {
     >
   > = [];
   let kpis: KpisNegocio = crearKpisNegocioVacios(userRole);
+  const errores: string[] = [];
+  const mensaje = (e: unknown) => (e instanceof Error ? e.message : "error de red");
 
   if (authUser?.data?.user) {
     const viewer = { userId: authUser.data.user.id, rol: userRole };
     const [cobrosRes, perfilesRes, kpisRes] = await Promise.all([
-      fetchCobrosDatasetFromSupabase(supabase).catch(() => dataset),
+      fetchCobrosDatasetFromSupabase(supabase).catch((e: unknown) => {
+        errores.push(`No se pudieron cargar los cobros: ${mensaje(e)}`);
+        return dataset;
+      }),
       supabase
         .from("perfiles")
         .select(
           "id, nombre_completo, email, telefono, profesor_asignado_id, profesor_apoyo_id, apoyo_acceso_financiero",
         ),
-      obtenerKpisNegocio(supabase, { rol: userRole }).catch(() => kpis),
+      obtenerKpisNegocio(supabase, { rol: userRole }).catch((e: unknown) => {
+        errores.push(`No se pudieron cargar los indicadores: ${mensaje(e)}`);
+        return kpis;
+      }),
     ]);
     dataset = cobrosRes;
+    if (perfilesRes.error) {
+      errores.push(`No se pudieron cargar los perfiles de alumnos: ${perfilesRes.error.message}`);
+    }
     if (!perfilesRes.error && Array.isArray(perfilesRes.data)) {
       const todos = perfilesRes.data as typeof perfiles;
       perfiles = todos.filter((p) => puedeVerFinanzasAlumno(p, viewer));
@@ -73,6 +84,7 @@ export default async function CobrosPage() {
       isLiveMode={true}
       currentUserId={authUser?.data?.user?.id ?? null}
       userRole={userRole}
+      initialError={errores.length > 0 ? `${errores.join(". ")}.` : null}
     />
   );
 }
