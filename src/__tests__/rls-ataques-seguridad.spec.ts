@@ -2277,4 +2277,400 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
       expect(await codigoDe(como("anon", null, `SELECT * FROM public.listar_entrenadores_staff()`))).toBe("42501");
     });
   });
+
+  describe("10. Onboarding/Perfil, Clases fijas, Quick-Swap, Finanzas/Precios, Push/Jobs y Chat cross-tenant (G1/G2/S-7)", () => {
+    const C_AJENO10 = "00000000-0000-0000-0000-0000000916c9";
+    const EJ_ORIGINAL_ID = "11111111-1111-4111-8111-000000091601";
+    const EJ_SUSTITUTO_ID = "11111111-1111-4111-8111-000000091602";
+    const PLAN10_ID = "33333333-3333-4333-8333-000000091601";
+    const DIA10_ID = "33333333-3333-4333-8333-000000091602";
+    const EJR10_ID = "33333333-3333-4333-8333-000000091603";
+    const HORARIO_ID = "88888888-8888-4888-8888-000000091601";
+    const FIJA_A2_ID = "88888888-8888-4888-8888-000000091602";
+    const CLASE10_ID = "88888888-8888-4888-8888-000000091603";
+    const RESERVA10_A1_ID = "88888888-8888-4888-8888-000000091611";
+    const RESERVA10_A2_ID = "88888888-8888-4888-8888-000000091612";
+    const COBRO10_A1_ID = "55555555-5555-4555-8555-000000091601";
+    const COBRO10_A2_ID = "55555555-5555-4555-8555-000000091602";
+    const PUSH_A2_ID = "99999999-9999-4999-8999-000000091601";
+
+    async function codigo(promesa: Promise<unknown>): Promise<string> {
+      try {
+        await promesa;
+        return "OK";
+      } catch (err) {
+        return typeof err === "object" && err !== null && "code" in err ? String(err.code) : "ERR";
+      }
+    }
+
+    /** Escritura sin efecto: 42501 o 0 filas afectadas. */
+    async function sinEfecto(promesa: Promise<{ affectedRows?: number }>): Promise<void> {
+      try {
+        const res = await promesa;
+        expect(res.affectedRows ?? 0).toBe(0);
+      } catch (err) {
+        expect(err).toMatchObject({ code: "42501" });
+      }
+    }
+
+    async function jsonDe(rol: Rol, sub: string | null, sql: string, params: unknown[] = []) {
+      const res = await como<{ r: Record<string, unknown> }>(rol, sub, sql, params);
+      return res.rows[0]!.r;
+    }
+
+    beforeAll(async () => {
+      await db.exec(`
+        INSERT INTO auth.users (id, email, raw_app_meta_data) VALUES
+          ('${C_AJENO10}', 'coach.ajeno916@test.local', '{"rol":"ENTRENADOR"}')
+        ON CONFLICT (id) DO NOTHING;
+        INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia) VALUES
+          ('${C_AJENO10}', 'coach.ajeno916@test.local', 'Coach Ajeno 916', 'ENTRENADOR', 'ACTIVA')
+        ON CONFLICT (id) DO UPDATE SET rol = EXCLUDED.rol;
+
+        INSERT INTO public.alumno_cuestionario_inicial (alumno_id, objetivo_principal)
+        VALUES ('${A2}', 'objetivo privado A2')
+        ON CONFLICT (alumno_id) DO NOTHING;
+
+        INSERT INTO public.clases_horario (id, actividad, dia_semana, hora_inicio, duracion_minutos, capacidad, activo)
+        VALUES ('${HORARIO_ID}', 'FUNCIONAL', 1, '10:00', 60, 10, true)
+        ON CONFLICT (id) DO NOTHING;
+        INSERT INTO public.clases_fijas (id, alumno_id, horario_id)
+        VALUES ('${FIJA_A2_ID}', '${A2}', '${HORARIO_ID}')
+        ON CONFLICT (id) DO NOTHING;
+
+        INSERT INTO public.ejercicios (id, nombre) VALUES
+          ('${EJ_ORIGINAL_ID}', 'Ejercicio Original 916'),
+          ('${EJ_SUSTITUTO_ID}', 'Ejercicio Sustituto 916')
+        ON CONFLICT (id) DO NOTHING;
+        INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, tipo)
+        VALUES ('${PLAN10_ID}', '${C1}', '${A1}', 'Plan Quick-Swap 916', 'BORRADOR', 'DE_ALUMNO')
+        ON CONFLICT (id) DO NOTHING;
+        INSERT INTO public.dias_rutina (id, plan_id, nombre, orden)
+        VALUES ('${DIA10_ID}', '${PLAN10_ID}', 'Día 1 916', 1)
+        ON CONFLICT (id) DO NOTHING;
+        INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones)
+        VALUES ('${EJR10_ID}', '${DIA10_ID}', '${EJ_ORIGINAL_ID}', 1, 3, '10')
+        ON CONFLICT (id) DO NOTHING;
+
+        INSERT INTO public.clases (id, actividad, inicio, duracion_minutos, capacidad, estado)
+        VALUES ('${CLASE10_ID}', 'FUNCIONAL', now() - interval '1 hour', 60, 12, 'PROGRAMADA')
+        ON CONFLICT (id) DO NOTHING;
+        INSERT INTO public.reservas (id, clase_id, alumno_id, estado) VALUES
+          ('${RESERVA10_A1_ID}', '${CLASE10_ID}', '${A1}', 'ANOTADO'),
+          ('${RESERVA10_A2_ID}', '${CLASE10_ID}', '${A2}', 'ANOTADO')
+        ON CONFLICT (id) DO NOTHING;
+
+        INSERT INTO public.cobros (id, contratacion_id, alumno_id, periodo, monto, fecha_vencimiento) VALUES
+          ('${COBRO10_A1_ID}', '${CONTR_A1_ID}', '${A1}', (date_trunc('month', CURRENT_DATE) + interval '2 months')::date, 1000, CURRENT_DATE + 60),
+          ('${COBRO10_A2_ID}', '${CONTR_A2_ID}', '${A2}', (date_trunc('month', CURRENT_DATE) + interval '2 months')::date, 2000, CURRENT_DATE + 60)
+        ON CONFLICT (id) DO NOTHING;
+
+        INSERT INTO public.push_suscripciones (id, usuario_id, endpoint, p256dh, auth)
+        VALUES ('${PUSH_A2_ID}', '${A2}', 'https://push.test/a2-916', 'p256dh-a2', 'auth-a2')
+        ON CONFLICT (id) DO NOTHING;
+      `);
+    });
+
+    describe("Onboarding y perfil del alumno", () => {
+      it("completar_onboarding_alumno: anon y sesión sin sub → 42501; A1 solo marca su propio perfil", async () => {
+        const sql = `SELECT public.completar_onboarding_alumno() AS r`;
+        expect(await codigo(como("anon", null, sql))).toBe("42501");
+        expect(await codigo(como("authenticated", null, sql))).toBe("42501");
+        const antesA2 = await db.query<{ o: boolean }>(`SELECT onboarding_completado AS o FROM public.perfiles WHERE id = $1`, [A2]);
+        await como("authenticated", A1, sql);
+        const a1 = await db.query<{ o: boolean }>(`SELECT onboarding_completado AS o FROM public.perfiles WHERE id = $1`, [A1]);
+        const despuesA2 = await db.query<{ o: boolean }>(`SELECT onboarding_completado AS o FROM public.perfiles WHERE id = $1`, [A2]);
+        expect(a1.rows[0]!.o).toBe(true);
+        expect(despuesA2.rows[0]!.o).toBe(antesA2.rows[0]!.o);
+      });
+
+      it("alumno_cuestionario_inicial: aislamiento por alumno, entrenador no asignado y escrituras ajenas", async () => {
+        expect(await contarOCodigoPermiso("anon", null, "alumno_cuestionario_inicial")).toSatisfy(
+          (v: number | string) => v === "42501" || v === 0,
+        );
+        expect(await contarComo("authenticated", A1, "alumno_cuestionario_inicial", `alumno_id = '${A2}'`)).toBe(0);
+        expect(await contarComo("authenticated", C1, "alumno_cuestionario_inicial", `alumno_id = '${A2}'`)).toBe(0);
+        expect(await contarComo("authenticated", C_AJENO10, "alumno_cuestionario_inicial", `alumno_id = '${A2}'`)).toBe(0);
+        expect(await contarComo("authenticated", A2, "alumno_cuestionario_inicial", `alumno_id = '${A2}'`)).toBe(1);
+        expect(await contarComo("authenticated", ADMIN, "alumno_cuestionario_inicial", `alumno_id = '${A2}'`)).toBe(1);
+
+        expect(
+          await codigo(como("authenticated", A1, `INSERT INTO public.alumno_cuestionario_inicial (alumno_id, objetivo_principal) VALUES ($1, 'x')`, [A2])),
+        ).toBe("42501");
+        await sinEfecto(
+          como("authenticated", A1, `UPDATE public.alumno_cuestionario_inicial SET objetivo_principal = 'hack' WHERE alumno_id = $1`, [A2]),
+        );
+        await sinEfecto(como("authenticated", A2, `DELETE FROM public.alumno_cuestionario_inicial WHERE alumno_id = $1`, [A2]));
+        await sinEfecto(como("authenticated", C1, `DELETE FROM public.alumno_cuestionario_inicial WHERE alumno_id = $1`, [A2]));
+        const fila = await db.query<{ objetivo_principal: string }>(
+          `SELECT objetivo_principal FROM public.alumno_cuestionario_inicial WHERE alumno_id = $1`,
+          [A2],
+        );
+        expect(fila.rows).toEqual([{ objetivo_principal: "objetivo privado A2" }]);
+      });
+
+      it("actualizar_peso_sexo_alumno / actualizar_perfil_alumno podadas (20261122070000): no existen ni son invocables", async () => {
+        for (const firma of [
+          "public.actualizar_peso_sexo_alumno(uuid, numeric, text)",
+          "public.actualizar_perfil_alumno(uuid, numeric, text)",
+        ]) {
+          expect(await existeFuncion(firma), firma).toBe(false);
+        }
+        const antes = await db.query<{ peso: string | null }>(`SELECT peso_corporal_kg::text AS peso FROM public.perfiles WHERE id = $1`, [A2]);
+        for (const fn of ["actualizar_peso_sexo_alumno", "actualizar_perfil_alumno"]) {
+          const sql = `SELECT public.${fn}('${A2}'::uuid, 70::numeric, 'M'::text) AS r`;
+          for (const [rol, sub] of [["anon", null], ["authenticated", A1], ["authenticated", C1], ["authenticated", ADMIN]] as const) {
+            expect(["42883", "42501"], `${rol}/${sub} → ${fn}`).toContain(await codigo(como(rol, sub, sql)));
+          }
+        }
+        const despues = await db.query<{ peso: string | null }>(`SELECT peso_corporal_kg::text AS peso FROM public.perfiles WHERE id = $1`, [A2]);
+        expect(despues.rows[0]!.peso).toBe(antes.rows[0]!.peso);
+      });
+    });
+
+    describe("Clases fijas y gestión de clases/reservas", () => {
+      it("clases_fijas: anon rechazado, aislamiento entre alumnos y escritura directa bloqueada", async () => {
+        expect(await codigo(como("anon", null, `SELECT * FROM public.clases_fijas`))).toBe("42501");
+        expect(await contarComo("authenticated", A1, "clases_fijas", `alumno_id = '${A2}'`)).toBe(0);
+        expect(await contarComo("authenticated", A2, "clases_fijas", `alumno_id = '${A2}'`)).toBe(1);
+        expect(await contarComo("authenticated", C1, "clases_fijas", `alumno_id = '${A2}'`)).toBe(1);
+        for (const sub of [A1, A2, C1, ADMIN]) {
+          expect(
+            await codigo(como("authenticated", sub, `INSERT INTO public.clases_fijas (alumno_id, horario_id) VALUES ($1, $2)`, [A1, HORARIO_ID])),
+            `INSERT directo ${sub}`,
+          ).toBe("42501");
+          expect(await codigo(como("authenticated", sub, `DELETE FROM public.clases_fijas WHERE id = $1`, [FIJA_A2_ID])), `DELETE directo ${sub}`).toBe("42501");
+          expect(await codigo(como("authenticated", sub, `UPDATE public.clases_fijas SET alumno_id = $2 WHERE id = $1`, [FIJA_A2_ID, A1])), `UPDATE directo ${sub}`).toBe("42501");
+        }
+        expect(await contarComo("authenticated", ADMIN, "clases_fijas", `id = '${FIJA_A2_ID}' AND alumno_id = '${A2}'`)).toBe(1);
+      });
+
+      it("asignar_clase_fija / quitar_clase_fija: anon, alumno ajeno y coach no asignado → 42501; coach asignado y ADMIN autorizados", async () => {
+        const asignarA2 = `SELECT public.asignar_clase_fija($1, $2) AS r`;
+        const quitarA2 = `SELECT public.quitar_clase_fija($1) AS r`;
+        expect(await codigo(como("anon", null, asignarA2, [HORARIO_ID, A2]))).toBe("42501");
+        expect(await codigo(como("anon", null, quitarA2, [FIJA_A2_ID]))).toBe("42501");
+        for (const sub of [A1, C1, C_AJENO10]) {
+          expect(await codigo(como("authenticated", sub, asignarA2, [HORARIO_ID, A2])), `asignar ${sub} → A2`).toBe("42501");
+          expect(await codigo(como("authenticated", sub, quitarA2, [FIJA_A2_ID])), `quitar ${sub} → fija A2`).toBe("42501");
+        }
+        expect(await contarComo("authenticated", ADMIN, "clases_fijas", `id = '${FIJA_A2_ID}'`)).toBe(1);
+
+        // ADMIN supera la autorización (el rechazo es de negocio: ya es fija).
+        expect(await codigo(como("authenticated", ADMIN, asignarA2, [HORARIO_ID, A2]))).toBe("GZ008");
+
+        // Coach asignado a A1: alta y baja sobre su alumno.
+        const alta = await como<{ r: string }>("authenticated", C1, `SELECT public.asignar_clase_fija($1, $2) AS r`, [HORARIO_ID, A1]);
+        const fijaA1 = alta.rows[0]!.r;
+        expect(await codigo(como("authenticated", A2, quitarA2, [fijaA1]))).toBe("42501");
+        expect(await codigo(como("authenticated", C_AJENO10, quitarA2, [fijaA1]))).toBe("42501");
+        expect(await codigo(como("authenticated", C1, quitarA2, [fijaA1]))).toBe("OK");
+      });
+
+      it("marcar_ausente: anon, alumno y coach que no es profesor de la clase → 42501; reserva intacta", async () => {
+        const sql = `SELECT * FROM public.marcar_ausente($1)`;
+        expect(await codigo(como("anon", null, sql, [RESERVA10_A2_ID]))).toBe("42501");
+        for (const sub of [A1, A2, C1, C_AJENO10]) {
+          expect(await codigo(como("authenticated", sub, sql, [RESERVA10_A2_ID])), `marcar_ausente ${sub}`).toBe("42501");
+        }
+        const estado = await db.query<{ estado: string }>(`SELECT estado FROM public.reservas WHERE id = $1`, [RESERVA10_A2_ID]);
+        expect(estado.rows).toEqual([{ estado: "ANOTADO" }]);
+      });
+
+      it("cancelar_reserva: solo la reserva propia (ajena = P0002); anon 42501; reserva ajena intacta", async () => {
+        const sql = `SELECT * FROM public.cancelar_reserva($1)`;
+        expect(await codigo(como("anon", null, sql, [RESERVA10_A2_ID]))).toBe("42501");
+        for (const sub of [A1, C1, ADMIN, C_AJENO10]) {
+          expect(await codigo(como("authenticated", sub, sql, [RESERVA10_A2_ID])), `cancelar_reserva ${sub}`).toBe("P0002");
+        }
+        const estado = await db.query<{ estado: string }>(`SELECT estado FROM public.reservas WHERE id = $1`, [RESERVA10_A2_ID]);
+        expect(estado.rows).toEqual([{ estado: "ANOTADO" }]);
+      });
+
+      it("cancelar_clase / cancelar_clase_con_aviso: anon, alumno y coach ajeno a la clase → 42501; clase intacta", async () => {
+        const llamadas = [
+          `SELECT * FROM public.cancelar_clase('${CLASE10_ID}', 'atk')`,
+          `SELECT * FROM public.cancelar_clase_con_aviso('${CLASE10_ID}', 'atk', false)`,
+        ];
+        for (const sql of llamadas) {
+          expect(await codigo(como("anon", null, sql)), `anon → ${sql}`).toBe("42501");
+          for (const sub of [A1, A2, C1, C_AJENO10]) {
+            expect(await codigo(como("authenticated", sub, sql)), `${sub} → ${sql}`).toBe("42501");
+          }
+        }
+        const clase = await db.query<{ estado: string }>(`SELECT estado FROM public.clases WHERE id = $1`, [CLASE10_ID]);
+        expect(clase.rows).toEqual([{ estado: "PROGRAMADA" }]);
+      });
+
+      it("resumen_clases_alumno: anon y sesión sin sub → 42501; el alumno autenticado lo ejecuta", async () => {
+        const sql = `SELECT * FROM public.resumen_clases_alumno()`;
+        expect(await codigo(como("anon", null, sql))).toBe("42501");
+        expect(await codigo(como("authenticated", null, sql))).toBe("42501");
+        expect(await codigo(como("authenticated", A1, sql))).toBe("OK");
+      });
+    });
+
+    describe("Sustituciones y Quick-Swap", () => {
+      const swap = `SELECT public.quick_swap_ejercicio($1, $2, NULL, 'motivo 916') AS r`;
+
+      it("quick_swap_ejercicio: anon, alumnos y coach sin vínculo → 42501; rutina intacta", async () => {
+        expect(await codigo(como("anon", null, swap, [EJR10_ID, EJ_SUSTITUTO_ID]))).toBe("42501");
+        for (const sub of [A1, A2, C_AJENO10]) {
+          expect(await codigo(como("authenticated", sub, swap, [EJR10_ID, EJ_SUSTITUTO_ID])), `swap ${sub}`).toBe("42501");
+        }
+        const item = await db.query<{ ejercicio_id: string }>(`SELECT ejercicio_id FROM public.ejercicios_en_rutina WHERE id = $1`, [EJR10_ID]);
+        expect(item.rows[0]!.ejercicio_id).toBe(EJ_ORIGINAL_ID);
+        const n = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.sustituciones_ejercicios WHERE plan_id = $1`, [PLAN10_ID]);
+        expect(n.rows[0]!.n).toBe(0);
+      });
+
+      it("quick_swap_ejercicio: el entrenador dueño del plan lo ejecuta y queda registro", async () => {
+        expect(await codigo(como("authenticated", C1, swap, [EJR10_ID, EJ_SUSTITUTO_ID]))).toBe("OK");
+        const item = await db.query<{ ejercicio_id: string }>(`SELECT ejercicio_id FROM public.ejercicios_en_rutina WHERE id = $1`, [EJR10_ID]);
+        expect(item.rows[0]!.ejercicio_id).toBe(EJ_SUSTITUTO_ID);
+      });
+
+      it("sustituciones_ejercicios: visibilidad por plan y sin INSERT directo de alumnos ni coaches ajenos", async () => {
+        expect(await codigo(como("anon", null, `SELECT * FROM public.sustituciones_ejercicios`))).toBe("42501");
+        expect(await contarComo("authenticated", A1, "sustituciones_ejercicios", `plan_id = '${PLAN10_ID}'`)).toBe(1);
+        expect(await contarComo("authenticated", C1, "sustituciones_ejercicios", `plan_id = '${PLAN10_ID}'`)).toBe(1);
+        expect(await contarComo("authenticated", ADMIN, "sustituciones_ejercicios", `plan_id = '${PLAN10_ID}'`)).toBe(1);
+        expect(await contarComo("authenticated", A2, "sustituciones_ejercicios", `plan_id = '${PLAN10_ID}'`)).toBe(0);
+        expect(await contarComo("authenticated", C_AJENO10, "sustituciones_ejercicios", `plan_id = '${PLAN10_ID}'`)).toBe(0);
+        const insertar = `INSERT INTO public.sustituciones_ejercicios (plan_id, ejercicio_original_id, ejercicio_sustituto_id, responsable_id)
+                          VALUES ('${PLAN10_ID}', '${EJ_ORIGINAL_ID}', '${EJ_SUSTITUTO_ID}', $1)`;
+        for (const sub of [A1, A2, C_AJENO10]) {
+          expect(await codigo(como("authenticated", sub, insertar, [sub])), `INSERT directo ${sub}`).toBe("42501");
+        }
+      });
+    });
+
+    describe("Precios, pagos y finanzas", () => {
+      it("planes_membresia_precios: anon rechazado; solo ADMIN inserta; nadie actualiza ni borra", async () => {
+        expect(await codigo(como("anon", null, `SELECT * FROM public.planes_membresia_precios`))).toBe("42501");
+        expect(await codigo(como("authenticated", A1, `SELECT * FROM public.planes_membresia_precios`))).toBe("OK");
+        const insertar = `INSERT INTO public.planes_membresia_precios (plan_membresia_id, precio, vigente_desde) VALUES ('${MEMBRESIA_ID}', 99999, DATE '2099-01-01')`;
+        for (const sub of [A1, C1, C_AJENO10]) {
+          expect(await codigo(como("authenticated", sub, insertar)), `INSERT ${sub}`).toBe("42501");
+        }
+        expect(await codigo(como("anon", null, insertar))).toBe("42501");
+        expect(await contarComo("authenticated", ADMIN, "planes_membresia_precios", `precio = 99999`)).toBe(0);
+        expect(await codigo(como("authenticated", ADMIN, insertar))).toBe("OK");
+        for (const sub of [A1, C1, ADMIN]) {
+          expect(await codigo(como("authenticated", sub, `UPDATE public.planes_membresia_precios SET precio = 1`)), `UPDATE ${sub}`).toBe("42501");
+          expect(await codigo(como("authenticated", sub, `DELETE FROM public.planes_membresia_precios`)), `DELETE ${sub}`).toBe("42501");
+        }
+      });
+
+      it("RPCs financieras/ficha podadas (20261122070000): registrar_pago_con_descuento, ingresos_mes y obtener_ficha_alumno_actividades no existen ni son invocables", async () => {
+        for (const firma of [
+          "public.registrar_pago_con_descuento(uuid, numeric, text, text)",
+          "public.ingresos_mes(date)",
+          "public.obtener_ficha_alumno_actividades(uuid)",
+        ]) {
+          expect(await existeFuncion(firma), firma).toBe(false);
+        }
+        const llamadas = [
+          `SELECT public.registrar_pago_con_descuento('${COBRO10_A2_ID}'::uuid, 2000::numeric, 'EFECTIVO', NULL::text) AS r`,
+          `SELECT public.ingresos_mes() AS r`,
+          `SELECT public.obtener_ficha_alumno_actividades('${A2}'::uuid) AS r`,
+        ];
+        for (const sql of llamadas) {
+          for (const [rol, sub] of [["anon", null], ["authenticated", A1], ["authenticated", C1], ["authenticated", ADMIN]] as const) {
+            expect(["42883", "42501"], `${rol}/${sub} → ${sql}`).toContain(await codigo(como(rol, sub, sql)));
+          }
+        }
+        const estado = await db.query<{ estado: string }>(`SELECT estado FROM public.cobros WHERE id = $1`, [COBRO10_A2_ID]);
+        expect(estado.rows).toEqual([{ estado: "PENDIENTE" }]);
+      });
+    });
+
+    describe("Push y jobs operativos", () => {
+      it("push_suscripciones: solo el dueño ve y escribe; ni coach ni ADMIN leen ajenas", async () => {
+        expect(await codigo(como("anon", null, `SELECT * FROM public.push_suscripciones`))).toBe("42501");
+        for (const sub of [A1, C1, ADMIN, C_AJENO10]) {
+          expect(await contarComo("authenticated", sub, "push_suscripciones", `usuario_id = '${A2}'`), `${sub} lee push A2`).toBe(0);
+        }
+        expect(await contarComo("authenticated", A2, "push_suscripciones", `usuario_id = '${A2}'`)).toBe(1);
+        const insertar = `INSERT INTO public.push_suscripciones (usuario_id, endpoint, p256dh, auth) VALUES ($1, 'https://push.test/x', 'k', 'a')`;
+        expect(await codigo(como("authenticated", A1, insertar, [A2]))).toBe("42501");
+        expect(await codigo(como("anon", null, insertar, [A2]))).toBe("42501");
+        expect(await codigo(como("authenticated", A1, insertar, [A1]))).toBe("OK");
+        await sinEfecto(como("authenticated", A1, `UPDATE public.push_suscripciones SET endpoint = 'https://evil.test' WHERE id = $1`, [PUSH_A2_ID]));
+        await sinEfecto(como("authenticated", A1, `DELETE FROM public.push_suscripciones WHERE id = $1`, [PUSH_A2_ID]));
+        await sinEfecto(como("authenticated", ADMIN, `DELETE FROM public.push_suscripciones WHERE id = $1`, [PUSH_A2_ID]));
+        const fila = await db.query<{ endpoint: string }>(`SELECT endpoint FROM public.push_suscripciones WHERE id = $1`, [PUSH_A2_ID]);
+        expect(fila.rows).toEqual([{ endpoint: "https://push.test/a2-916" }]);
+      });
+
+      it("purgar_push_cola y job_diario_contrataciones: solo service_role (anon, alumnos, coaches y ADMIN → 42501)", async () => {
+        for (const sql of [`SELECT public.purgar_push_cola() AS r`, `SELECT public.job_diario_contrataciones() AS r`]) {
+          expect(await codigo(como("anon", null, sql)), `anon → ${sql}`).toBe("42501");
+          for (const sub of [A1, C1, ADMIN]) {
+            expect(await codigo(como("authenticated", sub, sql)), `${sub} → ${sql}`).toBe("42501");
+          }
+        }
+      });
+
+      it("evaluar_vencimientos_contrataciones: anon, alumno y coach → 42501; ADMIN y service_role autorizados", async () => {
+        const sql = `SELECT * FROM public.evaluar_vencimientos_contrataciones()`;
+        expect(await codigo(como("anon", null, sql))).toBe("42501");
+        for (const sub of [A1, A2, C1, C_AJENO10]) {
+          expect(await codigo(como("authenticated", sub, sql)), `${sub}`).toBe("42501");
+        }
+        expect(await codigo(como("authenticated", ADMIN, sql))).toBe("OK");
+        expect(await codigo(como("service_role", null, sql))).toBe("OK");
+        expect(await codigo(como("service_role", null, `SELECT public.purgar_push_cola() AS r`))).toBe("OK");
+        expect(await codigo(como("service_role", null, `SELECT public.job_diario_contrataciones() AS r`))).toBe("OK");
+      });
+    });
+
+    describe("Mensajería cross-tenant", () => {
+      it("obtener_o_crear_conversacion: anon y terceros → 42501; dueño, coach asignado y ADMIN obtienen la conversación", async () => {
+        const sql = `SELECT public.obtener_o_crear_conversacion($1) AS r`;
+        expect(await codigo(como("anon", null, sql, [A1]))).toBe("42501");
+        expect(await codigo(como("authenticated", null, sql, [A1]))).toBe("42501");
+        for (const [sub, objetivo] of [[A1, A2], [A2, A1], [C1, A2], [C_AJENO10, A1], [C_AJENO10, A2]] as const) {
+          expect(await codigo(como("authenticated", sub, sql, [objetivo])), `${sub} → conv de ${objetivo}`).toBe("42501");
+        }
+        const propia = await como<{ r: string }>("authenticated", A1, sql, [A1]);
+        expect(propia.rows[0]!.r).toBe(CONV_A1_ID);
+        const delCoach = await como<{ r: string }>("authenticated", C1, sql, [A1]);
+        expect(delCoach.rows[0]!.r).toBe(CONV_A1_ID);
+        const delAdmin = await como<{ r: string }>("authenticated", ADMIN, sql, [A2]);
+        expect(delAdmin.rows[0]!.r).toBe(CONV_A2_ID);
+      });
+
+      it("marcar_mensajes_leidos: anon y terceros → 42501 sin tocar mensajes ajenos; coach asignado sí", async () => {
+        const sql = `SELECT public.marcar_mensajes_leidos($1) AS r`;
+        const leidosA2 = async () => {
+          const res = await db.query<{ n: number }>(
+            `SELECT count(*)::int AS n FROM public.mensajes WHERE conversacion_id = $1 AND leido = true`,
+            [CONV_A2_ID],
+          );
+          return res.rows[0]!.n;
+        };
+        const antes = await leidosA2();
+        expect(await codigo(como("anon", null, sql, [CONV_A2_ID]))).toBe("42501");
+        for (const sub of [A1, C1, C_AJENO10]) {
+          expect(await codigo(como("authenticated", sub, sql, [CONV_A2_ID])), `${sub} → conv A2`).toBe("42501");
+        }
+        expect(await leidosA2()).toBe(antes);
+        expect(await codigo(como("authenticated", C1, sql, [CONV_A1_ID]))).toBe("OK");
+        expect(await codigo(como("authenticated", A2, sql, [CONV_A1_ID]))).toBe("42501");
+      });
+    });
+
+    describe("Efectos sobre la clase (ADMIN)", () => {
+      it("ADMIN marca ausente y cancela la clase con aviso; la reserva de A1 queda anulada", async () => {
+        expect(await codigo(como("authenticated", ADMIN, `SELECT * FROM public.marcar_ausente($1)`, [RESERVA10_A2_ID]))).toBe("OK");
+        expect(await codigo(como("authenticated", ADMIN, `SELECT * FROM public.cancelar_clase_con_aviso($1, 'cierre 916', false)`, [CLASE10_ID]))).toBe("OK");
+        const estados = await db.query<{ id: string; estado: string }>(
+          `SELECT id, estado FROM public.reservas WHERE clase_id = $1 ORDER BY id`,
+          [CLASE10_ID],
+        );
+        expect(estados.rows.map((f) => f.estado)).toEqual(["ANULADO", "ANULADO"]);
+      });
+    });
+  });
 });
