@@ -189,6 +189,61 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
     expect(htmlDia1).toContain("Empezar Día 1");
   });
 
+  it("GOZS-908: tras entrenar Día 1 hoy muestra 'Próximo entrenamiento' Día 2; al día siguiente AR vuelve 'Te toca hoy'; semana completa no dice 'Te toca hoy'", () => {
+    const dia1Hoy = { id: "s-1", dia_id: "d1", fecha: "2026-11-26T15:00:00-03:00" };
+    useAthleteStore.setState({ planAlumno: PLAN_BASE, sesionesCompletadas: [] });
+    useClasesStore.setState({ testAhora: "2026-11-26T20:00:00-03:00" });
+
+    // (a) Sin sesiones hoy → "Te toca hoy" Día 1
+    const htmlInicio = renderToStaticMarkup(<InicioMisDias />);
+    expect(htmlInicio).toContain('aria-label="Te toca hoy"');
+    expect(htmlInicio).toContain("Empezar Día 1");
+
+    // (b) Día 1 completado hoy (22:30 AR también es "hoy", cubierto en unit) → Próximo entrenamiento
+    useAthleteStore.setState({ sesionesCompletadas: [dia1Hoy] });
+    const htmlHoy = renderToStaticMarkup(<InicioMisDias />);
+    expect(htmlHoy).toContain('data-testid="heroe-te-toca-hoy"');
+    expect(htmlHoy).toContain('aria-label="Próximo entrenamiento"');
+    expect(htmlHoy).toContain('data-testid="tag-entrenaste-hoy"');
+    expect(htmlHoy).toContain("Entrenaste hoy");
+    expect(htmlHoy).toContain("Empezar Día 2");
+    expect(htmlHoy).toContain('data-testid="hacer-otro-dia-btn"');
+    expect(htmlHoy).toContain("Hecho hoy");
+    expect(htmlHoy).toContain("Próximo día");
+    expect(htmlHoy).not.toContain("Te toca hoy");
+    expect(htmlHoy).not.toContain(">Hecho<");
+    expect(htmlHoy).toContain('aria-label="Día 1, hecho"');
+
+    // (c) Día calendario siguiente (00:05 AR) → Día 2 "Te toca hoy"
+    useClasesStore.setState({ testAhora: "2026-11-27T00:05:00-03:00" });
+    const htmlManana = renderToStaticMarkup(<InicioMisDias />);
+    expect(htmlManana).toContain('aria-label="Te toca hoy"');
+    expect(htmlManana).toContain("Empezar Día 2");
+    expect(htmlManana).not.toContain("Próximo entrenamiento");
+    expect(htmlManana).not.toContain("Hecho hoy");
+
+    // (d) Cambio manual de un día anterior expira: vuelve el día natural
+    useAthleteStore.setState({ diaElegidoHoyId: "d3", diaElegidoFecha: "2026-11-26" });
+    const htmlCambioVencido = renderToStaticMarkup(<InicioMisDias />);
+    expect(htmlCambioVencido).not.toContain('data-testid="tag-cambiaste-dia"');
+    expect(htmlCambioVencido).toContain("Empezar Día 2");
+    useAthleteStore.setState({ diaElegidoHoyId: null, diaElegidoFecha: null });
+
+    // (e) Semana completa → Próximo entrenamiento Día 1 + Semana completa, sin "Te toca hoy"
+    useAthleteStore.setState({
+      sesionesCompletadas: [
+        { id: "s-1", dia_id: "d1", fecha: "2026-11-23T10:00:00-03:00" },
+        { id: "s-2", dia_id: "d2", fecha: "2026-11-24T10:00:00-03:00" },
+        { id: "s-3", dia_id: "d3", fecha: "2026-11-25T10:00:00-03:00" },
+      ],
+    });
+    const htmlSemana = renderToStaticMarkup(<InicioMisDias />);
+    expect(htmlSemana).toContain('aria-label="Próximo entrenamiento"');
+    expect(htmlSemana).toContain('data-testid="tag-semana-completa"');
+    expect(htmlSemana).toContain("Empezar Día 1");
+    expect(htmlSemana).not.toContain("Te toca hoy");
+  });
+
   it("no muestra 'Todavía no tenés un plan' mientras planAlumno es null (carga < 1s) y renderiza estado de error", () => {
     useAthleteStore.setState({ planAlumno: null, cargandoPlan: true, errorPlan: false });
     const htmlLoadingEarly = renderToStaticMarkup(<InicioMisDias />);

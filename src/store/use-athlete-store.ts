@@ -24,6 +24,7 @@ import {
   type SesionFechaResumen,
 } from "@/services/alumnos-service";
 import { esFechaEnSemanaActual } from "@/lib/athlete-dias";
+import { claveDia } from "@/lib/clases";
 import type {
   NivelVistaAlumno,
   AlumnoCuestionarioInicial,
@@ -184,6 +185,8 @@ interface AthleteStoreState {
     irAHistorial?: boolean;
   } | null;
   diaElegidoHoyId: string | null;
+  /** Día calendario AR ("YYYY-MM-DD") en que se eligió `diaElegidoHoyId`; expira al día siguiente. */
+  diaElegidoFecha: string | null;
   diaSugeridoId: string | null;
   motivoCambioDia: MotivoCambioDia | null;
   sesionesCompletadas: Array<{
@@ -1028,6 +1031,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       cuestionarioAbierto: false,
       toastSesion: null,
       diaElegidoHoyId: null,
+      diaElegidoFecha: null,
       diaSugeridoId: null,
       motivoCambioDia: null,
       sesionesCompletadas: [],
@@ -1219,12 +1223,14 @@ export const useAthleteStore = create<AthleteStoreState>()(
       elegirOtroDia: (diaId, motivo = null, diaSugeridoId = null) =>
         set({
           diaElegidoHoyId: diaId,
+          diaElegidoFecha: claveDia(new Date()),
           motivoCambioDia: motivo ?? null,
           diaSugeridoId: diaSugeridoId ?? null,
         }),
       deshacerCambioDia: () =>
         set({
           diaElegidoHoyId: null,
+          diaElegidoFecha: null,
           motivoCambioDia: null,
           diaSugeridoId: null,
         }),
@@ -1339,6 +1345,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
               molestias: [],
             },
             diaElegidoHoyId: state.diaElegidoHoyId === diaId ? null : state.diaElegidoHoyId,
+            diaElegidoFecha: state.diaElegidoHoyId === diaId ? null : state.diaElegidoFecha,
             motivoCambioDia: state.diaElegidoHoyId === diaId ? null : state.motivoCambioDia,
             diaSugeridoId: state.diaElegidoHoyId === diaId ? null : state.diaSugeridoId,
             sessionStartedAt: null,
@@ -3285,6 +3292,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
           diaActivoId: prev.diaActivoId ? selectedDia.id : null,
           sessionStartedAt: esMismaSesionEnCurso ? prev.sessionStartedAt : null,
           diaElegidoHoyId: null,
+          diaElegidoFecha: null,
           vistaRecomendadaCoach: coachRecomendada,
           nivelVistaAlumno: vistaEfectiva,
           seriesRecordIds: esMismaSesionEnCurso ? prev.seriesRecordIds : [],
@@ -3320,6 +3328,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
           sessionStartedAt: null,
           ejercicioAbiertoId: null,
           diaElegidoHoyId: null,
+          diaElegidoFecha: null,
           diaSugeridoId: null,
           motivoCambioDia: null,
           seriesRecordIds: [],
@@ -3354,6 +3363,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
             currentSession: defaultSession,
             diaActivoId: null,
             diaElegidoHoyId: null,
+            diaElegidoFecha: null,
           };
         }
         return state;
@@ -3384,6 +3394,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         miProgreso: state.miProgreso,
         miProgresoFecha: state.miProgresoFecha,
         diaElegidoHoyId: state.diaElegidoHoyId,
+        diaElegidoFecha: state.diaElegidoFecha,
         diaSugeridoId: state.diaSugeridoId,
         motivoCambioDia: state.motivoCambioDia,
         historialSesiones: acotarHistorialPersistido(

@@ -25,6 +25,7 @@ import {
 import {
   ACTIVIDAD_LABEL,
   SENSACIONES_CLASE,
+  claveDia,
   clasesUsadas,
   derivarAsistenciasLocal,
   formatearFechaClaseAsistencia,
@@ -188,6 +189,7 @@ export function InicioMisDias() {
   const {
     currentSession,
     diaElegidoHoyId,
+    diaElegidoFecha,
     motivoCambioDia,
     sesionesCompletadas,
     fechasSesionesServidor,
@@ -379,18 +381,42 @@ export function InicioMisDias() {
   }, [planAlumno, plan]);
 
   // Cálculo puro de estados de los días
+  // Día calendario AR vigente: se refresca al volver la PWA (visibilitychange/focus) tras medianoche.
+  const [claveDiaHoy, setClaveDiaHoy] = React.useState(() =>
+    claveDia(testAhoraClases ? new Date(testAhoraClases) : new Date()),
+  );
+  React.useEffect(() => {
+    const refrescar = () => {
+      if (document.visibilityState === "hidden") return;
+      setClaveDiaHoy(claveDia(testAhoraClases ? new Date(testAhoraClases) : new Date()));
+    };
+    refrescar();
+    document.addEventListener("visibilitychange", refrescar);
+    window.addEventListener("focus", refrescar);
+    return () => {
+      document.removeEventListener("visibilitychange", refrescar);
+      window.removeEventListener("focus", refrescar);
+    };
+  }, [testAhoraClases]);
+
   const {
     diasConEstado,
     diaTeTocaHoy,
     diaActivoHoy,
     cambioDeDia,
+    yaEntrenoHoy,
+    semanaCompleta,
+    diaProximo,
   } = React.useMemo(() => {
     return calcularEstadosDias({
       dias: diasItems,
       sesionesSemana: sesionesCompletadas,
       diaElegidoHoyId,
+      diaElegidoFecha,
+      fechaReferencia: testAhoraClases ? new Date(testAhoraClases) : new Date(),
     });
-  }, [diasItems, sesionesCompletadas, diaElegidoHoyId]);
+    // claveDiaHoy fuerza el recálculo al cambiar de día calendario.
+  }, [diasItems, sesionesCompletadas, diaElegidoHoyId, diaElegidoFecha, testAhoraClases, claveDiaHoy]);
 
   const closeDaySheet = React.useCallback(() => {
     setIsSheetOpen(false);
@@ -578,7 +604,10 @@ export function InicioMisDias() {
     }
   };
 
-  const diaHero = diaActivoHoy || diasConEstado[0];
+  const diaHero = diaActivoHoy || diaProximo || diasConEstado[0];
+  // Ya entrenó hoy o cerró la semana: el héroe anuncia el próximo, no "Te toca hoy".
+  const heroEsProximo = !cambioDeDia && (semanaCompleta || yaEntrenoHoy);
+  const heroLabel = heroEsProximo ? "Próximo entrenamiento" : "Te toca hoy";
   const sesionIniciada = Boolean(
     diaHero &&
       currentSession.dia_id === diaHero.id &&
@@ -980,10 +1009,10 @@ export function InicioMisDias() {
       {/* Aviso de próxima clase reservada activa (sin acciones) */}
       {tarjetaClaseReservada}
 
-      {/* Héroe "Te toca hoy" (invertido de noche) */}
+      {/* Héroe "Te toca hoy" / "Próximo entrenamiento" (invertido de noche) */}
       {diaHero && (
         <section
-          aria-label="Te toca hoy"
+          aria-label={heroLabel}
           className="a-hero"
           data-testid="heroe-te-toca-hoy"
         >
@@ -995,6 +1024,19 @@ export function InicioMisDias() {
                   <span className="a-chip a-t-label" data-testid="tag-cambiaste-dia">
                     Cambiaste de día
                   </span>
+                </>
+              ) : heroEsProximo ? (
+                <>
+                  <span className="a-t-label a-eh">Próximo entrenamiento</span>
+                  {semanaCompleta ? (
+                    <span className="a-chip a-t-label" data-testid="tag-semana-completa">
+                      Semana completa
+                    </span>
+                  ) : (
+                    <span className="a-chip a-t-label" data-testid="tag-entrenaste-hoy">
+                      Entrenaste hoy
+                    </span>
+                  )}
                 </>
               ) : (
                 <span className="a-t-label a-eh">Te toca hoy</span>
@@ -1043,9 +1085,13 @@ export function InicioMisDias() {
             ? cambioDeDia
               ? "Hoy"
               : "Te toca hoy"
-            : isSkipped
-              ? dia.subtitulo
-              : `${dia.ejerciciosCount} ejercicios · ~${dia.duracionMinutos} min`;
+            : dia.estado === "NEXT"
+              ? "Próximo día"
+              : isDone && dia.hechoHoy
+                ? "Hecho hoy"
+                : isSkipped
+                  ? dia.subtitulo
+                  : `${dia.ejerciciosCount} ejercicios · ~${dia.duracionMinutos} min`;
 
           return (
             <button
@@ -1138,7 +1184,9 @@ export function InicioMisDias() {
                         <Check width={20} height={20} className="a-i" />
                       </span>
                       <b className="a-t-bs">{etiquetaDia(dia)}</b>
-                      <small className="a-t-sec">Ya lo hiciste esta semana</small>
+                      <small className="a-t-sec">
+                        {dia.hechoHoy ? "Ya lo hiciste hoy" : "Ya lo hiciste esta semana"}
+                      </small>
                     </div>
                   );
                 }
@@ -1163,7 +1211,9 @@ export function InicioMisDias() {
                     <b className="a-t-bs">{etiquetaDia(dia)}</b>
                     <small className="a-t-sec">
                       {isNaturalNext
-                        ? "El que te tocaba"
+                        ? yaEntrenoHoy
+                          ? "Próximo día"
+                          : "El que te tocaba"
                         : `${dia.ejerciciosCount} ejercicios · ~${dia.duracionMinutos} min`}
                     </small>
                   </button>
