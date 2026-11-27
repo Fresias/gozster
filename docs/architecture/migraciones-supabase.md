@@ -56,6 +56,15 @@ El workflow `.github/workflows/deploy-production.yml` garantiza que el código *
 - Secretos de Supabase: `SUPABASE_DB_URL` **o** la terna `SUPABASE_PROJECT_REF` + `SUPABASE_ACCESS_TOKEN` (token con permisos acotados, distinto del entorno dev) + `SUPABASE_DB_PASSWORD`.
 - Secretos de Vercel: `VERCEL_TOKEN` + `VERCEL_ORG_ID` + `VERCEL_PROJECT_ID` (o `VERCEL_DEPLOY_HOOK_URL`). En Vercel, desactivar el auto-deploy por Git de la rama `main` para que el único despliegue a producción pase por este workflow.
 
+### Migraciones automáticas en dev (`.github/workflows/deploy-dev.yml`)
+
+Al hacer push a `develop` con cambios en `supabase/migrations/**` (o en `scripts/check-supabase-migrations.mjs` / el propio workflow), el job aplica `supabase db push --remote=... --yes` y luego verifica cero pendientes con `node scripts/check-supabase-migrations.mjs --remote ...`. La concurrencia (`deploy-dev-migrations`) nunca cancela una migración en curso.
+
+- **Environment:** `develop`.
+- **Variable:** `DEV_MIGRATIONS_ENABLED=true` (si no está en `true`, los pushes omiten el job sin fallar; `workflow_dispatch` siempre corre).
+- **Secretos:** `SUPABASE_DB_URL` **o** la terna `SUPABASE_PROJECT_REF` + `SUPABASE_ACCESS_TOKEN` + `SUPABASE_DB_PASSWORD`.
+- **Manual:** `workflow_dispatch` con `apply_migrations` (default `true`); con `false` solo corre la verificación.
+
 ---
 
 ## 4. Nota operativa X1 (`20261016100000_multicoach_subscription_cloning.sql`)

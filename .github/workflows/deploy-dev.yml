@@ -1,0 +1,86 @@
+name: Deploy Dev Migrations
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/check-supabase-migrations.mjs"
+      - ".github/workflows/deploy-dev.yml"
+  workflow_dispatch:
+    inputs:
+      apply_migrations:
+        description: "Aplicar migraciones pendientes con supabase db push antes de verificar"
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-dev-migrations
+  cancel-in-progress: false
+
+jobs:
+  migrate-dev:
+    name: Apply and verify migrations (dev)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'workflow_dispatch' || vars.DEV_MIGRATIONS_ENABLED == 'true'
+    environment: develop
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      - name: Validate Supabase target configuration
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -n "${SUPABASE_DB_URL:-}" ]; then
+            exit 0
+          fi
+          if [ -n "${SUPABASE_PROJECT_REF:-}" ] && [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] && [ -n "${SUPABASE_DB_PASSWORD:-}" ]; then
+            exit 0
+          fi
+          echo "::error::Faltan credenciales de Supabase en el entorno develop."
+          exit 1
+
+      - name: Apply pending migrations
+        if: github.event_name == 'push' || github.event.inputs.apply_migrations == 'true'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -n "${SUPABASE_DB_URL:-}" ]; then
+            supabase db push --remote="$SUPABASE_DB_URL" --yes
+          else
+            supabase db push --remote="$SUPABASE_PROJECT_REF" --yes
+          fi
+
+      - name: Verify zero pending migrations in target database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -n "${SUPABASE_DB_URL:-}" ]; then
+            node scripts/check-supabase-migrations.mjs --remote "$SUPABASE_DB_URL"
+          else
+            node scripts/check-supabase-migrations.mjs --remote "$SUPABASE_PROJECT_REF"
+          fi
