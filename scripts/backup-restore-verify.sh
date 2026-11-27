@@ -427,8 +427,8 @@ cmd_verify() {
     exit 1
   fi
 
-  if ! gzip -dc "$gz_tmp" > "$sql_tmp"; then
-    echo "ERROR: falló la descompresión gzip tras descifrar." >&2
+  if ! gzip -dc "$gz_tmp" > "$sql_tmp" 2>/dev/null; then
+    echo "ERROR: falló el descifrado AES-256-CBC o la descompresión gzip (verificá BACKUP_ENCRYPTION_PASSPHRASE o integridad del archivo)." >&2
     exit 1
   fi
   rm -f "$gz_tmp"
