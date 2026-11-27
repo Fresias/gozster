@@ -214,10 +214,14 @@ interface AthleteStoreState {
   miProgreso: MiProgresoData | null;
   miProgresoFecha: string | null; // ISO de la última descarga
   cargandoMiProgreso: boolean;
+  /** Efímero (no se persiste): fallo online al descargar «Mi progreso» (G12). */
+  miProgresoError: string | null;
   pasoIncrementoPeso: number;
   colapsarRutina: boolean;
   historialSesiones: HistoricalLoadEntry[];
   cargandoHistorial: boolean;
+  /** Efímero (no se persiste): fallo online al descargar el historial (G12). */
+  historialError: string | null;
   /** Efímero (no se persiste): sesión que se está subiendo al finalizar entrenamiento. */
   syncingSessionId: string | null;
   // Nombre preferido (BE-01 / D-53). nombrePreferidoPendiente === undefined => sin pendiente.
@@ -638,6 +642,10 @@ async function enviarMolestiaRpc(
 }
 
 let activeSyncSessionPromise: Promise<{ success: boolean; error?: string }> | null = null;
+// Mensajes de error de carga (G12): en español, sin SQL ni códigos internos.
+export const MSG_ERROR_PROGRESO = "No pudimos cargar tu progreso. Revisá tu conexión e intentá de nuevo.";
+export const MSG_ERROR_HISTORIAL = "No pudimos cargar tu historial. Revisá tu conexión e intentá de nuevo.";
+
 // Una sola corrida de cargarMiProgreso a la vez (+ 1 refresco secuencial si se pidió forceRefresh).
 let activeMiProgresoPromise: Promise<void> | null = null;
 let miProgresoPendienteRefetch = false;
@@ -1049,8 +1057,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
       miProgreso: null,
       miProgresoFecha: null,
       cargandoMiProgreso: false,
+      miProgresoError: null,
       historialSesiones: [],
       cargandoHistorial: false,
+      historialError: null,
       syncingSessionId: null,
       pasoIncrementoPeso: 2.5,
       colapsarRutina: false,
@@ -2453,7 +2463,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
           set({ cargandoMiProgreso: true });
           try {
-            const [{ data: filasSeries }, { data: filasSesiones }] = await Promise.all([
+            const [
+              { data: filasSeries, error: seriesErr },
+              { data: filasSesiones, error: sesionesErr },
+            ] = await Promise.all([
               supabase
                 .from("registro_series")
                 .select(
@@ -2472,6 +2485,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 .order("fecha", { ascending: false })
                 .limit(400),
             ]);
+            // PostgREST no lanza ante HTTP 500/RLS: sin este chequeo pisaríamos la caché con vacío.
+            if (seriesErr || sesionesErr) throw seriesErr ?? sesionesErr;
 
             const series: SerieHistorica[] = (filasSeries ?? []).map(({ registro_sesiones, ...s }) => ({
               ...s,
@@ -2483,16 +2498,23 @@ export const useAthleteStore = create<AthleteStoreState>()(
             const ids = [...new Set(series.map((s) => s.ejercicio_id))];
             let nombres: Record<string, string> = {};
             if (ids.length > 0) {
-              const { data: cat } = await supabase.from("ejercicios").select("id, nombre").in("id", ids);
+              const { data: cat, error: catErr } = await supabase
+                .from("ejercicios")
+                .select("id, nombre")
+                .in("id", ids);
+              if (catErr) throw catErr;
               nombres = Object.fromEntries((cat ?? []).map((e) => [e.id as string, e.nombre as string]));
             }
 
             set({
               miProgreso: agregarMiProgreso(series, sesiones, nombres),
               miProgresoFecha: new Date().toISOString(),
+              miProgresoError: null,
             });
           } catch (e) {
             console.warn("No se pudo descargar «Mi progreso»:", e);
+            // Se conserva el miProgreso cacheado; el aviso no expone detalles internos.
+            set({ miProgresoError: MSG_ERROR_PROGRESO });
           } finally {
             set({ cargandoMiProgreso: false });
           }
@@ -2544,16 +2566,20 @@ export const useAthleteStore = create<AthleteStoreState>()(
             .order("fecha", { ascending: false })
             .limit(100);
 
-          if (sesErr || !sesionesData || sesionesData.length === 0) {
+          // PostgREST no lanza ante HTTP 500/RLS: se conserva el historial cacheado.
+          if (sesErr) throw sesErr;
+          if (!sesionesData || sesionesData.length === 0) {
+            set({ historialError: null });
             return;
           }
 
           const sesionIds = sesionesData.map((s) => s.id);
-          const { data: seriesData } = await supabase
+          const { data: seriesData, error: seriesErr } = await supabase
             .from("registro_series")
             .select("*, ejercicios(id, nombre)")
             .in("sesion_id", sesionIds)
             .order("numero_serie", { ascending: true });
+          if (seriesErr) throw seriesErr;
 
           const seriesPorSesion: Record<string, (RegistroSerie & { ejercicioNombre: string })[]> = {};
           (seriesData || []).forEach((item: any) => {
@@ -2599,10 +2625,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
               historialSesiones: [...localesSinRemoto, ...remotasVigentes].sort(
                 (a, b) => new Date(b.sesion.fecha).getTime() - new Date(a.sesion.fecha).getTime()
               ),
+              historialError: null,
             };
           });
         } catch (e) {
           console.warn("No se pudo descargar el historial de sesiones:", e);
+          set({ historialError: MSG_ERROR_HISTORIAL });
         } finally {
           set({ cargandoHistorial: false });
         }
