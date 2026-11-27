@@ -17,6 +17,8 @@ const USER = {
 let fixtures = {};
 let llamadas = [];
 let forceStorageErrorStatus = null;
+// Fallos forzados de lectura por tabla (GOZS-897): PUT /__e2e/fallos {tabla: status}; GET /rest/v1/<tabla> responde ese status.
+let fallosTabla = {};
 const storageUploads = new Map();
 
 function readRawBody(req) {
@@ -201,6 +203,7 @@ http
         fixtures = {};
         llamadas = [];
         forceStorageErrorStatus = null;
+        fallosTabla = {};
         storageUploads.clear();
         return send(200, {});
       }
@@ -208,8 +211,15 @@ http
       fixtures = JSON.parse(rawBuf.toString("utf8") || "{}");
       llamadas = [];
       forceStorageErrorStatus = fixtures.forceStorageErrorStatus ?? null;
+      fallosTabla = {};
       storageUploads.clear();
       return send(200, {});
+    }
+
+    if (pathname === "/__e2e/fallos") {
+      const rawBuf = await readRawBody(req);
+      fallosTabla = tryParseJson(rawBuf) || {};
+      return send(200, fallosTabla);
     }
 
     if (pathname === "/__e2e/storage-error") {
@@ -408,6 +418,10 @@ http
     // Tablas PostgREST genéricas
     const tabla = pathname.match(/^\/rest\/v1\/(\w+)$/)?.[1];
     const single = String(req.headers.accept || "").includes("pgrst.object");
+
+    if (req.method === "GET" && tabla && fallosTabla[tabla]) {
+      return send(fallosTabla[tabla], { code: "PGRST000", message: `Fallo forzado en ${tabla}` });
+    }
 
     if (req.method === "GET" && tabla && Array.isArray(fixtures[tabla])) {
       const result = applyPostgrestQuery(tabla, fixtures[tabla], parsedUrl.searchParams);
