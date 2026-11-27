@@ -2095,4 +2095,186 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
       ).rejects.toMatchObject({ code: "23514" });
     });
   });
+
+  describe("9. Agenda/Reservas, KPIs de negocio, RPCs financieras/staff y logros_racha (G1/G2/S-7)", () => {
+    const LOGRO_A2_ID = "99999999-9999-4999-8999-000000091102";
+
+    async function codigoDe(promesa: Promise<unknown>): Promise<string> {
+      try {
+        await promesa;
+        return "OK";
+      } catch (err) {
+        return typeof err === "object" && err !== null && "code" in err ? String(err.code) : "ERR";
+      }
+    }
+
+    const LLAMADAS_STAFF: Array<[string, string]> = [
+      [
+        "crear_clases_agenda",
+        `SELECT * FROM public.crear_clases_agenda('FUNCIONAL', now() + interval '1 day', 60, 10, false, NULL::smallint[], NULL::time, NULL::date, NULL::date, NULL::int)`,
+      ],
+      ["reactivar_clase", `SELECT * FROM public.reactivar_clase('${CLASE_ID}')`],
+      ["eliminar_clase_vacia", `SELECT * FROM public.eliminar_clase_vacia('${CLASE_ID}')`],
+      ["anotar_alumno_coach", `SELECT * FROM public.anotar_alumno_coach('${CLASE_ID}', '${A2}', false)`],
+      ["quitar_reserva_coach", `SELECT * FROM public.quitar_reserva_coach('${RESERVA_A2_ID}')`],
+      ["obtener_kpis_negocio", `SELECT * FROM public.obtener_kpis_negocio(CURRENT_DATE - 30, CURRENT_DATE)`],
+      ["listar_entrenadores_staff", `SELECT * FROM public.listar_entrenadores_staff()`],
+      ["restaurar_filas_respaldo", `SELECT public.restaurar_filas_respaldo('logros_racha', '[]'::jsonb)`],
+      [
+        "renovar_contratacion",
+        `SELECT * FROM public.renovar_contratacion('${CONTR_A2_ID}', 1, 'EFECTIVO', 'idem-911-renovar')`,
+      ],
+      [
+        "extender_contratacion_excepcional",
+        `SELECT * FROM public.extender_contratacion_excepcional('${CONTR_A2_ID}', CURRENT_DATE + 90, 'motivo de prueba')`,
+      ],
+      [
+        "asignar_suscripcion_y_cobro",
+        `SELECT * FROM public.asignar_suscripcion_y_cobro(p_alumno_id => '${A2}', p_plan_id => '${MEMBRESIA_ID}')`,
+      ],
+    ];
+
+    beforeAll(async () => {
+      await db.exec(`
+        INSERT INTO public.logros_racha (id, alumno_id, numero_ciclo, tipo)
+        VALUES ('${LOGRO_A2_ID}', '${A2}', 1, 'diamante')
+        ON CONFLICT (id) DO NOTHING;
+      `);
+    });
+
+    it("anon es rechazado con 42501 en todas las RPCs de agenda, KPIs, staff y respaldo, y en reservar_clase", async () => {
+      for (const [nombre, sql] of LLAMADAS_STAFF) {
+        expect(await codigoDe(como("anon", null, sql)), `anon → ${nombre}`).toBe("42501");
+      }
+      expect(
+        await codigoDe(como("anon", null, `SELECT * FROM public.reservar_clase('${CLASE_ID}')`)),
+        "anon → reservar_clase",
+      ).toBe("42501");
+    });
+
+    it("anon no lee ni escribe clases, reservas ni logros_racha (42501)", async () => {
+      for (const tabla of ["clases", "reservas", "logros_racha"]) {
+        expect(await codigoDe(como("anon", null, `SELECT * FROM public.${tabla}`)), `anon SELECT ${tabla}`).toBe("42501");
+      }
+      expect(
+        await codigoDe(
+          como("anon", null, `INSERT INTO public.reservas (clase_id, alumno_id, estado) VALUES ('${CLASE_ID}', '${A1}', 'ANOTADO')`),
+        ),
+      ).toBe("42501");
+      expect(
+        await codigoDe(como("anon", null, `INSERT INTO public.logros_racha (alumno_id, numero_ciclo) VALUES ('${A1}', 9)`)),
+      ).toBe("42501");
+      expect(
+        await codigoDe(
+          como("anon", null, `INSERT INTO public.clases (actividad, inicio, duracion_minutos, capacidad) VALUES ('FUNCIONAL', now(), 60, 5)`),
+        ),
+      ).toBe("42501");
+    });
+
+    it("ALUMNO (A1) es rechazado en todas las RPCs de staff/financieras y no altera datos de A2", async () => {
+      const antesReservas = await contarComo("authenticated", ADMIN, "reservas");
+      const estrictas = [
+        "obtener_kpis_negocio",
+        "listar_entrenadores_staff",
+        "restaurar_filas_respaldo",
+        "crear_clases_agenda",
+        "anotar_alumno_coach",
+        "quitar_reserva_coach",
+      ];
+      for (const [nombre, sql] of LLAMADAS_STAFF) {
+        const codigo = await codigoDe(como("authenticated", A1, sql));
+        expect(codigo, `A1 → ${nombre}`).not.toBe("OK");
+        if (estrictas.includes(nombre)) {
+          expect(codigo, `A1 → ${nombre}`).toBe("42501");
+        }
+      }
+      expect(await contarComo("authenticated", ADMIN, "reservas")).toBe(antesReservas);
+      expect(await contarComo("authenticated", ADMIN, "contrataciones", `id = '${CONTR_A2_ID}' AND fecha_fin = CURRENT_DATE + 20`)).toBe(1);
+    });
+
+    it("ALUMNO (A1) solo ve sus reservas y no puede insertar/modificar/borrar las de A2", async () => {
+      expect(await contarComo("authenticated", A1, "reservas", `alumno_id = '${A2}'`)).toBe(0);
+      expect(await contarComo("authenticated", A1, "reservas", `alumno_id = '${A1}'`)).toBeGreaterThanOrEqual(1);
+      expect(
+        await codigoDe(
+          como("authenticated", A1, `INSERT INTO public.reservas (clase_id, alumno_id, estado) VALUES ('${CLASE_ID}', '${A2}', 'ANOTADO')`),
+        ),
+      ).toBe("42501");
+      for (const sql of [
+        `UPDATE public.reservas SET estado = 'CANCELADO' WHERE id = '${RESERVA_A2_ID}'`,
+        `DELETE FROM public.reservas WHERE id = '${RESERVA_A2_ID}'`,
+      ]) {
+        try {
+          const res = await como("authenticated", A1, sql);
+          expect(res.affectedRows ?? 0).toBe(0);
+        } catch (err) {
+          expect(err).toMatchObject({ code: "42501" });
+        }
+      }
+      const estado = await db.query<{ estado: string }>(`SELECT estado FROM public.reservas WHERE id = $1`, [RESERVA_A2_ID]);
+      expect(estado.rows).toEqual([{ estado: "ANOTADO" }]);
+    });
+
+    it("logros_racha: A1 no ve, no inserta, no modifica ni borra los logros de A2; el dueño y ADMIN sí leen", async () => {
+      expect(await contarComo("authenticated", A1, "logros_racha", `alumno_id = '${A2}'`)).toBe(0);
+      expect(await contarComo("authenticated", A2, "logros_racha", `alumno_id = '${A2}'`)).toBe(1);
+      expect(await contarComo("authenticated", ADMIN, "logros_racha", `alumno_id = '${A2}'`)).toBe(1);
+      expect(
+        await codigoDe(
+          como("authenticated", A1, `INSERT INTO public.logros_racha (alumno_id, numero_ciclo) VALUES ('${A2}', 7)`),
+        ),
+      ).toBe("42501");
+      for (const sql of [
+        `UPDATE public.logros_racha SET numero_ciclo = 99 WHERE id = '${LOGRO_A2_ID}'`,
+        `DELETE FROM public.logros_racha WHERE id = '${LOGRO_A2_ID}'`,
+      ]) {
+        try {
+          const res = await como("authenticated", A1, sql);
+          expect(res.affectedRows ?? 0).toBe(0);
+        } catch (err) {
+          expect(err).toMatchObject({ code: "42501" });
+        }
+      }
+      const fila = await db.query<{ numero_ciclo: number }>(`SELECT numero_ciclo FROM public.logros_racha WHERE id = $1`, [LOGRO_A2_ID]);
+      expect(fila.rows).toEqual([{ numero_ciclo: 1 }]);
+    });
+
+    it("obtener_kpis_negocio: ENTRENADOR recibe NULL en todos los campos monetarios y ADMIN recibe los montos", async () => {
+      const sql = `SELECT * FROM public.obtener_kpis_negocio(CURRENT_DATE - 30, CURRENT_DATE)`;
+      const campos = [
+        "ingresos",
+        "ingresos_6m",
+        "ingresos_periodo_anterior",
+        "cobranza_esperada",
+        "cobranza_pendiente_monto",
+        "ingresos_presencial",
+        "ingresos_online",
+        "cobranza_vencida_monto",
+        "cobranza_por_vencer_monto",
+      ];
+      const coach = await como<Record<string, unknown>>("authenticated", C1, sql);
+      expect(coach.rows).toHaveLength(1);
+      for (const c of campos) {
+        expect(coach.rows[0]![c], `C1 ${c}`).toBeNull();
+      }
+      const admin = await como<Record<string, unknown>>("authenticated", ADMIN, sql);
+      expect(admin.rows).toHaveLength(1);
+      for (const c of campos) {
+        expect(admin.rows[0]![c], `ADMIN ${c}`).not.toBeNull();
+      }
+    });
+
+    it("listar_entrenadores_staff: staff solo ve id y nombre_completo; ALUMNO y anon rechazados", async () => {
+      for (const sub of [C1, ADMIN]) {
+        const res = await como<Record<string, unknown>>("authenticated", sub, `SELECT * FROM public.listar_entrenadores_staff()`);
+        expect(res.rows.length).toBeGreaterThanOrEqual(2);
+        for (const fila of res.rows) {
+          expect(Object.keys(fila).sort()).toEqual(["id", "nombre_completo"]);
+        }
+        expect(res.rows.map((f) => f.id)).not.toContain(A1);
+      }
+      expect(await codigoDe(como("authenticated", A1, `SELECT * FROM public.listar_entrenadores_staff()`))).toBe("42501");
+      expect(await codigoDe(como("anon", null, `SELECT * FROM public.listar_entrenadores_staff()`))).toBe("42501");
+    });
+  });
 });

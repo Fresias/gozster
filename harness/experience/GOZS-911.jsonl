@@ -1,0 +1,1 @@
+{"id":"exp-gozs-911-1","timestamp":"2026-11-27T15:13:56.309Z","task":"GOZS-911","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"RLS: anotar_alumno fue podada; usar anotar_alumno_coach y crear_clases_agenda en tests de agenda","verified":true,"tags":["db","studio","ui","athlete","qa","harness"]}
