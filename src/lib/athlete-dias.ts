@@ -1,4 +1,4 @@
-import { semanaEnCurso } from "@/lib/clases";
+import { claveDia, semanaEnCurso } from "@/lib/clases";
 
 export interface DiaRutinaItem {
   id: string;
@@ -39,7 +39,7 @@ export function estimarDuracionDiaMinutos(
   return redondear(segundos / 60);
 }
 
-export type EstadoDiaRutina = "DONE" | "TODAY" | "PENDING_SKIPPED" | "PENDING";
+export type EstadoDiaRutina = "DONE" | "TODAY" | "NEXT" | "PENDING_SKIPPED" | "PENDING";
 
 export interface DiaConEstado extends DiaRutinaItem {
   estado: EstadoDiaRutina;
@@ -47,6 +47,7 @@ export interface DiaConEstado extends DiaRutinaItem {
   esSiguiente: boolean;
   ejerciciosCount: number;
   duracionMinutos: number;
+  hechoHoy?: boolean;
 }
 
 export interface RegistroSesionSimple {
@@ -70,6 +71,20 @@ export function esFechaEnSemanaActual(
 }
 
 /**
+ * ¿`fechaStr` cae en el mismo día calendario del gimnasio (AR) que `fechaReferencia`?
+ * Fechas nulas, vacías o inválidas devuelven `false`.
+ */
+export function esMismoDiaLocal(
+  fechaStr?: string | Date | null,
+  fechaReferencia: Date = new Date(),
+): boolean {
+  if (!fechaStr) return false;
+  const f = typeof fechaStr === "string" ? new Date(fechaStr) : fechaStr;
+  if (isNaN(f.getTime())) return false;
+  return claveDia(f) === claveDia(fechaReferencia);
+}
+
+/**
  * Función pura: determina el día natural que "Te toca hoy".
  * Es el primer día en orden ascendente que no registra ninguna sesión esta semana.
  */
@@ -89,6 +104,8 @@ export interface CalcularEstadosDiasParams {
   dias: DiaRutinaItem[];
   sesionesSemana: RegistroSesionSimple[];
   diaElegidoHoyId?: string | null;
+  /** Clave "YYYY-MM-DD" (AR) del día en que se eligió `diaElegidoHoyId`; si difiere de hoy, se ignora. */
+  diaElegidoFecha?: string | null;
   fechaReferencia?: Date;
 }
 
@@ -99,12 +116,17 @@ export interface CalcularEstadosDiasResult {
   cambioDeDia: boolean;
   diasHechosCount: number;
   totalDias: number;
+  yaEntrenoHoy: boolean;
+  semanaCompleta: boolean;
+  diaHechoHoy: DiaRutinaItem | null;
+  diaProximo: DiaRutinaItem | null;
 }
 
 /**
  * Calcula los estados de cada día de la rutina para la semana actual:
  * - DONE: día hecho esta semana.
  * - TODAY: día que se entrena hoy (el natural "Te toca hoy", o el elegido manualmente si hubo cambio).
+ * - NEXT: día natural siguiente cuando el alumno ya entrenó hoy ("Próximo día").
  * - PENDING_SKIPPED: el día natural que tocaba y fue salteado temporalmente ("Pendiente · te toca el próximo").
  * - PENDING: pendiente normal.
  */
@@ -112,6 +134,7 @@ export function calcularEstadosDias({
   dias,
   sesionesSemana,
   diaElegidoHoyId,
+  diaElegidoFecha,
   fechaReferencia = new Date(),
 }: CalcularEstadosDiasParams): CalcularEstadosDiasResult {
   if (!dias || dias.length === 0) {
@@ -122,6 +145,10 @@ export function calcularEstadosDias({
       cambioDeDia: false,
       diasHechosCount: 0,
       totalDias: 0,
+      yaEntrenoHoy: false,
+      semanaCompleta: false,
+      diaHechoHoy: null,
+      diaProximo: null,
     };
   }
 
@@ -131,13 +158,17 @@ export function calcularEstadosDias({
   );
 
   const hechosSet = new Set<string>(sesionesValidas.map((s) => s.dia_id));
+  const sesionesHoy = sesionesValidas.filter((s) => esMismoDiaLocal(s.fecha, fechaReferencia));
+  const hechosHoySet = new Set<string>(sesionesHoy.map((s) => s.dia_id));
+  const yaEntrenoHoy = sesionesHoy.length > 0;
   const ordenados = [...dias].sort((a, b) => a.orden - b.orden);
 
   // Día que naturalmente le toca (primer día sin sesión)
   const diaTeTocaHoy = calcularTeTocaHoy(ordenados, hechosSet);
 
   // Determinar si hay un cambio manual válido (el día elegido existe y no está hecho)
-  const diaElegido = diaElegidoHoyId
+  const eleccionVigente = !diaElegidoFecha || diaElegidoFecha === claveDia(fechaReferencia);
+  const diaElegido = diaElegidoHoyId && eleccionVigente
     ? ordenados.find((d) => d.id === diaElegidoHoyId)
     : null;
 
@@ -161,19 +192,23 @@ export function calcularEstadosDias({
         ejerciciosCount,
         duracionMinutos,
         estado: "DONE" as const,
-        subtitulo: `Hecho esta semana · ${ejerciciosCount} ejercicios`,
+        subtitulo: hechosHoySet.has(dia.id)
+          ? "Hecho hoy"
+          : `Hecho esta semana · ${ejerciciosCount} ejercicios`,
         esSiguiente: false,
+        hechoHoy: hechosHoySet.has(dia.id),
       };
     }
 
     if (diaActivoHoy && dia.id === diaActivoHoy.id) {
-      const subtitulo = cambioValido ? "Hoy" : "Te toca hoy";
+      // Ya entrenó hoy (sin cambio manual): el siguiente día es "Próximo", no "Te toca hoy".
+      const esProximo = !cambioValido && yaEntrenoHoy;
       return {
         ...dia,
         ejerciciosCount,
         duracionMinutos,
-        estado: "TODAY" as const,
-        subtitulo,
+        estado: esProximo ? ("NEXT" as const) : ("TODAY" as const),
+        subtitulo: cambioValido ? "Hoy" : esProximo ? "Próximo día" : "Te toca hoy",
         esSiguiente: true,
       };
     }
@@ -201,6 +236,16 @@ export function calcularEstadosDias({
   });
 
   const diasHechosCount = diasConEstado.filter((d) => d.estado === "DONE").length;
+  const semanaCompleta = ordenados.length > 0 && diasHechosCount === ordenados.length;
+  const tiempo = (s: RegistroSesionSimple) => new Date(s.fecha ?? 0).getTime();
+  const ultimaSesionHoy = sesionesHoy.reduce<RegistroSesionSimple | null>(
+    (ult, s) => (!ult || tiempo(s) >= tiempo(ult) ? s : ult),
+    null,
+  );
+  const diaHechoHoy = ultimaSesionHoy
+    ? (ordenados.find((d) => d.id === ultimaSesionHoy.dia_id) ?? null)
+    : null;
+  const diaProximo = diaTeTocaHoy ?? (semanaCompleta ? (ordenados[0] ?? null) : null);
 
   return {
     diasConEstado,
@@ -209,6 +254,10 @@ export function calcularEstadosDias({
     cambioDeDia: cambioValido,
     diasHechosCount,
     totalDias: ordenados.length,
+    yaEntrenoHoy,
+    semanaCompleta,
+    diaHechoHoy,
+    diaProximo,
   };
 }
 
