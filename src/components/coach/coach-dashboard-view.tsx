@@ -36,12 +36,17 @@ export interface CoachDashboardViewProps {
   initialDataset?: LiveSupabaseDataset | null;
   estancados?: AlumnoEstancado[];
   kpis?: KpisNegocio;
+  /** Mensaje legible si falló `obtenerKpisNegocio` en SSR (GOZS-912); nunca el error crudo. */
+  errorKpis?: string | null;
 }
+
+const ERROR_RETENCION = "No pudimos cargar las métricas de retención.";
 
 export function CoachDashboardView({
   initialDataset,
   estancados = [],
   kpis: propKpis,
+  errorKpis = null,
 }: CoachDashboardViewProps = {}) {
   const router = useRouter();
   const store = useCoachStudioStore();
@@ -159,16 +164,29 @@ export function CoachDashboardView({
   const valorKpisActivas = kpis.cantActivas ?? kpis.alumnos_activos;
   // Métricas oficiales vía RPC (solo datos reales y sin filtro de actividad; si falla, queda el cálculo local)
   const [metricasRpc, setMetricasRpc] = React.useState<MetricasRetencionRpc | null>(null);
+  const [errorRetencion, setErrorRetencion] = React.useState<string | null>(null);
+  const [intentoRetencion, setIntentoRetencion] = React.useState(0);
   React.useEffect(() => {
     if (!isLive) return;
     let cancelado = false;
     obtenerMetricasRetencionRpc()
-      .then((m) => !cancelado && setMetricasRpc(m))
-      .catch(() => undefined);
+      .then((m) => {
+        if (cancelado) return;
+        setMetricasRpc(m);
+        setErrorRetencion(null);
+      })
+      .catch(() => {
+        if (!cancelado) setErrorRetencion(ERROR_RETENCION);
+      });
     return () => {
       cancelado = true;
     };
-  }, [isLive]);
+  }, [isLive, intentoRetencion]);
+  const errorCarga = errorKpis ?? errorRetencion;
+  const handleReintentarCarga = () => {
+    setIntentoRetencion((n) => n + 1);
+    router.refresh();
+  };
   const usarRpc = isLive && filtroActividad === "TODAS" && metricasRpc !== null;
   const metricas = {
     ...baseMetricas,
@@ -246,6 +264,28 @@ export function CoachDashboardView({
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* Aviso de error de carga de KPIs / retención con reintento (GOZS-912) */}
+      {errorCarga && (
+        <div
+          role="alert"
+          data-testid="dashboard-error-carga"
+          className="flex flex-col gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-foreground sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span>
+            <strong>{errorCarga}</strong> Las métricas se muestran en cero hasta que la carga funcione.
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-11"
+            onClick={handleReintentarCarga}
+          >
+            Reintentar
+          </Button>
         </div>
       )}
 

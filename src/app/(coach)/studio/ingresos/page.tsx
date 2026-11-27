@@ -26,15 +26,17 @@ export default async function StudioIngresosPage() {
   }
 
   let kpis: KpisNegocio = crearKpisNegocioVacios(userRole);
+  let errorCarga: string | null = null;
   try {
     const liveKpis = await obtenerKpisNegocio(supabase, { rol: userRole });
     if (liveKpis) {
       kpis = liveKpis;
     }
   } catch {
-    // Mantener KPIs en cero si no hay datos o falla la consulta
+    // KPIs quedan en cero (sin demo) y se avisa sin exponer el error crudo (GOZS-912)
+    errorCarga = "No pudimos cargar los ingresos y la cobranza.";
   }
 
-  return <StudioSankeyView kpis={kpis} isLiveMode={true} />;
+  return <StudioSankeyView kpis={kpis} isLiveMode={true} errorCarga={errorCarga} />;
 }
 
