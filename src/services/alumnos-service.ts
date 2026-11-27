@@ -38,6 +38,10 @@ export interface LiveSupabaseDataset {
   entrenadoresStaff?: EntrenadorStaff[];
   /** Error al leer el catálogo public.ejercicios (null si cargó bien); distingue fallo de catálogo vacío. */
   ejerciciosError?: string | null;
+  /** Error al leer public.perfiles o excepción de conexión (null si cargó bien); distingue fallo de base vacía. */
+  datasetError?: string | null;
+  /** Error al leer public.planes_entrenamiento (null si cargó bien); distingue fallo de biblioteca vacía. */
+  planesError?: string | null;
 }
 
 export type EstadoAlumno = Database["public"]["Views"]["v_estado_alumno"]["Row"];
@@ -154,7 +158,11 @@ export async function fetchLiveDatasetFromSupabase(
 
     if (alumnosRes.error) {
       console.warn("Aviso cargando alumnos de Supabase (sin datos de respaldo):", alumnosRes.error.message);
-      return emptyDataset();
+      return {
+        ...emptyDataset(),
+        datasetError: "No se pudieron cargar los alumnos.",
+        planesError: "No se pudieron cargar las rutinas.",
+      };
     }
 
     const alumnos = (alumnosRes.data as Perfil[]) || [];
@@ -236,7 +244,11 @@ export async function fetchLiveDatasetFromSupabase(
       staffPromise,
     ]);
 
-    const planes = (planesRes.data as PlanEntrenamiento[]) || [];
+    const planesFallo = planesRes?.error as { code?: string; message?: string } | null | undefined;
+    if (planesFallo) {
+      console.warn("Aviso cargando rutinas de Supabase:", planesFallo.code ?? "", planesFallo.message ?? "");
+    }
+    const planes = planesFallo ? [] : (planesRes.data as PlanEntrenamiento[]) || [];
     const planIds = planes
       .map((p) => p.id)
       .filter((id): id is string => typeof id === "string" && id.length > 0);
@@ -282,6 +294,8 @@ export async function fetchLiveDatasetFromSupabase(
       ejerciciosEnRutina: (ejRutinaRes.data as EjercicioEnRutina[]) || [],
       ejercicios: ejerciciosFallo ? [] : (ejerciciosRes.data as Ejercicio[]) || [],
       ejerciciosError: ejerciciosFallo ? "No se pudo cargar la biblioteca de ejercicios." : null,
+      datasetError: null,
+      planesError: planesFallo ? "No se pudieron cargar las rutinas." : null,
       alumnoActividades: !alumnoActividadesRes?.error
         ? ((alumnoActividadesRes?.data as AlumnoActividad[]) || [])
         : [],
@@ -312,6 +326,8 @@ export async function fetchLiveDatasetFromSupabase(
     return {
       ...emptyDataset(),
       ejerciciosError: "No se pudo cargar la biblioteca de ejercicios: error de conexión.",
+      datasetError: "No se pudieron cargar los alumnos: error de conexión.",
+      planesError: "No se pudieron cargar las rutinas: error de conexión.",
     };
   }
 }

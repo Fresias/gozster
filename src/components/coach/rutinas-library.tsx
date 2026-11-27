@@ -4,7 +4,7 @@ import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Dumbbell, FileText, MoreHorizontal, Plus, Search, Users, X } from "@/components/ui/icons";
+import { AlertTriangle, Dumbbell, FileText, Loader2, MoreHorizontal, Plus, Search, Users, X } from "@/components/ui/icons";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-builder-modal";
@@ -118,6 +118,17 @@ export function RutinasLibrary({
     const fresco = await fetchLiveDatasetFromSupabase();
     setDataset(fresco);
     return fresco;
+  };
+
+  const [reintentandoPlanes, setReintentandoPlanes] = React.useState(false);
+  const reintentarCargaPlanes = async () => {
+    if (reintentandoPlanes) return;
+    setReintentandoPlanes(true);
+    try {
+      await recargar();
+    } finally {
+      setReintentandoPlanes(false);
+    }
   };
 
   React.useEffect(() => {
@@ -756,7 +767,36 @@ export function RutinasLibrary({
     tipo: SubTabBiblioteca,
   ) =>
     planes.length === 0 ? (
-      renderEmptyState(tipo)
+      dataset.planesError && dataset.planes.length === 0 ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-6 text-center"
+          data-testid="rutinas-load-error"
+        >
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/15 text-rose-300">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
+          <h3 className="text-base font-semibold text-foreground">No se pudieron cargar las rutinas</h3>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+            {dataset.planesError} Revisá tu conexión e intentá de nuevo.
+          </p>
+          <div className="mt-4 flex justify-center">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void reintentarCargaPlanes()}
+              disabled={reintentandoPlanes}
+              aria-busy={reintentandoPlanes}
+              data-testid="btn-reintentar-carga-rutinas"
+            >
+              {reintentandoPlanes && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              {reintentandoPlanes ? "Reintentando…" : "Reintentar"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        renderEmptyState(tipo)
+      )
     ) : (
       <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 xl:grid-cols-4">{planes.map((p) => fila(p, opciones))}</ul>
     );
