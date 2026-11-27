@@ -65,6 +65,7 @@ export function AthleteClasses() {
     cargando,
     accionEnCurso,
     error,
+    errorCargaClases,
     aviso,
     cargarClasesAlumno,
     reservar,
@@ -324,6 +325,17 @@ export function AthleteClasses() {
       {(error || aviso) && (
         <div role="alert" className="a-info a-t-sec" data-testid="alert-message">
           <span style={{ flex: 1 }}>{error ?? aviso}</span>
+          {isOnline && errorCargaClases && (
+            <button
+              type="button"
+              className="a-btn"
+              onClick={() => void cargarClasesAlumno()}
+              disabled={cargando}
+              data-testid="clases-reintentar"
+            >
+              Reintentar
+            </button>
+          )}
           <button type="button" className="a-icon-btn" onClick={limpiarMensajes} aria-label="Cerrar aviso">
             <X width={16} height={16} className="a-i" />
           </button>
@@ -343,7 +355,7 @@ export function AthleteClasses() {
 
       {cargando && clases.length === 0 ? (
         <p className="a-t-sec a-muted" role="status" style={{ textAlign: "center" }}>Cargando clases…</p>
-      ) : habilitadas.length === 0 ? (
+      ) : errorCargaClases && !actualizadoAt && clases.length === 0 ? null : habilitadas.length === 0 ? (
         <section className="a-card a-state" data-testid="no-enabled-activities-empty">
           <b className="a-t-bs">Todavía no tenés actividades habilitadas</b>
           <p className="a-t-sec">

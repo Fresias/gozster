@@ -87,6 +87,8 @@ interface SerieEnEdicion {
 export function HistorialSesiones({ offline, initialTab = "sesiones" }: HistorialSesionesProps = {}) {
   const historialSesiones = useAthleteStore((s) => s.historialSesiones);
   const cargarHistorialSesiones = useAthleteStore((s) => s.cargarHistorialSesiones);
+  const historialError = useAthleteStore((s) => s.historialError);
+  const cargandoHistorial = useAthleteStore((s) => s.cargandoHistorial);
   const actualizarSerieHistorial = useAthleteStore((s) => s.actualizarSerieHistorial);
   const currentSession = useAthleteStore((s) => s.currentSession);
   const planDias = useAthleteStore((s) => s.planAlumno?.dias);
@@ -319,6 +321,21 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
         </p>
       )}
 
+      {isOnline && historialError && (
+        <div role="alert" className="a-card" data-testid="historial-load-error">
+          <p className="a-t-sec">{historialError}</p>
+          <button
+            type="button"
+            className="a-btn"
+            data-testid="historial-reintentar"
+            disabled={cargandoHistorial}
+            onClick={() => void cargarHistorialSesiones()}
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+
       {sesiones.length > 0 && (
         <div className="a-seg" role="group" aria-label="Agrupar historial">
           <button
@@ -350,7 +367,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
       {/* VISTA 1: sesiones */}
       {(tabActiva === "sesiones" || sesiones.length === 0) &&
         (sesiones.length === 0 ? (
-          asistenciasClases.length > 0 ? null : <section className="a-card a-state" data-testid="historial-vacio">
+          asistenciasClases.length > 0 || (isOnline && historialError) ? null : <section className="a-card a-state" data-testid="historial-vacio">
             <span className="a-ic">
               <History width={24} height={24} aria-hidden="true" />
             </span>

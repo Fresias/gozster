@@ -15,6 +15,7 @@ export default function AthleteProgresoPage() {
   const miProgreso = useAthleteStore((s) => s.miProgreso);
   const miProgresoFecha = useAthleteStore((s) => s.miProgresoFecha);
   const cargando = useAthleteStore((s) => s.cargandoMiProgreso);
+  const miProgresoError = useAthleteStore((s) => s.miProgresoError);
   const cargarMiProgreso = useAthleteStore((s) => s.cargarMiProgreso);
   const diamantesRacha = useAthleteStore((s) => s.diamantesRacha);
   const cargarLogrosRacha = useAthleteStore((s) => s.cargarLogrosRacha);
@@ -115,6 +116,8 @@ export default function AthleteProgresoPage() {
       rachaSemanas={rachaSemanas}
       rankingError={esFuncional && isOnline ? rankingAlumnoError : null}
       onReintentarRanking={() => void cargarRankingAlumno()}
+      progresoError={isOnline ? miProgresoError : null}
+      onReintentarProgreso={() => void cargarMiProgreso({ forceRefresh: true })}
     />
   );
 }

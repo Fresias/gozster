@@ -35,6 +35,8 @@ export interface MiProgresoProps {
   rachaSemanas?: number;
   rankingError?: string | null; // falló la descarga del ranking de Funcional
   onReintentarRanking?: () => void;
+  progresoError?: string | null; // falló la descarga online de «Mi progreso» (G12)
+  onReintentarProgreso?: () => void;
 }
 
 // 02-pantallas §6: gráfico SVG 300 × 96 (+18 de fechas), sin librerías. Misma geometría que la referencia.
@@ -170,6 +172,8 @@ export function MiProgreso({
   rachaSemanas = 0,
   rankingError = null,
   onReintentarRanking,
+  progresoError = null,
+  onReintentarProgreso,
 }: MiProgresoProps) {
   if (estado === "cargando") return <Esqueleto />;
 
@@ -201,6 +205,17 @@ export function MiProgreso({
         </p>
       )}
 
+      {progresoError && (
+        <div role="alert" className="a-card" data-testid="progreso-load-error">
+          <p className="a-t-sec">{progresoError}</p>
+          {onReintentarProgreso && (
+            <button type="button" className="a-btn" data-testid="progreso-reintentar" onClick={onReintentarProgreso}>
+              Reintentar
+            </button>
+          )}
+        </div>
+      )}
+
       {rankingError && (
         <div role="alert" className="a-card" data-testid="progreso-ranking-error">
           <p className="a-t-sec">{rankingError}</p>
@@ -217,7 +232,8 @@ export function MiProgreso({
       )}
 
       {sinHistorial && rankingFuncional.length === 0 ? (
-        <EstadoVacio />
+        // Con error de carga y sin caché, el vacío sería falso: solo queda el aviso.
+        progresoError ? null : <EstadoVacio />
       ) : (
         <>
           {!sinHistorial && (

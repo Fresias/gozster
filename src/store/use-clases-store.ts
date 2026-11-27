@@ -43,6 +43,8 @@ import { supabase } from "@/lib/supabase/client";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+export const MSG_ERROR_CLASES = "No pudimos cargar las clases. Intentá de nuevo.";
+
 export interface ReservaAgenda extends Reserva {
   alumno_nombre: string;
 }
@@ -222,6 +224,8 @@ interface ClasesState {
   cargando: boolean;
   accionEnCurso: string | null;
   error: string | null;
+  /** Efímero (no se persiste): falló la carga online de clases; habilita «Reintentar» (G12). */
+  errorCargaClases: boolean;
   aviso: string | null;
 
   cargarClasesAlumno: () => Promise<void>;
@@ -390,6 +394,7 @@ export const useClasesStore = create<ClasesState>()(
       cargando: false,
       accionEnCurso: null,
       error: null,
+      errorCargaClases: false,
       aviso: null,
 
       cargarClasesAlumno: async () => {
@@ -530,12 +535,17 @@ export const useClasesStore = create<ClasesState>()(
                   actualizadoAt: new Date().toISOString(),
                   cargando: false,
                   error: null,
+                  errorCargaClases: false,
                 });
                 return;
               }
             } catch {
-              // Fallback offline-first: conservar caché real si existe, o dataset demo
+              // Se trata igual que un error de PostgREST (abajo).
             }
+            // Online y autenticado pero la lectura falló: se conserva la caché local,
+            // no se marca como carga exitosa y se avisa con opción de reintentar.
+            set({ cargando: false, error: MSG_ERROR_CLASES, errorCargaClases: true });
+            return;
           }
         }
 
@@ -1929,7 +1939,7 @@ export const useClasesStore = create<ClasesState>()(
         return get().clasesFijas.filter((f) => f.alumno_id === alumnoId);
       },
 
-      limpiarMensajes: () => set({ error: null, aviso: null }),
+      limpiarMensajes: () => set({ error: null, aviso: null, errorCargaClases: false }),
     }),
     {
       name: "gozster-clases",
