@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   chmodSync,
   existsSync,
@@ -499,6 +499,32 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
       });
       expect(missingRes.status).not.toBe(0);
       expect(missingRes.stderr).toContain("BACKUP_ENCRYPTION_PASSPHRASE");
+    });
+
+    it("falla de forma determinística si el payload descifrado no es gzip válido (openssl sale 0)", () => {
+      const dir = mkdtempSync(path.join(tmpdir(), "gozs-backup-nogzip-"));
+      tempDirs.push(dir);
+
+      const plainIn = path.join(dir, "not-gzip.bin");
+      const encOut = path.join(dir, "not-gzip.sql.gz.enc");
+      const passphrase = randomBytes(24).toString("base64");
+      writeFileSync(plainIn, "SELECT 1; -- esto no es un stream gzip\n", "utf8");
+
+      execFileSync(
+        "openssl",
+        ["enc", "-aes-256-cbc", "-pbkdf2", "-iter", "600000", "-salt", "-in", plainIn, "-out", encOut, "-pass", "env:BACKUP_ENCRYPTION_PASSPHRASE"],
+        { env: { ...process.env, BACKUP_ENCRYPTION_PASSPHRASE: passphrase }, stdio: "pipe" }
+      );
+      const hash = createHash("sha256").update(readFileSync(encOut)).digest("hex");
+      writeFileSync(`${encOut}.sha256`, `${hash}  ${path.basename(encOut)}\n`, "utf8");
+
+      const res = runBackupScript(["verify", toPosix(encOut)], {
+        BACKUP_ENCRYPTION_PASSPHRASE: passphrase,
+      });
+      expect(res.status).not.toBe(0);
+      expect(res.stderr).toContain("falló el descifrado");
+      expect(res.stderr).toContain("gzip");
+      expect(res.stderr).not.toContain(passphrase);
     });
 
     it("bloquea --restore-url hacia un host remoto por defecto sin filtrar credenciales", () => {

@@ -1,0 +1,1 @@
+{"id":"exp-gozs-903-1","timestamp":"2026-11-27T09:14:12.371Z","task":"GOZS-903","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"openssl enc -d con passphrase incorrecta sale 0 en 1/256 (padding PKCS#7); el fallback gzip debe reutilizar el diagnóstico de descifrado.","verified":true,"tags":["db","studio","ui","athlete","qa","harness"]}
