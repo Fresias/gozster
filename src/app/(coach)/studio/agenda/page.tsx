@@ -14,14 +14,23 @@ export default async function StudioAgendaPage() {
   let initialReservas: ReservaAgenda[] = [];
   const initialProfesoresPorClase: Record<string, ProfesorClaseInfo[]> = {};
   let alumnosDisponibles = [] as Awaited<ReturnType<typeof fetchLiveDatasetFromSupabase>>["alumnos"];
+  let initialError: string | null = null;
 
   if (authUser?.data?.user) {
     const [clasesRes, reservasRes, profesoresRes, dataset] = await Promise.all([
       supabase.from("clases").select("*").order("inicio", { ascending: true }),
       supabase.from("reservas").select("*, perfiles(nombre_completo)").order("created_at", { ascending: true }),
       supabase.from("clases_profesores").select("clase_id, profesor_id, perfiles(nombre_completo)"),
-      fetchLiveDatasetFromSupabase(supabase),
+      fetchLiveDatasetFromSupabase(supabase).catch((e: unknown) => {
+        initialError = `No se pudieron cargar los alumnos: ${e instanceof Error ? e.message : "error de red"}.`;
+        return { alumnos: alumnosDisponibles };
+      }),
     ]);
+
+    const fallo = clasesRes.error ?? reservasRes.error ?? profesoresRes.error;
+    if (fallo) {
+      initialError = `No se pudo cargar la agenda: ${fallo.message}.`;
+    }
 
     alumnosDisponibles = dataset.alumnos;
     if (!clasesRes.error && Array.isArray(clasesRes.data)) {
@@ -71,6 +80,7 @@ export default async function StudioAgendaPage() {
       initialReservas={initialReservas}
       initialProfesoresPorClase={initialProfesoresPorClase}
       alumnosDisponibles={alumnosDisponibles}
+      initialError={initialError}
     />
   );
 }

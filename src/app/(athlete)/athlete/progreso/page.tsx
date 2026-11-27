@@ -28,6 +28,7 @@ export default function AthleteProgresoPage() {
   const resumenClases = useClasesStore((s) => s.resumenClases);
   const rankingAlumno = useRankingStore((s) => s.rankingAlumno);
   const cargarRankingAlumno = useRankingStore((s) => s.cargarRankingAlumno);
+  const rankingAlumnoError = useRankingStore((s) => s.rankingAlumnoError);
   const sincronizarMarcasPendientes = useRankingStore((s) => s.sincronizarMarcasPendientes);
   const membresia = useClasesStore((s) => s.membresia);
   const planClases = useClasesStore((s) => s.plan);
@@ -112,6 +113,8 @@ export default function AthleteProgresoPage() {
       rankingFuncional={esFuncional ? rankingAlumno : []}
       diamantesRacha={diamantesRacha}
       rachaSemanas={rachaSemanas}
+      rankingError={esFuncional && isOnline ? rankingAlumnoError : null}
+      onReintentarRanking={() => void cargarRankingAlumno()}
     />
   );
 }

@@ -55,6 +55,8 @@ interface RankingFuncionalProps {
   reservasDisponibles?: ReservaAgenda[];
   prsIniciales?: RankingPR[];
   isLiveMode?: boolean;
+  /** Error de la carga SSR (clases/reservas/PRs); se limpia al reintentar. */
+  initialSyncError?: string | null;
 }
 
 type SortCol = "posicion" | "atleta" | "carga" | "peso_corporal" | "ratio";
@@ -105,6 +107,7 @@ export function RankingFuncional({
   reservasDisponibles,
   prsIniciales,
   isLiveMode = false,
+  initialSyncError = null,
 }: RankingFuncionalProps) {
   const { isOnline, isFlushing, pendingEvents } = useOfflineQueueStore();
   const syncingSessionId = useAthleteStore((s) => s.syncingSessionId);
@@ -134,13 +137,14 @@ export function RankingFuncional({
     syncError,
     ultimaSincronizacionAt,
   } = useRankingStore();
+  const [errorInicial, setErrorInicial] = React.useState<string | null>(initialSyncError);
 
   const estadoSync = resolverEstadoSincronizacionRanking({
     isOnline,
     isFlushing,
     hasPendingSeries: pendingEvents.some((e) => SESSION_ACTIONS.includes(e.action)),
     syncingSessionId,
-    syncError,
+    syncError: syncError ?? errorInicial,
     ultimaSincronizacionAt,
   });
 
@@ -537,6 +541,7 @@ export function RankingFuncional({
                 className="min-h-11"
                 data-testid="ranking-sync-reintentar"
                 onClick={() => {
+                  setErrorInicial(null);
                   if (activeClaseId) void cargarPrsClase(activeClaseId, activeEjercicioId ?? undefined);
                 }}
               >

@@ -22,6 +22,7 @@ export default async function StudioRankingFuncionalPage({
   let clasesDisponibles: Clase[] = [];
   let reservasDisponibles: ReservaAgenda[] = [];
   let prsIniciales: RankingPR[] = [];
+  let initialSyncError: string | null = null;
 
   if (authUser?.data?.user) {
     const [clasesRes, reservasRes, prsRes] = await Promise.all([
@@ -29,6 +30,11 @@ export default async function StudioRankingFuncionalPage({
       supabase.from("reservas").select("*, perfiles(nombre_completo)").order("created_at", { ascending: true }),
       supabase.from("v_prs").select("*"),
     ]);
+
+    const fallo = clasesRes.error ?? reservasRes.error ?? prsRes.error;
+    if (fallo) {
+      initialSyncError = `No se pudo actualizar el ranking: ${fallo.message}.`;
+    }
 
     if (!clasesRes.error && Array.isArray(clasesRes.data)) {
       clasesDisponibles = clasesRes.data as Clase[];
@@ -68,6 +74,7 @@ export default async function StudioRankingFuncionalPage({
       reservasDisponibles={reservasDisponibles}
       prsIniciales={prsIniciales}
       isLiveMode={true}
+      initialSyncError={initialSyncError}
     />
   );
 }

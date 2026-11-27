@@ -33,6 +33,8 @@ export interface MiProgresoProps {
   rankingFuncional?: RankingFuncionalFila[]; // solo alumnos presenciales de Funcional
   diamantesRacha?: number;
   rachaSemanas?: number;
+  rankingError?: string | null; // falló la descarga del ranking de Funcional
+  onReintentarRanking?: () => void;
 }
 
 // 02-pantallas §6: gráfico SVG 300 × 96 (+18 de fechas), sin librerías. Misma geometría que la referencia.
@@ -166,6 +168,8 @@ export function MiProgreso({
   rankingFuncional = [],
   diamantesRacha = 0,
   rachaSemanas = 0,
+  rankingError = null,
+  onReintentarRanking,
 }: MiProgresoProps) {
   if (estado === "cargando") return <Esqueleto />;
 
@@ -195,6 +199,17 @@ export function MiProgreso({
           <CloudOff width={12} height={12} aria-hidden="true" />
           Sin conexión · datos del {formatearFechaCorta(fechaDescarga)}
         </p>
+      )}
+
+      {rankingError && (
+        <div role="alert" className="a-card" data-testid="progreso-ranking-error">
+          <p className="a-t-sec">{rankingError}</p>
+          {onReintentarRanking && (
+            <button type="button" className="a-btn" data-testid="progreso-ranking-reintentar" onClick={onReintentarRanking}>
+              Reintentar
+            </button>
+          )}
+        </div>
       )}
 
       {diamantesVisibles >= 1 && (
