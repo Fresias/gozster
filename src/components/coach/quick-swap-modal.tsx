@@ -5,6 +5,7 @@ import type { Ejercicio } from "@/types/database.types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase/client";
+import { reportarErrorApp } from "@/lib/reportar-error-app";
 import { TriangleAlert, X, Lock, Check, ArrowRightLeft } from "@/components/coach/icons";
 
 export interface QuickSwapModalProps {
@@ -23,6 +24,11 @@ export interface QuickSwapModalProps {
   catalogoEjercicios: Ejercicio[];
   onSwapSuccess: (originalExercise: string, newExercise: string, motivo?: string) => void;
 }
+
+const MSG_SWAP_SIN_CATALOGO =
+  "Este ejercicio no está en tu catálogo. Agregalo a la biblioteca o elegí otra alternativa.";
+const MSG_SWAP_ERROR =
+  "No pudimos guardar la sustitución. Revisá tu conexión e intentá de nuevo.";
 
 export interface BiomechanicalAlternative {
   id?: string;
@@ -65,6 +71,11 @@ export function QuickSwapModal({
   const [motivo, setMotivo] = React.useState("Molestia articular informada por atleta");
   const [selectedAlternative, setSelectedAlternative] = React.useState<BiomechanicalAlternative | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [swapError, setSwapError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setSwapError(null);
+  }, [isOpen]);
 
   // Determinar sugerencias biomecánicas clasificadas según ejercicio o zona articular
   const isLowerBody =
@@ -246,30 +257,37 @@ export function QuickSwapModal({
   if (!isOpen) return null;
 
   const handleConfirmSwap = async (alt: BiomechanicalAlternative) => {
+    setSwapError(null);
     setIsSubmitting(true);
     try {
-      // Buscar ID del nuevo ejercicio en el catálogo si existe
-      const matchedCatalog = catalogoEjercicios.find(
-        (e) => e.nombre.toLowerCase() === alt.nombre.toLowerCase()
-      );
-      const nuevoEjercicioId = matchedCatalog?.id || "30000000-0000-0000-0000-000000000002";
-
-      // Si tenemos los IDs requeridos y estamos conectados, invocar quick_swap_ejercicio
-      if (ejercicioEnRutinaId && nuevoEjercicioId) {
-        await supabase.rpc("quick_swap_ejercicio", {
+      // Con rutina persistida, la sustitución solo se aplica si la RPC la confirma (G12).
+      if (ejercicioEnRutinaId) {
+        const matchedCatalog = catalogoEjercicios.find(
+          (e) => e.nombre.toLowerCase() === alt.nombre.toLowerCase()
+        );
+        if (!matchedCatalog?.id) {
+          setSwapError(MSG_SWAP_SIN_CATALOGO);
+          return;
+        }
+        const { error } = await supabase.rpc("quick_swap_ejercicio", {
           p_ejercicio_en_rutina_id: ejercicioEnRutinaId,
-          p_nuevo_ejercicio_id: nuevoEjercicioId,
+          p_nuevo_ejercicio_id: matchedCatalog.id,
           p_alerta_id: alertaId || null,
           p_motivo: motivo.trim() || "Sustitución biomecánica por molestia",
         });
+        if (error) throw error;
       }
 
       onSwapSuccess(ejercicioActual, alt.nombre, motivo.trim());
       onClose();
     } catch (e) {
-      // Si falla la llamada RPC (por permisos mock o red), igualmente ejecutamos la sustitución en cliente
-      onSwapSuccess(ejercicioActual, alt.nombre, motivo.trim());
-      onClose();
+      setSwapError(MSG_SWAP_ERROR);
+      void reportarErrorApp({
+        contexto: "coach.quick_swap",
+        mensajeHumano: MSG_SWAP_ERROR,
+        error: e,
+        payloadResumen: { ejercicio_en_rutina_id: ejercicioEnRutinaId ?? null },
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -316,6 +334,16 @@ export function QuickSwapModal({
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
+
+        {swapError && (
+          <p
+            role="alert"
+            data-testid="quick-swap-error"
+            className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs font-medium text-destructive"
+          >
+            {swapError}
+          </p>
+        )}
 
         {/* Tarjeta del Ejercicio con Reporte de Dolor */}
         <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 space-y-1">
