@@ -277,7 +277,7 @@ export function IslaRoutineWorkbench({
 
       return demoMatch || null;
     },
-    [alertasDolor, effectiveAlumnoId, effectiveAlumnoNombre]
+    [alertasDolor, effectiveAlumnoId, effectiveAlumnoNombre, isLiveDatabase, isUuidAlumno]
   );
 
   const hasAnyPainInPlan = React.useMemo(() => {
