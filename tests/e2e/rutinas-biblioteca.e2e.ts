@@ -40,13 +40,29 @@ const ANA_ARCHIVADA: PlanEntrenamiento = { ...ANA_VIEJA, estado: "INACTIVO", fec
 const ANA_NUEVA = plan({ id: "p-ana-clon", nombre: "Fuerza Base", alumno_id: ANA, plan_origen_id: PLANTILLA.id, fecha_inicio: "2026-10-29T12:00:00Z" });
 const ALUMNOS = [alumno(ANA, "Ana Pérez"), alumno(BRUNO, "Bruno Díaz")];
 
+/**
+ * El SSR del stub no lista alumnos (solo atiende `rol=eq.ALUMNO`; la carga actual usa `or=(profesor_asignado_id…)`).
+ * Se fuerza un fallo SSR de planes y se usa "Reintentar": la recarga del navegador sí pasa por `page.route`,
+ * que sirve a los alumnos sintéticos, y por el stub para planes (fixtures).
+ */
 async function abrirBiblioteca(page: Page) {
   await page.request.put(`${STUB}/__e2e/fixtures`, { data: { alumnos: ALUMNOS, planes_entrenamiento: [PLANTILLA, ANA_VIEJA] } });
+  await page.request.put(`${STUB}/__e2e/fallos`, { data: { planes_entrenamiento: 500 } });
   await page.context().addCookies([
     { name: "sb-localhost-auth-token", value: `base64-${b64url(session)}`, url: "http://localhost:3100" },
   ]);
+  await page.route("**/rest/v1/perfiles?*", (route) => {
+    const url = decodeURIComponent(route.request().url());
+    if (route.request().method() !== "GET" || !(url.includes("profesor_asignado_id") || url.includes("rol.eq.ALUMNO"))) return route.continue();
+    return route.fulfill({ json: ALUMNOS });
+  });
   await page.goto("/studio/rutinas");
   await expect(page.getByTestId("rutinas-library")).toBeVisible({ timeout: 60_000 });
+  const reintentar = page.getByTestId("btn-reintentar-carga-rutinas");
+  await expect(reintentar).toBeVisible();
+  await page.request.put(`${STUB}/__e2e/fallos`, { data: {} });
+  await reintentar.click();
+  await expect(page.getByTestId("rutinas-load-error")).toHaveCount(0);
 }
 
 /** Intercepta la RPC y errores_app del navegador; devuelve lo que la app envió. */
@@ -63,7 +79,7 @@ async function interceptar(page: Page, rpc: (route: Route) => Promise<void>) {
   return enviado;
 }
 
-const pestaña = (page: Page, nombre: RegExp) => page.getByRole("button", { name: nombre }).or(page.getByRole("tab", { name: nombre }));
+const pestaña = (page: Page, testId: string) => page.getByTestId(testId);
 
 test.describe("GOZS-297: biblioteca /studio/rutinas", () => {
   test.afterEach(async ({ request }) => {
@@ -72,8 +88,9 @@ test.describe("GOZS-297: biblioteca /studio/rutinas", () => {
 
   test("asignar plantilla deja una sola ACTIVA y la anterior en Archivadas", async ({ page }) => {
     await abrirBiblioteca(page);
-    await expect(pestaña(page, /Plantillas \(1\)/)).toBeVisible();
-    await expect(pestaña(page, /Archivadas \(0\)/)).toBeVisible();
+    await expect(pestaña(page, "tab-plantillas-maestras")).toHaveText(/Mis Plantillas\s*1/);
+    await expect(pestaña(page, "tab-archivadas")).toHaveText(/Archivadas\s*0/);
+    await pestaña(page, "tab-plantillas-maestras").click();
     await expect(page.getByTestId("rutina-item").filter({ hasText: "Fuerza Base" })).toContainText("STANDARD");
 
     const enviado = await interceptar(page, async (route) => {
@@ -97,19 +114,27 @@ test.describe("GOZS-297: biblioteca /studio/rutinas", () => {
     await expect(builder).toContainText("Ana Pérez");
     expect(enviado.rpc).toEqual([{ p_plan_id: PLANTILLA.id, p_alumno_id: ANA }]);
     expect(enviado.errores).toHaveLength(0);
-    await builder.getByRole("button", { name: "✕" }).click();
+    await builder.getByTestId("routine-builder-back-btn").click();
 
-    await pestaña(page, /De alumnos \(1\)/).click();
-    const activas = page.getByTestId("rutina-item").filter({ hasText: "ACTIVO" });
+    await pestaña(page, "tab-de-alumnos").click();
+    const activas = page.getByTestId("rutina-item").filter({ hasText: "Vigente" });
     await expect(activas).toHaveCount(1);
     await expect(activas).toContainText("Ana Pérez");
     await expect(activas).not.toContainText("STANDARD");
 
-    await pestaña(page, /Archivadas \(1\)/).click();
+    await pestaña(page, "tab-archivadas").click();
     const archivada = page.getByTestId("rutina-item").filter({ hasText: "Ana Octubre" });
     await expect(archivada).toBeVisible();
     await expect(archivada).toContainText("Ana Pérez");
-    await expect(archivada.getByRole("button")).toHaveCount(0); // solo lectura
+    // Solo lectura: sin botones de acción directos (Asignar/Compartir); solo queda el menú de acciones,
+    // que en Archivadas no ofrece abrir/editar, asignar, compartir ni eliminar.
+    await expect(archivada.getByRole("button")).toHaveCount(1);
+    await archivada.getByTestId("rutina-acciones-btn").click();
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    for (const accion of ["Abrir", "Asignar a alumno", "Compartir", "Eliminar"]) {
+      await expect(menu.getByRole("menuitem", { name: accion, exact: true })).toHaveCount(0);
+    }
   });
 
   test("error técnico: mensaje humano en pantalla y fila en errores_app", async ({ page }) => {
