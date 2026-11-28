@@ -221,8 +221,9 @@ describe("Vistas de public", () => {
         [vista],
       );
       expect(r.rows, `vista ${vista}`).toHaveLength(1);
-      expect(r.rows[0].anon, `${vista} anon`).toBe(false);
-      expect(r.rows[0].invoker || r.rows[0].auth, `${vista} contrato`).toBe(true);
+      const fila = r.rows[0]!;
+      expect(fila.anon, `${vista} anon`).toBe(false);
+      expect(fila.invoker || fila.auth, `${vista} contrato`).toBe(true);
     }
   });
 });
@@ -238,10 +239,10 @@ describe("G6/G10 · paridad de respaldo y scripts de control", () => {
     const r = await db.query<{ def: string }>(
       `SELECT pg_get_functiondef('public.restaurar_filas_respaldo(text,jsonb)'::regprocedure) AS def`,
     );
-    const def = r.rows[0].def;
+    const def = r.rows[0]!.def;
     const bloque = def.match(/p_tabla\s+NOT\s+IN\s*\(([\s\S]*?)\)\s*THEN/i);
     expect(bloque, "whitelist no encontrado").not.toBeNull();
-    const whitelist = [...bloque![1].matchAll(/'([^']+)'/g)].map((m) => m[1]).sort();
+    const whitelist = [...bloque![1]!.matchAll(/'([^']+)'/g)].map((m) => m[1]).sort();
     const script = TABLAS.map((t: { nombre: string }) => t.nombre).sort();
     expect(whitelist).toEqual(script);
   });
@@ -285,7 +286,7 @@ describe("G6/G10 · paridad de respaldo y scripts de control", () => {
   });
 
   it("las versiones de migraciones locales son únicas, ordenadas y la paridad detecta pendientes", () => {
-    const locales = listarVersionesLocales(MIGRATIONS_DIR) as { version: string }[];
+    const locales = listarVersionesLocales(MIGRATIONS_DIR);
     const archivos = listarMigraciones();
     expect(locales).toHaveLength(archivos.length);
     const versiones = locales.map((m) => m.version);
@@ -294,14 +295,14 @@ describe("G6/G10 · paridad de respaldo y scripts de control", () => {
 
     const ok = evaluarParidadMigraciones({
       locales,
-      registrosRemotos: versiones.map((v) => ({ remote: v })),
+      registrosRemotos: versiones.map((v) => ({ local: v, remote: v })),
     });
     expect(ok.ok).toBe(true);
     expect(ok.pendientes).toEqual([]);
 
     const sinUltima = evaluarParidadMigraciones({
       locales,
-      registrosRemotos: versiones.slice(0, -1).map((v) => ({ remote: v })),
+      registrosRemotos: versiones.slice(0, -1).map((v) => ({ local: v, remote: v })),
     });
     expect(sinUltima.ok).toBe(false);
     expect(sinUltima.pendientes.map((m: { version: string }) => m.version)).toEqual([
@@ -325,7 +326,7 @@ describe("G6/G10 · paridad de respaldo y scripts de control", () => {
       fs.writeFileSync(path.join(dir, "sucio.js"), "x='alguien@gmail.com'");
       const hits = escanearDirectorio(dir) as { file: string; motivos: string[] }[];
       expect(hits).toHaveLength(1);
-      expect(path.basename(hits[0].file)).toBe("sucio.js");
+      expect(path.basename(hits[0]!.file)).toBe("sucio.js");
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
