@@ -47,6 +47,8 @@ export function ChatFab({
     sendMessage,
     transferirConversacion,
     markAsRead,
+    chatSyncError,
+    syncWithSupabase,
   } = useChatStore();
 
   const { isOnline } = useOfflineQueueStore();
@@ -301,6 +303,27 @@ export function ChatFab({
 
   if (!isOpen) return null;
 
+  // Aviso de error de sincronización con reintento; no oculta los mensajes cacheados.
+  const syncErrorBanner = chatSyncError ? (
+    <div
+      role="alert"
+      data-testid="coach-chat-sync-error"
+      className="flex items-center justify-between gap-2 border-b border-destructive/40 bg-destructive/10 px-3 py-2 text-[11px] text-foreground"
+    >
+      <span>{chatSyncError}</span>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="min-h-9 shrink-0"
+        data-testid="coach-chat-sync-retry"
+        onClick={() => void syncWithSupabase(currentAlumnoId || undefined)}
+      >
+        Reintentar
+      </Button>
+    </div>
+  ) : null;
+
   return (
     <div
       id="coach-chat-drawer"
@@ -405,6 +428,8 @@ export function ChatFab({
               })}
             </div>
           </div>
+
+          {syncErrorBanner}
 
           {/* Banner offline */}
           {!isOnline && (
@@ -633,6 +658,8 @@ export function ChatFab({
               </>
             )}
           </div>
+
+          {syncErrorBanner}
 
           {/* Banner offline */}
           {!isOnline && (

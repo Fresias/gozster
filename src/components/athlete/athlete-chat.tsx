@@ -98,6 +98,8 @@ export function AthleteChat({
     markAsRead,
     isAthleteChatOpen: isOpen,
     setAthleteChatOpen,
+    chatSyncError,
+    syncWithSupabase,
   } = useChatStore();
 
   const conversation = effectiveAthleteId
@@ -272,6 +274,20 @@ export function AthleteChat({
           <p className="a-eb a-t-label a-offnote" role="status">
             Sin conexión · tu mensaje se envía al volver la señal
           </p>
+        )}
+
+        {chatSyncError && (
+          <div role="alert" className="a-info a-t-sec" data-testid="athlete-chat-sync-error">
+            <span style={{ flex: 1 }}>{chatSyncError}</span>
+            <button
+              type="button"
+              className="a-mini"
+              data-testid="athlete-chat-sync-retry"
+              onClick={() => void syncWithSupabase(effectiveAthleteId || undefined)}
+            >
+              Reintentar
+            </button>
+          </div>
         )}
 
         <div className="a-msgs" data-testid="athlete-chat-messages-container" aria-live="polite">

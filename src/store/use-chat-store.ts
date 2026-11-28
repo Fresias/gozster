@@ -88,12 +88,17 @@ const formatHora = (isoDate: string): string => {
   });
 };
 
+const CHAT_SYNC_ERROR_MESSAGE =
+  "No pudimos actualizar el chat. Revisá tu conexión e intentá de nuevo.";
+
 interface ChatStoreState {
   conversations: Record<string, ChatConversation>;
   selectedAlumnoId: string | null;
   activeCoachSender: ChatSender;
   staffCoaches: ChatSender[];
   isAthleteChatOpen: boolean;
+  /** Error humano de la última sincronización (no se persiste). */
+  chatSyncError: string | null;
 
   // Actions
   setAthleteChatOpen: (open: boolean) => void;
@@ -134,6 +139,7 @@ export const useChatStore = create<ChatStoreState>()(
       activeCoachSender: STAFF_COACH_PRINCIPAL,
       staffCoaches: [],
       isAthleteChatOpen: false,
+      chatSyncError: null,
 
       setAthleteChatOpen: (isAthleteChatOpen) => set({ isAthleteChatOpen }),
 
@@ -540,18 +546,27 @@ export const useChatStore = create<ChatStoreState>()(
           }
 
           const { data, error } = await query;
-          if (error || !data || data.length === 0) return;
+          if (error) {
+            set({ chatSyncError: CHAT_SYNC_ERROR_MESSAGE });
+            return;
+          }
+          if (!data || data.length === 0) {
+            if (get().chatSyncError !== null) set({ chatSyncError: null });
+            return;
+          }
 
           set((state) => {
             const nextConversations = { ...state.conversations };
             for (const c of data) {
               const existing = nextConversations[c.alumno_id];
               const responsable =
+                state.staffCoaches.find((coach) => coach.id === c.responsable_id) ||
                 AVAILABLE_COACH_SENDERS.find((coach) => coach.id === c.responsable_id) ||
                 MOCK_STAFF_COACHES.find((coach) => coach.id === c.responsable_id);
               const msgs: ChatMessage[] = (c.mensajes || [])
                 .map((m: any) => {
                   const senderCoach =
+                    state.staffCoaches.find((coach) => coach.id === m.remitente_id) ||
                     AVAILABLE_COACH_SENDERS.find(
                       (coach) => coach.id === m.remitente_id,
                     ) ||
@@ -602,10 +617,11 @@ export const useChatStore = create<ChatStoreState>()(
                 unreadCount: mergedMsgs.filter((m) => !m.leido && !m.es_staff).length,
               };
             }
-            return { conversations: nextConversations };
+            return { conversations: nextConversations, chatSyncError: null };
           });
         } catch {
-          // Mantener estado offline resiliente
+          // Mantener estado offline resiliente (caché y pendientes intactos) y avisar
+          set({ chatSyncError: CHAT_SYNC_ERROR_MESSAGE });
         }
       },
 
@@ -837,12 +853,15 @@ export const useChatStore = create<ChatStoreState>()(
           selectedAlumnoId: null,
           activeCoachSender: STAFF_COACH_PRINCIPAL,
           isAthleteChatOpen: false,
+          chatSyncError: null,
         });
       },
     }),
     {
       name: "gozster-chat-store",
       storage: createJSONStorage(() => userScopedStorage),
+      // El error de sincronización es efímero: nunca se persiste.
+      partialize: ({ chatSyncError: _chatSyncError, ...rest }) => rest,
     },
   ),
 );
