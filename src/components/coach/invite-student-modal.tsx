@@ -8,6 +8,7 @@ import { useClasesStore } from "@/store/use-clases-store";
 import { useCobrosStore } from "@/store/use-cobros-store";
 import { asignarSuscripcionYCobro } from "@/services/cobros-service";
 import { esUuid } from "@/lib/athlete/uuid";
+import { reportarErrorApp } from "@/lib/reportar-error-app";
 import type { PlanMembresiaConVigencia } from "@/lib/planes";
 
 export type ActividadTipo = "FUNCIONAL" | "BOXEO" | "RUTINAS";
@@ -67,6 +68,8 @@ export interface AltaExitosa {
     medio_pago?: "TRANSFERENCIA" | "EFECTIVO";
     nota?: string;
   };
+  /** Pasos secundarios que fallaron tras crear la cuenta (G12). */
+  advertencias?: string[];
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -134,6 +137,344 @@ export function mensajeWhatsApp(
   lineas.push("");
   lineas.push(`Entrá en ${loginUrl} y al ingresar vas a elegir tu contraseña definitiva.`);
   return lineas.join("\n");
+}
+
+/** Datos secundarios que se persisten después de crear la cuenta en Auth (G12). */
+export interface DatosPostAlta {
+  alumnoId: string;
+  alumnoNombre: string;
+  alumnoEmail: string;
+  alumnoTelefono: string | null;
+  sexo?: "F" | "M";
+  pesoNum?: number;
+  actividades: ActividadConfiguracion[];
+  clasesFijas: HorarioClaseDisponible[];
+  monto: number;
+  pagado: boolean;
+  medioPago: "TRANSFERENCIA" | "EFECTIVO";
+  nota: string | null;
+  planId: string | null;
+  planNombre: string | null;
+}
+
+/** Qué quedó realmente guardado tras el alta, y qué hay que avisarle al coach. */
+export interface ResultadoPostAlta {
+  advertencias: string[];
+  actividadesGuardadas: boolean;
+  clasesFijasGuardadas: HorarioClaseDisponible[];
+  cobroRegistrado: boolean;
+}
+
+function nombreActividad(act: ActividadTipo): string {
+  return act === "FUNCIONAL" ? "Funcional" : act === "BOXEO" ? "Boxeo" : "Rutinas Online";
+}
+
+/**
+ * Persiste sexo/peso, actividades, clases fijas y cobro inicial tras el alta.
+ * Nunca lanza: cada paso que falla suma una advertencia humana y se reporta
+ * best-effort a `errores_app`, para no perder las credenciales ya creadas.
+ */
+export async function persistirDatosPostAlta(
+  supabase: ReturnType<typeof createClient>,
+  d: DatosPostAlta,
+): Promise<ResultadoPostAlta> {
+  const advertencias: string[] = [];
+  const fallo = (paso: string, mensajeHumano: string, error: unknown) => {
+    advertencias.push(mensajeHumano);
+    void reportarErrorApp({
+      contexto: "alta_alumno_post_creacion",
+      mensajeHumano,
+      error,
+      payloadResumen: { paso, alumno_id: d.alumnoId },
+    }).catch(() => {});
+  };
+
+  // 1. Sexo y peso corporal en perfiles
+  const perfilUpdate: { sexo?: "F" | "M"; peso_corporal_kg?: number } = {};
+  const { sexo, pesoNum } = d;
+  if (sexo === "F" || sexo === "M") perfilUpdate.sexo = sexo;
+  if (pesoNum && !isNaN(pesoNum) && pesoNum > 0) perfilUpdate.peso_corporal_kg = pesoNum;
+  if (Object.keys(perfilUpdate).length > 0) {
+    try {
+      const { error } = await supabase.from("perfiles" as any).update(perfilUpdate as any).eq("id", d.alumnoId);
+      if (error) throw error;
+    } catch (e) {
+      fallo("perfil", "No pudimos guardar el sexo/peso en el perfil.", e);
+    }
+  }
+
+  // 2. Actividades habilitadas
+  let actividadesGuardadas = true;
+  if (d.actividades.length > 0) {
+    try {
+      const { error } = await supabase.from("alumno_actividades" as any).upsert(
+        d.actividades.map((a) => ({
+          alumno_id: d.alumnoId,
+          actividad: a.actividad,
+          veces_por_semana: a.veces_por_semana,
+          pase_libre: a.pase_libre,
+        })) as any,
+        { onConflict: "alumno_id,actividad" },
+      );
+      if (error) throw error;
+    } catch (e) {
+      actividadesGuardadas = false;
+      fallo("actividades", "No pudimos guardar las actividades seleccionadas.", e);
+    }
+  }
+
+  // 3. Clases fijas (el store devuelve false si la RPC falla)
+  const clasesFijasGuardadas: HorarioClaseDisponible[] = [];
+  const clasesFallidas: HorarioClaseDisponible[] = [];
+  let errorClases: unknown = null;
+  for (const cf of d.clasesFijas) {
+    try {
+      const ok = await useClasesStore.getState().asignarClaseFija(cf.id, d.alumnoId);
+      if (ok) {
+        clasesFijasGuardadas.push(cf);
+      } else {
+        clasesFallidas.push(cf);
+        errorClases = useClasesStore.getState().error ?? "asignarClaseFija devolvió false";
+      }
+    } catch (e) {
+      clasesFallidas.push(cf);
+      errorClases = e;
+    }
+  }
+  if (clasesFallidas.length > 0) {
+    const detalle = clasesFallidas.map((c) => `${c.dia_nombre} ${c.hora_inicio} hs`).join(", ");
+    fallo("clases_fijas", `No pudimos asignar las clases fijas (${detalle}).`, errorClases);
+  }
+
+  // 4. Cobro inicial y suscripción vía RPC transaccional (GOZS-642)
+  let cobroRegistrado = false;
+  if (d.monto >= 0 && (d.monto > 0 || d.actividades.length > 0)) {
+    const actividadPrincipal = d.actividades[0] ?? null;
+    const cobroLocal = {
+      alumnoId: d.alumnoId,
+      alumnoNombre: d.alumnoNombre,
+      alumnoEmail: d.alumnoEmail,
+      alumnoTelefono: d.alumnoTelefono,
+      monto: d.monto,
+      pagado: d.pagado,
+      medioPago: d.medioPago,
+      notas: d.nota || undefined,
+      actividad: actividadPrincipal?.actividad,
+    };
+    try {
+      if (esUuid(d.alumnoId)) {
+        const resRpc = await asignarSuscripcionYCobro(
+          {
+            alumnoId: d.alumnoId,
+            planId: d.planId,
+            actividad: d.actividades.length > 1 ? null : (actividadPrincipal?.actividad ?? null),
+            monto: d.monto,
+            pagado: d.pagado,
+            medioPago: d.medioPago,
+            esAdicional: false,
+            concepto:
+              d.planNombre ??
+              (d.actividades.length > 0
+                ? d.actividades.map((a) => nombreActividad(a.actividad)).join(" + ")
+                : "Rutinas Online"),
+            nota: d.nota,
+            vecesPorSemana: actividadPrincipal?.veces_por_semana ?? null,
+            paseLibre: d.actividades.length > 1 || Boolean(actividadPrincipal?.pase_libre),
+          },
+          supabase,
+        );
+        cobroRegistrado = true;
+        // El cobro ya está en la base: refrescar la caché local es secundario.
+        try {
+          await useCobrosStore.getState().cargarCobros();
+          if (!useCobrosStore.getState().cobros.some((c) => c.id === resRpc.cobro_id)) {
+            await useCobrosStore.getState().registrarCobroInicial(cobroLocal);
+          }
+        } catch (cacheErr) {
+          console.warn("Aviso al refrescar cobros tras el alta:", cacheErr);
+        }
+      } else if (d.monto > 0) {
+        await useCobrosStore.getState().registrarCobroInicial(cobroLocal);
+        cobroRegistrado = true;
+      }
+    } catch (e) {
+      fallo("cobro_inicial", "No pudimos registrar el cobro inicial.", e);
+    }
+  }
+
+  return { advertencias, actividadesGuardadas, clasesFijasGuardadas, cobroRegistrado };
+}
+
+/** Arma el resumen mostrando como confirmado solo lo que realmente se guardó (G12). */
+export function aplicarResultadoPostAlta(
+  base: AltaExitosa,
+  d: Pick<DatosPostAlta, "actividades" | "monto" | "pagado" | "medioPago" | "nota">,
+  r: ResultadoPostAlta,
+): AltaExitosa {
+  return {
+    ...base,
+    actividades: r.actividadesGuardadas ? d.actividades : [],
+    clases_fijas: r.clasesFijasGuardadas,
+    cobro_inicial:
+      d.monto > 0 && r.cobroRegistrado
+        ? {
+            monto: d.monto,
+            pagado: d.pagado,
+            medio_pago: d.medioPago,
+            nota: d.nota || undefined,
+          }
+        : undefined,
+    advertencias: r.advertencias,
+  };
+}
+
+/** Resumen del alta exitosa: credenciales, avisos de persistencia parcial y lo confirmado. */
+export function AltaExitosaResumen({
+  alta,
+  children,
+}: {
+  alta: AltaExitosa;
+  children?: React.ReactNode;
+}) {
+  const advertencias = alta.advertencias ?? [];
+  return (
+    <div className="flex-1 overflow-y-auto space-y-4 p-4 sm:p-5" data-testid="alta-alumno-success">
+      <div
+        role="status"
+        className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+      >
+        {alta.mensaje}
+      </div>
+
+      {/* Credenciales temporales */}
+      <div className="space-y-2 rounded-xl border border-border bg-background p-3.5">
+        <div>
+          <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+            Email
+          </p>
+          <p className="select-all break-all text-sm font-semibold text-foreground">
+            {alta.email}
+          </p>
+        </div>
+        <div>
+          <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+            Contraseña temporal
+          </p>
+          <p className="select-all break-all font-mono text-sm font-semibold text-foreground">
+            {alta.password_temporal}
+          </p>
+        </div>
+      </div>
+
+      {/* Persistencia parcial (G12): la cuenta existe, pero algunos datos no se guardaron */}
+      {advertencias.length > 0 && (
+        <div
+          role="alert"
+          data-testid="alta-alumno-advertencias"
+          className="space-y-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 text-xs text-amber-700 dark:text-amber-300"
+        >
+          <p className="font-semibold">La cuenta se creó, pero quedaron datos sin guardar:</p>
+          <ul className="list-disc space-y-0.5 pl-4">
+            {advertencias.map((a) => (
+              <li key={a}>{a}</li>
+            ))}
+          </ul>
+          <p>Podés completarlos desde la ficha del alumno.</p>
+        </div>
+      )}
+
+      {/* Resumen de Actividades Configuradas */}
+      {alta.actividades && alta.actividades.length > 0 && (
+        <div className="rounded-xl border border-border bg-background p-3.5 space-y-2" data-testid="alta-success-actividades">
+          <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+            Actividades habilitadas
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {alta.actividades.map((a) => (
+              <span
+                key={a.actividad}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-2.5 py-1 text-xs font-medium text-foreground"
+              >
+                <span>
+                  {a.actividad === "FUNCIONAL" ? "🏋️" : a.actividad === "BOXEO" ? "🥊" : "📱"}
+                </span>
+                <span>
+                  {a.actividad === "FUNCIONAL"
+                    ? "Funcional"
+                    : a.actividad === "BOXEO"
+                    ? "Boxeo"
+                    : "Rutinas online"}
+                </span>
+                <span className="text-muted-foreground">·</span>
+                <span className="font-semibold text-primary">
+                  {a.pase_libre ? "Pase libre" : `${a.veces_por_semana}x/sem`}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Resumen de Clases Fijas Asignadas */}
+      {alta.clases_fijas && alta.clases_fijas.length > 0 && (
+        <div className="rounded-xl border border-border bg-background p-3.5 space-y-2" data-testid="alta-success-clases-fijas">
+          <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+            Clases fijas vinculadas
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {alta.clases_fijas.map((cf) => (
+              <div
+                key={cf.id}
+                className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-xs font-medium text-foreground"
+              >
+                <span className="font-semibold text-primary">
+                  {cf.dia_nombre} {cf.hora_inicio} hs
+                </span>
+                <span className="text-[11px] text-muted-foreground uppercase">
+                  {cf.actividad === "FUNCIONAL" ? "Funcional" : "Boxeo"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Resumen de Cobro Inicial (GOZS-351) */}
+      {alta.cobro_inicial && (
+        <div className="rounded-xl border border-border bg-background p-3.5 space-y-1.5" data-testid="alta-success-cobro">
+          <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+            Cobro inicial registrado
+          </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-base font-bold text-foreground">
+                ${alta.cobro_inicial.monto.toLocaleString("es-AR")}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                · {alta.cobro_inicial.medio_pago === "EFECTIVO" ? "Efectivo" : "Transferencia"}
+              </span>
+            </div>
+            <span
+              className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                alta.cobro_inicial.pagado
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                  : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+              }`}
+            >
+              {alta.cobro_inicial.pagado ? "✓ Liquidado" : "⏳ Pendiente"}
+            </span>
+          </div>
+          {alta.cobro_inicial.nota && (
+            <p className="text-[11px] text-muted-foreground italic">
+              "{alta.cobro_inicial.nota}"
+            </p>
+          )}
+        </div>
+      )}
+
+      {children}
+    </div>
+  );
 }
 
 export function InviteStudentModal({
@@ -370,135 +711,42 @@ export function InviteStudentModal({
         clasesFijasSeleccionadas.includes(h.id),
       );
 
-      // Persistir actividades, clases fijas, sexo y peso si hay alumno_id
-      if (data.alumno_id) {
-        try {
-          // Persistir sexo y peso corporal en perfiles
-          const perfilUpdate: { sexo?: "F" | "M"; peso_corporal_kg?: number } = {};
-          if (sexo === "F" || sexo === "M") {
-            perfilUpdate.sexo = sexo;
-          }
-          if (pesoNum && !isNaN(pesoNum) && pesoNum > 0) {
-            perfilUpdate.peso_corporal_kg = pesoNum;
-          }
-          if (Object.keys(perfilUpdate).length > 0) {
-            await supabase.from("perfiles" as any).update(perfilUpdate as any).eq("id", data.alumno_id);
-          }
-
-          if (actividadesConfiguradas.length > 0) {
-            await supabase.from("alumno_actividades" as any).upsert(
-              actividadesConfiguradas.map((a) => ({
-                alumno_id: data.alumno_id,
-                actividad: a.actividad,
-                veces_por_semana: a.veces_por_semana,
-                pase_libre: a.pase_libre,
-              })),
-              { onConflict: "alumno_id,actividad" },
-            );
-          }
-
-          // Asignar clases fijas en el store / RPC
-          for (const cf of clasesFijasAsignadas) {
-            await useClasesStore.getState().asignarClaseFija(cf.id, data.alumno_id);
-          }
-
-          // Registrar cobro inicial y suscripción vía RPC transaccional (GOZS-642)
-          const montoNum = montoSuscripcion.trim() ? parseFloat(montoSuscripcion.trim()) : 0;
-          if (montoNum >= 0 && (montoNum > 0 || actividadesConfiguradas.length > 0)) {
-            try {
-              const actividadPrincipal = actividadesConfiguradas[0] ?? null;
-              const planIdReal = esUuid(planSugerido.plan?.id) ? planSugerido.plan!.id : null;
-              const conceptoAlta =
-                planSugerido.plan?.nombre ??
-                (actividadesConfiguradas.length > 1
-                  ? actividadesConfiguradas
-                      .map((a) =>
-                        a.actividad === "FUNCIONAL"
-                          ? "Funcional"
-                          : a.actividad === "BOXEO"
-                          ? "Boxeo"
-                          : "Rutinas Online",
-                      )
-                      .join(" + ")
-                  : actividadPrincipal?.actividad === "FUNCIONAL"
-                  ? "Funcional"
-                  : actividadPrincipal?.actividad === "BOXEO"
-                  ? "Boxeo"
-                  : "Rutinas Online");
-
-              if (esUuid(data.alumno_id)) {
-                const resRpc = await asignarSuscripcionYCobro(
-                  {
-                    alumnoId: data.alumno_id,
-                    planId: planIdReal,
-                    actividad:
-                      actividadesConfiguradas.length > 1 ? null : (actividadPrincipal?.actividad ?? null),
-                    monto: montoNum,
-                    pagado: pagoInicialRealizado,
-                    medioPago: medioPagoInicial,
-                    esAdicional: false,
-                    concepto: conceptoAlta,
-                    nota: notaPagoInicial.trim() || null,
-                    vecesPorSemana: actividadPrincipal?.veces_por_semana ?? null,
-                    paseLibre:
-                      actividadesConfiguradas.length > 1 || Boolean(actividadPrincipal?.pase_libre),
-                  },
-                  supabase,
-                );
-
-                await useCobrosStore.getState().cargarCobros();
-                if (!useCobrosStore.getState().cobros.some((c) => c.id === resRpc.cobro_id)) {
-                  await useCobrosStore.getState().registrarCobroInicial({
-                    alumnoId: data.alumno_id,
-                    alumnoNombre: nombreLimpio || emailLimpio,
-                    alumnoEmail: emailLimpio,
-                    alumnoTelefono: telefono.trim() || null,
-                    monto: montoNum,
-                    pagado: pagoInicialRealizado,
-                    medioPago: medioPagoInicial,
-                    notas: notaPagoInicial.trim() || undefined,
-                    actividad: actividadPrincipal?.actividad,
-                  });
-                }
-              } else if (montoNum > 0) {
-                await useCobrosStore.getState().registrarCobroInicial({
-                  alumnoId: data.alumno_id,
-                  alumnoNombre: nombreLimpio || emailLimpio,
-                  alumnoEmail: emailLimpio,
-                  alumnoTelefono: telefono.trim() || null,
-                  monto: montoNum,
-                  pagado: pagoInicialRealizado,
-                  medioPago: medioPagoInicial,
-                  notas: notaPagoInicial.trim() || undefined,
-                  actividad: actividadPrincipal?.actividad,
-                });
-              }
-            } catch (cobroErr) {
-              console.warn("Aviso al registrar cobro inicial:", cobroErr);
-            }
-          }
-        } catch (persErr) {
-          console.warn("Aviso al vincular perfil, actividades o clases fijas:", persErr);
-        }
-      }
-
-      const montoNumAlta = montoSuscripcion.trim() ? parseFloat(montoSuscripcion.trim()) : 0;
-      setAlta({
-        ...data,
+      // Persistir sexo/peso, actividades, clases fijas y cobro inicial (G12)
+      const montoNum = montoSuscripcion.trim() ? parseFloat(montoSuscripcion.trim()) : 0;
+      const datosPostAlta: DatosPostAlta = {
+        alumnoId: data.alumno_id,
+        alumnoNombre: nombreLimpio || emailLimpio,
+        alumnoEmail: emailLimpio,
+        alumnoTelefono: telefono.trim() || null,
+        sexo,
+        pesoNum,
         actividades: actividadesConfiguradas,
-        clases_fijas: clasesFijasAsignadas,
-        sexo: sexo,
-        peso_corporal_kg: pesoNum && !isNaN(pesoNum) ? pesoNum : null,
-        cobro_inicial:
-          montoNumAlta > 0
-            ? {
-                monto: montoNumAlta,
-                pagado: pagoInicialRealizado,
-                medio_pago: medioPagoInicial,
-                nota: notaPagoInicial.trim() || undefined,
-              }
-            : undefined,
-      });
+        clasesFijas: clasesFijasAsignadas,
+        monto: montoNum,
+        pagado: pagoInicialRealizado,
+        medioPago: medioPagoInicial,
+        nota: notaPagoInicial.trim() || null,
+        planId: esUuid(planSugerido.plan?.id) ? planSugerido.plan!.id : null,
+        planNombre: planSugerido.plan?.nombre ?? null,
+      };
+      const resultado: ResultadoPostAlta = data.alumno_id
+        ? await persistirDatosPostAlta(supabase, datosPostAlta)
+        : {
+            advertencias: [
+              "No recibimos el identificador del alumno: completá actividades, clases fijas y cobro desde su ficha.",
+            ],
+            actividadesGuardadas: false,
+            clasesFijasGuardadas: [],
+            cobroRegistrado: false,
+          };
+
+      setAlta(
+        aplicarResultadoPostAlta(
+          { ...data, sexo, peso_corporal_kg: pesoNum && !isNaN(pesoNum) ? pesoNum : null },
+          datosPostAlta,
+          resultado,
+        ),
+      );
       await onInvited();
     } catch {
       setError("No pudimos conectar con el servidor. Revisá tu conexión e intentá otra vez.");
@@ -569,123 +817,7 @@ export function InviteStudentModal({
 
         {alta ? (
           /* Tarjeta de contingencia y resumen */
-          <div className="flex-1 overflow-y-auto space-y-4 p-4 sm:p-5" data-testid="alta-alumno-success">
-            <div
-              role="status"
-              className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-600 dark:text-emerald-400"
-            >
-              {alta.mensaje}
-            </div>
-
-            {/* Credenciales temporales */}
-            <div className="space-y-2 rounded-xl border border-border bg-background p-3.5">
-              <div>
-                <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Email
-                </p>
-                <p className="select-all break-all text-sm font-semibold text-foreground">
-                  {alta.email}
-                </p>
-              </div>
-              <div>
-                <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Contraseña temporal
-                </p>
-                <p className="select-all break-all font-mono text-sm font-semibold text-foreground">
-                  {alta.password_temporal}
-                </p>
-              </div>
-            </div>
-
-            {/* Resumen de Actividades Configuradas */}
-            {alta.actividades && alta.actividades.length > 0 && (
-              <div className="rounded-xl border border-border bg-background p-3.5 space-y-2" data-testid="alta-success-actividades">
-                <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Actividades habilitadas
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {alta.actividades.map((a) => (
-                    <span
-                      key={a.actividad}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-2.5 py-1 text-xs font-medium text-foreground"
-                    >
-                      <span>
-                        {a.actividad === "FUNCIONAL" ? "🏋️" : a.actividad === "BOXEO" ? "🥊" : "📱"}
-                      </span>
-                      <span>
-                        {a.actividad === "FUNCIONAL"
-                          ? "Funcional"
-                          : a.actividad === "BOXEO"
-                          ? "Boxeo"
-                          : "Rutinas online"}
-                      </span>
-                      <span className="text-muted-foreground">·</span>
-                      <span className="font-semibold text-primary">
-                        {a.pase_libre ? "Pase libre" : `${a.veces_por_semana}x/sem`}
-                      </span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Resumen de Clases Fijas Asignadas */}
-            {alta.clases_fijas && alta.clases_fijas.length > 0 && (
-              <div className="rounded-xl border border-border bg-background p-3.5 space-y-2" data-testid="alta-success-clases-fijas">
-                <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Clases fijas vinculadas
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {alta.clases_fijas.map((cf) => (
-                    <div
-                      key={cf.id}
-                      className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-xs font-medium text-foreground"
-                    >
-                      <span className="font-semibold text-primary">
-                        {cf.dia_nombre} {cf.hora_inicio} hs
-                      </span>
-                      <span className="text-[11px] text-muted-foreground uppercase">
-                        {cf.actividad === "FUNCIONAL" ? "Funcional" : "Boxeo"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Resumen de Cobro Inicial (GOZS-351) */}
-            {alta.cobro_inicial && (
-              <div className="rounded-xl border border-border bg-background p-3.5 space-y-1.5" data-testid="alta-success-cobro">
-                <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Cobro inicial registrado
-                </p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base font-bold text-foreground">
-                      ${alta.cobro_inicial.monto.toLocaleString("es-AR")}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      · {alta.cobro_inicial.medio_pago === "EFECTIVO" ? "Efectivo" : "Transferencia"}
-                    </span>
-                  </div>
-                  <span
-                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                      alta.cobro_inicial.pagado
-                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                        : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                    }`}
-                  >
-                    {alta.cobro_inicial.pagado ? "✓ Liquidado" : "⏳ Pendiente"}
-                  </span>
-                </div>
-                {alta.cobro_inicial.nota && (
-                  <p className="text-[11px] text-muted-foreground italic">
-                    "{alta.cobro_inicial.nota}"
-                  </p>
-                )}
-              </div>
-            )}
-
+          <AltaExitosaResumen alta={alta}>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 pt-1">
               <Button
                 type="button"
@@ -724,7 +856,7 @@ export function InviteStudentModal({
                 Listo
               </Button>
             </div>
-          </div>
+          </AltaExitosaResumen>
         ) : (
           /* Formulario de alta completa con actividades, frecuencia y clases fijas */
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-4 p-4 sm:p-5" noValidate>
