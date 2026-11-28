@@ -69,9 +69,9 @@ describe("check-supabase-migrations", () => {
       { version: "1", file: "1_a.sql" },
       { version: "2", file: "2_b.sql" },
     ];
-    const ok = evaluarParidadMigraciones({ locales, registrosRemotos: [{ remote: "1" }, { remote: "2" }] });
+    const ok = evaluarParidadMigraciones({ locales, registrosRemotos: [{ local: "", remote: "1" }, { local: "", remote: "2" }] });
     expect(ok).toMatchObject({ ok: true, pendientes: [], soloRemotas: [], aplicadas: 2, totalLocales: 2 });
-    const mal = evaluarParidadMigraciones({ locales, registrosRemotos: [{ remote: "1" }, { remote: "9" }] });
+    const mal = evaluarParidadMigraciones({ locales, registrosRemotos: [{ local: "", remote: "1" }, { local: "", remote: "9" }] });
     expect(mal.ok).toBe(false);
     expect(mal.pendientes.map((m: { version: string }) => m.version)).toEqual(["2"]);
     expect(mal.soloRemotas).toEqual(["9"]);
@@ -84,12 +84,14 @@ describe("check-supabase-migrations", () => {
       aplicadas: 1,
       totalLocales: 2,
     };
-    const rep = formatearReporteError(base);
+    const rep = formatearReporteError({ ...base, ok: false, soloRemotas: [] });
     expect(rep).toContain("DEPLOY BLOQUEADO");
     expect(rep).toContain("20261002000000_demo.sql");
     expect(rep).not.toContain("Nota X1");
     const repX1 = formatearReporteError({
       ...base,
+      ok: false,
+      soloRemotas: [],
       pendientes: [{ version: X1_MIGRATION_VERSION, file: `${X1_MIGRATION_VERSION}_x.sql` }],
     });
     expect(repX1).toContain("Nota X1");
@@ -158,7 +160,7 @@ describe("check-supabase-types", () => {
   it("normalizarContenidoTipos unifica CRLF/LF y recorta espacios finales del archivo", () => {
     expect(normalizarContenidoTipos("a\r\nb\r\n\r\n")).toBe("a\nb\n");
     expect(normalizarContenidoTipos("   ")).toBe("");
-    expect(normalizarContenidoTipos(undefined)).toBe("");
+    expect(normalizarContenidoTipos(undefined as unknown as string)).toBe("");
   });
 
   it("compararTiposGenerados: idénticos con distinto CRLF/LF → ok", () => {
