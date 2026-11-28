@@ -46,6 +46,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCoachStudioStore, type CoachStudioTab } from "@/store/use-coach-studio";
 import { supabase } from "@/lib/supabase/client";
+import { reportarErrorApp } from "@/lib/reportar-error-app";
 import {
   calculateStudentHealthScore,
   generateWhatsAppReactivationUrl,
@@ -482,6 +483,8 @@ export function StudentDetail({
   const [cuestionario, setCuestionario] = React.useState<AlumnoCuestionarioInicial | null>(
     cuestionarioProp ?? (isLucasStudent ? demoCuestionarioLucas : null),
   );
+  const [cuestionarioError, setCuestionarioError] = React.useState<string | null>(null);
+  const [recargaCuestionario, setRecargaCuestionario] = React.useState(0);
   const [isUpdatingNivel, setIsUpdatingNivel] = React.useState(false);
   const [errorNivelVista, setErrorNivelVista] = React.useState<string | null>(null);
 
@@ -500,9 +503,27 @@ export function StudentDetail({
   React.useEffect(() => {
     if (cuestionarioProp !== undefined) {
       setCuestionario(cuestionarioProp);
+      setCuestionarioError(null);
       return;
     }
     let isMounted = true;
+    // G12: con alumno real, un fallo de lectura no se disfraza de "cuestionario pendiente".
+    function marcarFalloCuestionario(error: unknown) {
+      if (!isMounted) return;
+      if (isLucasStudent) {
+        setCuestionario(demoCuestionarioLucas);
+        return;
+      }
+      const mensaje = "No pudimos cargar el cuestionario inicial del alumno.";
+      setCuestionario(null);
+      setCuestionarioError(mensaje);
+      void reportarErrorApp({
+        contexto: "coach.student_detail.cuestionario",
+        mensajeHumano: mensaje,
+        error,
+        payloadResumen: { alumno_id: alumno.id },
+      });
+    }
     async function loadCuestionario() {
       try {
         if (!supabase) {
@@ -516,22 +537,26 @@ export function StudentDetail({
           .select("*")
           .eq("alumno_id", alumno.id)
           .maybeSingle();
-        if (!error && data && isMounted) {
+        if (error) {
+          marcarFalloCuestionario(error);
+          return;
+        }
+        if (!isMounted) return;
+        setCuestionarioError(null);
+        if (data) {
           setCuestionario(data as AlumnoCuestionarioInicial);
-        } else if (isMounted && isLucasStudent) {
+        } else if (isLucasStudent) {
           setCuestionario(demoCuestionarioLucas);
         }
       } catch (e) {
-        if (isMounted && isLucasStudent) {
-          setCuestionario(demoCuestionarioLucas);
-        }
+        marcarFalloCuestionario(e);
       }
     }
     loadCuestionario();
     return () => {
       isMounted = false;
     };
-  }, [alumno.id, cuestionarioProp, isLucasStudent, demoCuestionarioLucas]);
+  }, [alumno.id, cuestionarioProp, isLucasStudent, demoCuestionarioLucas, recargaCuestionario]);
 
   // GOZS-163 (§5): calendario de adherencia. Lee registro_sesiones del alumno con el
   // cliente del coach (RLS lo permite) y arma el modelo con la función pura.
@@ -1445,7 +1470,7 @@ export function StudentDetail({
                 Cuestionario Inicial del Alumno
               </CardTitle>
             </div>
-            {cuestionario?.completado_at ? (
+            {cuestionarioError ? null : cuestionario?.completado_at ? (
               <Badge
                 variant="success"
                 className="text-xs font-bold inline-flex items-center gap-1"
@@ -1464,13 +1489,35 @@ export function StudentDetail({
             )}
           </div>
           <CardDescription className="text-xs">
-            {cuestionario?.completado_at
-              ? "Respuestas registradas por el alumno en su Athlete App."
-              : "El alumno aún no ha completado el cuestionario inicial opcional."}
+            {cuestionarioError
+              ? "No se pudo verificar el estado del cuestionario."
+              : cuestionario?.completado_at
+                ? "Respuestas registradas por el alumno en su Athlete App."
+                : "El alumno aún no ha completado el cuestionario inicial opcional."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 p-4 pt-0 sm:p-6 sm:pt-0">
-          {cuestionario?.completado_at ? (
+          {cuestionarioError ? (
+            <div
+              role="alert"
+              data-testid="coach-cuestionario-error"
+              className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <p className="text-xs font-medium text-destructive">
+                {cuestionarioError} Revisá tu conexión e intentá de nuevo.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-10 shrink-0"
+                onClick={() => setRecargaCuestionario((n) => n + 1)}
+                data-testid="btn-reintentar-cuestionario"
+              >
+                Reintentar
+              </Button>
+            </div>
+          ) : cuestionario?.completado_at ? (
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
                 <span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">

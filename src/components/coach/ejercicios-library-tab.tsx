@@ -21,6 +21,7 @@ import {
   getYouTubeThumbnailUrl,
 } from "@/lib/youtube";
 import { createClient } from "@/lib/supabase/browser";
+import { reportarErrorApp } from "@/lib/reportar-error-app";
 import {
   Search,
   Plus,
@@ -45,6 +46,11 @@ export interface EjerciciosLibraryTabProps {
   /** Fallo al leer public.ejercicios: se muestra aviso con reintento en vez del empty state. */
   ejerciciosError?: string | null;
 }
+
+const MSG_ERROR_GUARDAR =
+  "No pudimos guardar el ejercicio. Revisá tu conexión e intentá de nuevo.";
+const MSG_ERROR_ELIMINAR =
+  "No pudimos eliminar el ejercicio. Revisá tu conexión e intentá de nuevo o cancelá.";
 
 function parseMusculosInput(input: string): string[] {
   if (!input) return [];
@@ -96,6 +102,11 @@ export function EjerciciosLibraryTab({
   // Estado del Diálogo de Eliminación
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deletingEjercicio, setDeletingEjercicio] = React.useState<Ejercicio | null>(null);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+  const handleDeleteDialogOpenChange = (open: boolean) => {
+    setDeleteError(null);
+    setDeleteDialogOpen(open);
+  };
 
   // Estado del Diálogo de Preview de Video (Modal manual / mobile)
   const [videoPreviewEjercicio, setVideoPreviewEjercicio] = React.useState<Ejercicio | null>(null);
@@ -182,7 +193,19 @@ export function EjerciciosLibraryTab({
 
   const handleOpenDelete = (ej: Ejercicio) => {
     setDeletingEjercicio(ej);
+    setDeleteError(null);
     setDeleteDialogOpen(true);
+  };
+
+  /** G12: el fallo real queda visible en el diálogo (que sigue abierto) y reportado, sin mutar la lista local. */
+  const reportarFalloGuardado = (error: unknown, payloadResumen: Record<string, unknown>) => {
+    setFormError(MSG_ERROR_GUARDAR);
+    void reportarErrorApp({
+      contexto: "coach.ejercicios.guardar",
+      mensajeHumano: MSG_ERROR_GUARDAR,
+      error,
+      payloadResumen,
+    });
   };
 
   const handleSaveEjercicio = async (e?: React.FormEvent) => {
@@ -234,12 +257,11 @@ export function EjerciciosLibraryTab({
               })
               .eq("id", editingEjercicio.id);
 
-            if (sbError) {
-              console.warn("Supabase update error:", sbError.message);
-            }
+            if (sbError) throw sbError;
           }
         } catch (sbErr) {
-          console.warn("Supabase client warning (offline/mock):", sbErr);
+          reportarFalloGuardado(sbErr, { operacion: "update", ejercicio_id: editingEjercicio.id });
+          return;
         }
 
         onEjercicioUpdated?.(actualizado);
@@ -263,12 +285,11 @@ export function EjerciciosLibraryTab({
           const supabase = createClient();
           if (supabase && typeof supabase.from === "function") {
             const { error: sbError } = await supabase.from("ejercicios").insert(nuevo);
-            if (sbError) {
-              console.warn("Supabase insert error:", sbError.message);
-            }
+            if (sbError) throw sbError;
           }
         } catch (sbErr) {
-          console.warn("Supabase client warning (offline/mock):", sbErr);
+          reportarFalloGuardado(sbErr, { operacion: "insert" });
+          return;
         }
 
         onEjercicioCreated?.(nuevo);
@@ -293,6 +314,7 @@ export function EjerciciosLibraryTab({
       return;
     }
 
+    setDeleteError(null);
     try {
       try {
         const supabase = createClient();
@@ -301,12 +323,17 @@ export function EjerciciosLibraryTab({
             .from("ejercicios")
             .delete()
             .eq("id", deletingEjercicio.id);
-          if (sbError) {
-            console.warn("Supabase delete error:", sbError.message);
-          }
+          if (sbError) throw sbError;
         }
       } catch (sbErr) {
-        console.warn("Supabase delete error (offline/mock):", sbErr);
+        setDeleteError(MSG_ERROR_ELIMINAR);
+        void reportarErrorApp({
+          contexto: "coach.ejercicios.eliminar",
+          mensajeHumano: MSG_ERROR_ELIMINAR,
+          error: sbErr,
+          payloadResumen: { ejercicio_id: deletingEjercicio.id },
+        });
+        return;
       }
 
       onEjercicioDeleted?.(deletingEjercicio.id);
@@ -954,7 +981,7 @@ export function EjerciciosLibraryTab({
       </Dialog>
 
       {/* Diálogo de Confirmación para Eliminar Ejercicio */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <Dialog open={deleteDialogOpen} onOpenChange={handleDeleteDialogOpenChange}>
         <DialogContent className="max-w-md" data-testid="modal-confirmar-eliminar-ejercicio">
           <DialogHeader>
             <DialogTitle data-testid="dialog-eliminar-title">
@@ -985,13 +1012,22 @@ export function EjerciciosLibraryTab({
                 Esta acción eliminará permanentemente el ejercicio del catálogo maestro.
               </p>
             )}
+            {deleteError && (
+              <p
+                role="alert"
+                className="mt-2 text-xs text-destructive font-medium"
+                data-testid="ejercicios-delete-error"
+              >
+                {deleteError}
+              </p>
+            )}
           </div>
 
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
+              onClick={() => handleDeleteDialogOpenChange(false)}
             >
               Cancelar
             </Button>
