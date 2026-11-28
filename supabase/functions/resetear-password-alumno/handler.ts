@@ -49,7 +49,12 @@ export function crearHandler(deps: ResetearPasswordDeps, allowedOrigin: string) 
     // 1. Identificar al llamante con su propio JWT
     const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ?? "";
     if (!token) return json(401, { error: "Falta la sesión del entrenador" });
-    const llamanteId = await deps.usuarioDesdeToken(token);
+    let llamanteId: string | null;
+    try {
+      llamanteId = await deps.usuarioDesdeToken(token);
+    } catch {
+      return json(502, { error: "No se pudo verificar la sesión del entrenador" });
+    }
     if (!llamanteId) return json(401, { error: "Sesión inválida o expirada" });
 
     // 2. Validar entrada
@@ -80,10 +85,20 @@ export function crearHandler(deps: ResetearPasswordDeps, allowedOrigin: string) 
 
     // 4. Clave temporal y, después, la marca de cambio obligatorio
     const passwordTemporal = deps.generarPassword();
-    if (!(await deps.cambiarPassword(alumnoId, passwordTemporal))) {
-      return json(502, { error: "No se pudo resetear la contraseña" });
+    let cambiada = false;
+    try {
+      cambiada = await deps.cambiarPassword(alumnoId, passwordTemporal);
+    } catch {
+      cambiada = false;
     }
-    if (!(await deps.marcarCambioObligatorio(alumnoId))) {
+    if (!cambiada) return json(502, { error: "No se pudo resetear la contraseña" });
+    let marcada = false;
+    try {
+      marcada = await deps.marcarCambioObligatorio(alumnoId);
+    } catch {
+      marcada = false;
+    }
+    if (!marcada) {
       // La clave ya cambió: devolver error para que el coach reintente (genera otra).
       return json(500, { error: "No se pudo marcar el cambio obligatorio de contraseña; reintentá" });
     }

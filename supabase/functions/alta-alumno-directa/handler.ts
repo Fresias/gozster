@@ -90,7 +90,12 @@ export function crearHandler(deps: AltaAlumnoDeps, allowedOrigin: string) {
     // 1. Identificar al llamante con su propio JWT
     const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ?? "";
     if (!token) return json(401, { error: "Falta la sesión del entrenador" });
-    const entrenadorId = await deps.usuarioDesdeToken(token);
+    let entrenadorId: string | null;
+    try {
+      entrenadorId = await deps.usuarioDesdeToken(token);
+    } catch {
+      return json(502, { error: "No se pudo verificar la sesión del entrenador" });
+    }
     if (!entrenadorId) return json(401, { error: "Sesión inválida o expirada" });
 
     // 2. Sólo ENTRENADOR o ADMIN
@@ -145,7 +150,9 @@ export function crearHandler(deps: AltaAlumnoDeps, allowedOrigin: string) {
 
     // 4. Crear el usuario con contraseña temporal y email ya confirmado
     const passwordTemporal = generarPasswordTemporal();
-    const creado = await deps.crearUsuario({
+    let creado: Awaited<ReturnType<AltaAlumnoDeps["crearUsuario"]>>;
+    try {
+      creado = await deps.crearUsuario({
       email,
       password: passwordTemporal,
       email_confirm: true,
@@ -157,7 +164,10 @@ export function crearHandler(deps: AltaAlumnoDeps, allowedOrigin: string) {
         ...(pesoCorporalKg !== null ? { peso_corporal_kg: pesoCorporalKg } : {}),
       },
       app_metadata: { must_change_password: true },
-    });
+      });
+    } catch {
+      return json(502, { error: "No se pudo crear el usuario del alumno" });
+    }
     if ("error" in creado) {
       return creado.error === "email_existe"
         ? json(409, { error: "Ya existe un usuario registrado con ese email" })
@@ -165,7 +175,9 @@ export function crearHandler(deps: AltaAlumnoDeps, allowedOrigin: string) {
     }
 
     // 5. Perfil vinculado al entrenador, con cambio de contraseña obligatorio
-    const perfilOk = await deps.upsertPerfil({
+    let perfilOk = false;
+    try {
+      perfilOk = await deps.upsertPerfil({
       id: creado.id,
       email,
       nombre_completo: nombreCompleto,
@@ -176,10 +188,17 @@ export function crearHandler(deps: AltaAlumnoDeps, allowedOrigin: string) {
       telefono,
       ...(sexo ? { sexo } : {}),
       ...(pesoCorporalKg !== null ? { peso_corporal_kg: pesoCorporalKg } : {}),
-    });
+      });
+    } catch {
+      perfilOk = false;
+    }
     if (!perfilOk) {
-      // Evitar usuarios de Auth huérfanos sin perfil
-      await deps.eliminarUsuario(creado.id);
+      // Evitar usuarios de Auth huérfanos sin perfil (el cleanup no debe abortar la respuesta)
+      try {
+        await deps.eliminarUsuario(creado.id);
+      } catch {
+        /* best effort */
+      }
       return json(500, { error: "No se pudo crear el perfil del alumno" });
     }
 
