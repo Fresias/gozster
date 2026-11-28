@@ -1785,16 +1785,17 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
           `INSERT push_cola como ${etiqueta}`,
         ).rejects.toMatchObject({ code: "42501" });
 
-        const upd = await como(
-          "authenticated",
-          sub,
+        // Sin privilegios de tabla: 42501 (o 0 filas si solo rigiera RLS)
+        for (const sql of [
           `UPDATE public.push_cola SET enviado_at = NULL WHERE id = $1`,
-          [pushId],
-        );
-        expect(upd.affectedRows, `UPDATE push_cola como ${etiqueta}`).toBe(0);
-
-        const del = await como("authenticated", sub, `DELETE FROM public.push_cola WHERE id = $1`, [pushId]);
-        expect(del.affectedRows, `DELETE push_cola como ${etiqueta}`).toBe(0);
+          `DELETE FROM public.push_cola WHERE id = $1`,
+        ]) {
+          const res = await como("authenticated", sub, sql, [pushId]).then(
+            (r) => r.affectedRows,
+            (e: { code?: string }) => e.code,
+          );
+          expect(res === 0 || res === "42501", `${sql.split(" ")[0]} push_cola como ${etiqueta}`).toBe(true);
+        }
       }
 
       // Confirmar que la fila testigo sigue intacta

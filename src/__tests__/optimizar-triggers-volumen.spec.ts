@@ -640,11 +640,14 @@ describe("GOZS-882: base Live Tracker (EN_CURSO -> COMPLETADA), v_prs, ultimo_en
   });
 
   it("RLS bloquea lectura/escritura directa en push_cola para alumno/coach y CHECK valida estado/referencias", async () => {
-    // RLS en push_cola: sin políticas -> authenticated ve 0 filas y no puede insertar
-    const filasAlumno = await como("authenticated", `SELECT id FROM public.push_cola`, [], ALUMNO);
-    const filasCoach = await como("authenticated", `SELECT id FROM public.push_cola`, [], COACH);
-    expect(filasAlumno).toHaveLength(0);
-    expect(filasCoach).toHaveLength(0);
+    // push_cola: authenticated sin privilegios de tabla (y RLS sin políticas) -> 42501 o 0 filas
+    for (const sub of [ALUMNO, COACH]) {
+      const lectura = await como("authenticated", `SELECT id FROM public.push_cola`, [], sub).then(
+        (r) => r.length,
+        (e: { code?: string }) => e.code,
+      );
+      expect(lectura === 0 || lectura === "42501").toBe(true);
+    }
 
     await expect(
       como(
@@ -653,7 +656,7 @@ describe("GOZS-882: base Live Tracker (EN_CURSO -> COMPLETADA), v_prs, ultimo_en
         [COACH, SES_DIRECTA],
         ALUMNO,
       ),
-    ).rejects.toThrow(/row-level security/i);
+    ).rejects.toThrow(/row-level security|permission denied/i);
 
     // CHECK de estado inválido en registro_sesiones
     await expect(
